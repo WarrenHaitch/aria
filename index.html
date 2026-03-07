@@ -12,7 +12,7 @@
 <!-- PWA Manifest inline -->
 <script>
 // ── VERSION STAMP ── bump this string every time you upload a new ARIA file
-const ARIA_VERSION = '4.4.5';
+const ARIA_VERSION = '4.4.6';
 const ARIA_BUILD   = '2026-03-07';
 
 const manifestData = {
@@ -1427,7 +1427,7 @@ async function searchWeb(query, cat) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10000);
     const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
       signal: controller.signal,
       body: JSON.stringify({
         model:'claude-sonnet-4-20250514', max_tokens:600,
@@ -1460,10 +1460,11 @@ async function generateResponse(input) {
   }
 
   // ── EXPLICIT WEB SEARCH COMMAND — overrides everything including taught skills ──
-  const forceSearch = /^(search|google|look up|find|search the web|search online|search for|go online|browse)\b/i.test(lower)
+  const forceSearch = /^(search|google|look up|lookup|find|check|check on|check the web|check online|search the web|search online|search for|go online|browse)\b/i.test(lower)
+    || /^(search|check|find|look).*(web|online|internet|google)/i.test(lower)
     || /search (the web|online|internet|for) (for |about )?.+/i.test(lower);
   if (forceSearch) {
-    const query = input.replace(/^(search the web for|search the web|search online for|search online|search for|search|google|look up|find|go online|browse)\s*/i, '').trim() || input;
+    const query = input.replace(/^(check the web for|check the web|check online for|check online|check on the web for|check on the web|check for|search the web for|search the web|search online for|search online|search for|search|google|look up|lookup|find|check|go online|browse)\s*/i, '').trim() || input;
 
     // Live status messages in the typing bubble
     updateTypingStatus('🌐 Connecting…');
@@ -1476,7 +1477,7 @@ async function generateResponse(input) {
       const timeoutId = setTimeout(() => controller.abort(), 20000);
 
       const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method:'POST', headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
         signal: controller.signal,
         body: JSON.stringify({
           model:'claude-sonnet-4-20250514', max_tokens:800,
