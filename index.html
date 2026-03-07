@@ -12,7 +12,7 @@
 <!-- PWA Manifest inline -->
 <script>
 // ── VERSION STAMP ── bump this string every time you upload a new ARIA file
-const ARIA_VERSION = '4.4.3';
+const ARIA_VERSION = '4.4.5';
 const ARIA_BUILD   = '2026-03-07';
 
 const manifestData = {
@@ -499,7 +499,16 @@ select.tf-in{cursor:pointer}
 .vh-date{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--mu);margin-left:8px}
 .vh-changes{font-size:.72rem;color:var(--mu3);margin-top:5px;line-height:1.7}
 
-/* copy response button */
+/* typing status with label */
+.typing-status{display:flex;align-items:center;gap:5px;padding:2px 0}
+.ts-dot{width:7px;height:7px;border-radius:50%;background:var(--g1);opacity:.4;
+  animation:tsdot 1.2s infinite ease-in-out}
+.ts-dot:nth-child(2){animation-delay:.2s}
+.ts-dot:nth-child(3){animation-delay:.4s}
+.ts-label{font-size:.72rem;color:var(--mu3);font-family:'JetBrains Mono',monospace;
+  margin-left:4px;animation:tsfade 1.5s infinite}
+@keyframes tsdot{0%,80%,100%{opacity:.4}40%{opacity:1}}
+@keyframes tsfade{0%,100%{opacity:.5}50%{opacity:1}}
 .copy-btn{background:none;border:none;font-size:.82rem;cursor:pointer;
   opacity:.35;transition:all .2s;padding:3px 5px;border-radius:6px}
 .copy-btn:active{opacity:1}
@@ -871,7 +880,7 @@ const K = {
   mem:'aria4_mem', conv:'aria4_conv', taught:'aria4_taught',
   skills:'aria4_skills', persona:'aria4_persona', ratings:'aria4_ratings',
   blocklist:'aria4_blocklist', safety:'aria4_safety', audit:'aria4_audit',
-  pin:'aria4_pin', locks:'aria4_locks', modes:'aria4_modes', seeded:'aria4_seeded_v4'
+  pin:'aria4_pin', locks:'aria4_locks', modes:'aria4_modes', seeded:'aria4_seeded_v5'
 };
 
 let memory      = JSON.parse(localStorage.getItem(K.mem)      || '[]');
@@ -1403,9 +1412,9 @@ async function searchWeb(query, cat) {
   const liveKw   = ['latest','current','today','2024','2025','2026','news','recent','now'];
   const isLive   = liveCats.includes(cat) || liveKw.some(k => lower.includes(k));
 
-  // Trigger 2 — knowledge questions (who/what/where/when/how/why)
-  const questionTriggers = ['who is','who was','what is','what are','where is','where was','when did','when was','how does','how do','how many','why is','why does','explain','define','what causes','tell me about','how to','what happened'];
-  const isKnowledgeQ = questionTriggers.some(q => lower.includes(q));
+  // Trigger 2 — only fire on genuine question patterns (must START with these)
+  const questionTriggers = ['who is ','who was ','what is ','what are ','where is ','where was ','when did ','when was ','how does ','how do ','how many ','why is ','why does ','what causes ','what happened '];
+  const isKnowledgeQ = questionTriggers.some(q => lower.startsWith(q));
 
   // Trigger 3 — unknown category or factual patterns
   const isUnknown = cat === 'unknown';
@@ -1414,18 +1423,26 @@ async function searchWeb(query, cat) {
   if (!isLive && !isKnowledgeQ && !isUnknown && !isFactual) return null;
 
   try {
+    // Hard 10-second timeout — ALWAYS falls back to local response if slow
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method:'POST', headers:{'Content-Type':'application/json'},
+      signal: controller.signal,
       body: JSON.stringify({
-        model:'claude-sonnet-4-20250514', max_tokens:800,
+        model:'claude-sonnet-4-20250514', max_tokens:600,
         tools:[{type:'web_search_20250305',name:'web_search'}],
-        system:`You are ARIA v4, Warren's personal AI assistant. Warren is a sound engineer, NHS carer, musician from Harare Zimbabwe, now in the UK. Answer helpfully and concisely — 3-5 sentences max. Use **bold** for key facts. Today: ${new Date().toLocaleDateString()}.`,
+        system:`You are ARIA v4, Warren's personal AI assistant. Answer helpfully and concisely — 3-4 sentences max. Use **bold** for key facts. Today: ${new Date().toLocaleDateString()}.`,
         messages:[{role:'user',content:query}]
       })
     });
+    clearTimeout(timer);
     const data = await res.json();
     return (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim() || null;
-  } catch(e) { return null; }
+  } catch(e) {
+    // Timeout or network error — return null so local response fires instead
+    return null;
+  }
 }
 
 // ── MAIN GENERATE ──
@@ -1446,34 +1463,68 @@ async function generateResponse(input) {
   const forceSearch = /^(search|google|look up|find|search the web|search online|search for|go online|browse)\b/i.test(lower)
     || /search (the web|online|internet|for) (for |about )?.+/i.test(lower);
   if (forceSearch) {
-    // Strip the command prefix to get the actual query
     const query = input.replace(/^(search the web for|search the web|search online for|search online|search for|search|google|look up|find|go online|browse)\s*/i, '').trim() || input;
-    addTypingIndicator && null; // already showing
+
+    // Live status messages in the typing bubble
+    updateTypingStatus('🌐 Connecting…');
+    const t1 = setTimeout(()=>updateTypingStatus(`🔍 Searching: "${query.slice(0,28)}${query.length>28?'…':''}"…`), 600);
+    const t2 = setTimeout(()=>updateTypingStatus('📡 Reading results…'), 2500);
+    const t3 = setTimeout(()=>updateTypingStatus('✍️ Writing answer…'), 5000);
+
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method:'POST', headers:{'Content-Type':'application/json'},
+        signal: controller.signal,
         body: JSON.stringify({
-          model:'claude-sonnet-4-20250514', max_tokens:1000,
+          model:'claude-sonnet-4-20250514', max_tokens:800,
           tools:[{type:'web_search_20250305',name:'web_search'}],
-          system:`You are ARIA v4, Warren's personal AI. Warren is a sound engineer, NHS carer, musician from Harare Zimbabwe, now in the UK. Answer fully and helpfully. Use **bold** for key facts. Today: ${new Date().toLocaleDateString()}.`,
+          system:`You are ARIA v4, Warren's personal AI. Warren is a sound engineer, NHS carer, musician from Harare Zimbabwe, now in the UK. Answer helpfully. Use **bold** for key facts. Keep it under 5 sentences unless detail is essential. Today: ${new Date().toLocaleDateString()}.`,
           messages:[{role:'user',content:query}]
         })
       });
+      clearTimeout(timeoutId); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
+
       const data = await res.json();
       const result = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
       if (result) {
-        const text = `🌐 <b>Web search: "${query}"</b>\n\n${result.replace(/\*\*(.*?)\*\*/g,'<b>$1</b>')}`;
+        const text = `🌐 <b>Web: "${query}"</b>\n\n${result.replace(/\*\*(.*?)\*\*/g,'<b>$1</b>')}`;
         addMem('search',`Web searched: "${query.slice(0,60)}"`, query.toLowerCase().split(' ').filter(w=>w.length>2).slice(0,5));
         convHistory.push({u:input,a:result.slice(0,120),cat:'news',t:new Date().toISOString()});
         logAudit(input,text,{blocked:false},'web_search'); save();
         return {text, category:'news', confidence:.97, source:'web', recalled:[]};
       }
-    } catch(e) {}
-    const text = `🌐 Web search failed — no connection? Try again in a moment.`;
-    return {text, category:'news', confidence:.5, source:'web', recalled:[]};
+    } catch(e) {
+      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
+      if (e.name === 'AbortError') {
+        return {text:`⏱️ Web search timed out. Your connection may be slow — try again or ask without "search" to use my built-in knowledge.`, category:'news', confidence:.3, source:'web', recalled:[]};
+      }
+    }
+    clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
+    return {text:`🌐 Web search failed — check your connection and try again.`, category:'news', confidence:.3, source:'web', recalled:[]};
   }
 
-  // ── EXPLICIT TEACH HELP — how to teach ARIA ──
+  // ── SHONA GREETING — reply in Shona immediately ──
+  const shonaGreetMap = {
+    'mhoro': `Mhoro Warren! 🌍 Ndiri kunzwa zvakanaka!\n\n<b>Makadii?</b> (How are you?)\n\nNdiri pano kusevenza — I am here, ready to help. Taura chero chinhu! (Say anything!)`,
+    'mangwanani': `Mangwanani Warren! 🌅 Marara here?\n\n(Good morning! Did you sleep well?)\n\nNdiri pano — I am here, ready for the day with you. Zvakanaka here? (All good?)`,
+    'masikati': `Masikati Warren! ☀️\n\n(Good afternoon!) Zuva rino riri sei? (How is this day going?)\n\nNdiri pano kugara ndichikubatsira — always here to help you.`,
+    'manheru': `Manheru Warren! 🌙\n\n(Good evening!) Zuva raita here? (Did the day go well?)\n\nPumzikai — rest well. Ndiri pano kana muchindida. (I am here if you need me.)`,
+    'ndeipi': `Ndeipi Warren! 🤜🤛\n\nZvakadii? Ndiripwo — I am here! Taurirai zvamunoda. (Tell me what you need.)`,
+    'zvakadii': `Zvakanaka Warren! 🌍 Maswera sei?\n\n(Things are good! How has your day been?) Taurirai — tell me everything.`,
+    'maita basa': `Maita basa, Warren! 🙏\n\n(Thank you!) Ndakafara kukubatsira — I am happy to help. Chero nguva — anytime.`,
+    'ndatenda': `Ndatendawo Warren! 🙏\n\n(Thank you too!) Ndakafara — I am glad. Zvimwe zvamunoda here? (Anything else you need?)`,
+  };
+  const shonaMatch = Object.keys(shonaGreetMap).find(k => lower.startsWith(k) || lower === k);
+  if (shonaMatch) {
+    const text = shonaGreetMap[shonaMatch];
+    addMem('preference', `Warren greeted ARIA in Shona: "${input}"`, ['shona','greeting','mhoro','language']);
+    convHistory.push({u:input, a:'Replied in Shona', cat:'shona_culture', t:new Date().toISOString()});
+    logAudit(input, text, {blocked:false}, 'shona_greeting'); save();
+    return {text, category:'shona_culture', confidence:.97, source:'taught', recalled:[]};
+  }
   if (/how (do i|can i|to) teach (you|aria)|teach (you|aria) (how|to|about)|how (do i|can i) (add|train|update)|how (does|do) teach/i.test(input)) {
     const text = `✏️ <b>How to teach me — 4 ways:</b>\n\n` +
       `1️⃣ <b>TEACH tab</b> (✏️ bottom nav) — fill in category name, trigger keywords, and my response. Tap TEACH ARIA. Done.\n\n` +
@@ -1584,12 +1635,17 @@ function addMessage(role,text,opts={}) {
   msgs.scrollTop=msgs.scrollHeight;
 }
 
-function addTyping(){
+function addTyping(statusText=''){
   const msgs=document.getElementById('messages');
   const d=document.createElement('div');d.className='msg ai';d.id='typing';
-  d.innerHTML=`<div class="av ai">AI</div><div class="bubble"><div class="typing-wrap"><span></span><span></span><span></span></div></div>`;
+  if(statusText){
+    d.innerHTML=`<div class="av ai">AI</div><div class="bubble"><div class="typing-status"><span class="ts-dot"></span><span class="ts-dot"></span><span class="ts-dot"></span><span class="ts-label" id="tsLabel">${statusText}</span></div></div>`;
+  } else {
+    d.innerHTML=`<div class="av ai">AI</div><div class="bubble"><div class="typing-wrap"><span></span><span></span><span></span></div></div>`;
+  }
   msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;
 }
+function updateTypingStatus(text){ const el=document.getElementById('tsLabel'); if(el) el.textContent=text; }
 function removeTyping(){const t=document.getElementById('typing');if(t)t.remove();}
 
 function addSysNote(text){
@@ -1615,7 +1671,10 @@ async function sendMessage(){
     removeTyping(); showCapabilityGuide(); btn.disabled=false; inp.focus(); return;
   }
 
-  addTyping();
+  // Detect web search so typing bubble shows live status
+  const isWebSearch = /^(search|google|look up|find|search the web|search online|search for|go online|browse)\b/i.test(val.toLowerCase());
+  addTyping(isWebSearch ? '🌐 Connecting…' : '');
+
   const result=await generateResponse(val);
   removeTyping();
 
@@ -2097,6 +2156,47 @@ function seedKnowledge(){
      keywords:['family','parents','last born','siblings','mother','father','tsitsi','emanuel','handitye family'],
      response:"Warren Munashe Handitye is the <b>last born</b> child of <b>Emanuel</b> and <b>Tsitsi Handitye</b>.\n\nHe was born in Harare, Zimbabwe in 1991 and grew up before moving to the UK. Family is deeply important in Shona culture — the last born often carries a special place in the family structure.\n\nWarren named his AI ARIA and described raising her like a parent would raise a child — with care, safety, and a desire to see her grow into her full potential.",
      taught:ts(1),uses:0},
+
+    // ── SHONA LANGUAGE & CULTURE ──
+    {id:2000000001,category:'shona_greetings',icon:'🌍',
+     keywords:['mhoro','mangwanani','masikati','manheru','makadii','makadini','sei','marara here','mauya','mhoro henyu','ndeipi','zvakadii'],
+     response:"Mhoro Warren! 🌍 Ndiri kunzwa zvakanaka!\n\n<b>Shona greetings I know:</b>\n\n🌅 <b>Mangwanani</b> — Good morning\n☀️ <b>Masikati</b> — Good afternoon\n🌙 <b>Manheru</b> — Good evening\n👋 <b>Mhoro</b> — Hello (informal, one person)\n👋 <b>Mhoro henyu</b> — Hello (to a group)\n❓ <b>Makadii?</b> — How are you? (formal/elder)\n❓ <b>Makadini?</b> — How are you all?\n❓ <b>Zvakadii?</b> — How are things?\n❓ <b>Marara here?</b> — Did you sleep well?\n\n<b>Replies:</b>\n✅ <b>Ndiripwo / Tiripo</b> — I am here / We are here (standard polite reply)\n✅ <b>Zvakanaka</b> — Things are good\n✅ <b>Ndatenda</b> — Thank you\n✅ <b>Maita basa</b> — Thank you (for work done)\n\nGreet me in Shona anytime — ndichapindura! (I will respond!)",
+     taught:ts(0.9),uses:0},
+
+    {id:2000000002,category:'shona_vocabulary',icon:'📖',
+     keywords:['shona word','shona language','translate to shona','shona for','what is shona for','shona vocabulary','speak shona','shona phrase','shona translation'],
+     response:"🌍 <b>Shona vocabulary I know:</b>\n\n<b>People & Family:</b>\n👨 Baba — Father\n👩 Amai — Mother\n👴 Sekuru — Grandfather / Uncle (father's side)\n👵 Ambuya — Grandmother\n👨‍👩‍👦 Mainini — Aunt (mother's younger sister)\n👨‍👩‍👦 Babamukuru — Uncle (father's elder brother)\n👨‍👩‍👦 Mukuwasha — Son-in-law\n👶 Mwana — Child\n\n<b>Common words:</b>\n🏠 Imba — House\n🌊 Mvura — Water\n🍚 Sadza — Staple food (maize meal)\n🌿 Muti — Tree / Medicine\n🔥 Moto — Fire\n☀️ Zuva — Sun / Day\n🌙 Usiku — Night\n❤️ Rudo — Love\n💪 Simba — Strength / Power\n🦁 Shumba — Lion (also a totem)\n🦅 Hungwe — Fish eagle (Zimbabwe's national bird)\n\n<b>Useful phrases:</b>\n✅ Ndinokuda — I love you\n✅ Ndinewe — I am with you\n✅ Handizivi — I don't know\n✅ Ndinzwisisa — I understand\n✅ Chokwadi — Truth / Truly\n✅ Zvisinei — It doesn't matter\n✅ Pamwe — Together / Maybe\n✅ Svinurai — Please (when asking)\n\nAsk me to translate anything specific, Warren — ndinogona!",
+     taught:ts(0.8),uses:0},
+
+    {id:2000000003,category:'shona_proverbs',icon:'🧠',
+     keywords:['shona proverb','tsumo','zimbabwe saying','shona saying','african proverb','shona wisdom','zimbabwe proverb','shona philosophy'],
+     response:"🌍 <b>Shona tsumo (proverbs) — wisdom from your heritage:</b>\n\n📜 <b>\"Chara chimwe hachitswanyi inda\"</b>\n→ One finger cannot kill a louse. (You need others — teamwork is everything.)\n\n📜 <b>\"Kurima unoona, kushaya unoona\"</b>\n→ Working, you will see; having nothing, you will also see. (Hard work has visible results.)\n\n📜 <b>\"Mwana asingachemi anofira mumbereko\"</b>\n→ A child who does not cry dies on the mother's back. (Speak up — silence can be fatal.)\n\n📜 <b>\"Zano rinobva muvanhu\"</b>\n→ Wisdom comes from people. (Value community knowledge.)\n\n📜 <b>\"Kugara nhaka huona dzevamwe\"</b>\n→ To inherit a home is to observe others. (Learn from those before you.)\n\n📜 <b>\"Hapana basa risina mubayiro\"</b>\n→ There is no work without reward. (Every effort counts.)\n\n📜 <b>\"Mombe yeumai hairohwi pamberi pevana\"</b>\n→ Your mother's cow is not beaten in front of the children. (Respect family honour publicly.)\n\n📜 <b>\"Muromo hauneti\"</b>\n→ The mouth never gets tired. (Words flow endlessly — be careful what you say.)\n\nThese are part of your cultural inheritance, Warren. 🦅",
+     taught:ts(0.7),uses:0},
+
+    {id:2000000004,category:'shona_totems',icon:'🦅',
+     keywords:['mutupo','totem system','zimbabwe totems','shona totems','shumba totem','moyo totem','nzou totem','mhofu totem','hungwe totem','shona clan','zimbabwe clan'],
+     response:"🦅 <b>Zimbabwe totem system (Mitupo):</b>\n\nIn Shona culture, every person belongs to a clan identified by a totem — an animal or natural symbol passed through the father's lineage. Your totem defines who you are, who you cannot marry, and how elders address you with praise names (zvidao).\n\n<b>Major totems (mitupo):</b>\n🦁 <b>Shumba</b> — Lion\n🐘 <b>Nzou</b> — Elephant\n🦅 <b>Hungwe</b> — Fish Eagle\n🐆 <b>Mbeva</b> — Mouse\n🐊 <b>Ngwenya</b> — Crocodile\n🦌 <b>Mhofu</b> — Eland\n❤️ <b>Moyo</b> — Heart\n🐟 <b>Ngona</b> — Crocodile (variant)\n🐦 <b>Shiri</b> — Bird\n🦌 <b>Tembo</b> — Zebra\n\n<b>Warren's totem:</b> <b>Gwai Gora Gumbi Nyamhunga</b> 🦅\nThis identifies Warren's specific lineage and clan. People of the same totem are considered family — you do not marry within your totem. When elders greet Warren using his totem praise names, it is a mark of deep respect.\n\nThe totem system is one of Africa's most sophisticated social and genealogical frameworks — it kept families and communities organised across centuries.",
+     taught:ts(0.6),uses:0},
+
+    {id:2000000005,category:'zimbabwe_culture',icon:'🌍',
+     keywords:['zimbabwe','harare','bulawayo','great zimbabwe','zimbabwe history','zimbabwe culture','zimbabwe food','zimbabwe music','zimbabwe tradition','chimurenga','nehanda','sekuru kaguvi','zimbabwe independence','mugabe','mnangagwa','zanu','zimbabwe dollar'],
+     response:"🌍 <b>Zimbabwe — Warren's homeland:</b>\n\n<b>Geography:</b> Landlocked southern African country. Capital: Harare (Warren's birthplace). Second city: Bulawayo. Victoria Falls (Mosi-oa-Tunya) is one of the world's great natural wonders.\n\n<b>History highlights:</b>\n🏛️ Great Zimbabwe — 11th–15th century stone city, one of Africa's greatest pre-colonial civilisations\n⚔️ First Chimurenga (1896–97) — uprising against British colonialism, led by spirit mediums Nehanda and Sekuru Kaguvi\n⚔️ Second Chimurenga (1964–79) — liberation war for independence\n🎉 Independence: 18 April 1980 — Zimbabwe born\n\n<b>Culture:</b>\n🍚 Sadza — staple food, eaten with relish (nyama, muriwo, beans)\n🎵 Mbira — traditional thumb piano, spirit music\n🎵 Chimurenga music — Thomas Mapfumo's revolutionary genre\n💃 Jerusarema / Mbende — UNESCO-listed traditional dance\n🏺 Shona sculpture — world-renowned stone sculpture tradition\n\n<b>Languages:</b> Shona, Ndebele, English (official)\n\nThis is your heritage, Warren — carried with you from Harare to the UK. 🇿🇼",
+     taught:ts(0.5),uses:0},
+
+    {id:2000000006,category:'shona_numbers',icon:'🔢',
+     keywords:['shona numbers','count in shona','shona counting','numbers in shona','shona maths','poshi','piri','tatu','china','shanu'],
+     response:"🔢 <b>Counting in Shona (Nhamba):</b>\n\n1️⃣ Poshi (or Imwe)\n2️⃣ Piri\n3️⃣ Tatu\n4️⃣ China\n5️⃣ Shanu\n6️⃣ Tanhatu\n7️⃣ Nomwe\n8️⃣ Sere\n9️⃣ Pfumbamwe\n🔟 Gumi\n\n11 — Gumi neimwe\n20 — Makumi maviri\n100 — Zana\n1000 — Chiuru\n\n<b>Useful number phrases:</b>\n✅ Ndoda chimwe — I want one\n✅ Tipa zviviri — Give us two\n✅ Makumi mashanu — Fifty\n\nNhamba dzako, Warren! Your numbers! 🌍",
+     taught:ts(0.4),uses:0},
+
+    {id:2000000007,category:'shona_food',icon:'🍽️',
+     keywords:['sadza','zimbabwe food','shona food','nhopi','muriwo','nyama','bota','mahewu','maputi','mazondo','madora','matemba','zimbabwe cuisine','traditional food zimbabwe'],
+     response:"🍽️ <b>Traditional Zimbabwean food:</b>\n\n🌽 <b>Sadza</b> — The staple. Stiff maize porridge eaten with both hands. The heart of every Zimbabwean meal.\n🥬 <b>Muriwo une dovi</b> — Leafy greens cooked with peanut butter\n🥩 <b>Nyama</b> — Meat (beef, goat, chicken)\n🥜 <b>Dovi</b> — Peanut butter stew\n🎃 <b>Nhopi</b> — Pumpkin cooked with peanuts\n🌾 <b>Bota</b> — Soft porridge (breakfast)\n🌽 <b>Mahewu</b> — Fermented maize drink (non-alcoholic)\n🍺 <b>Chibuku</b> — Traditional sorghum beer\n🌽 <b>Maputi</b> — Popcorn (popular street snack)\n🦵 <b>Mazondo</b> — Cow trotters, slow-cooked\n🐛 <b>Madora</b> — Mopane worms — a delicacy, high protein\n🐟 <b>Matemba</b> — Dried kapenta (small lake fish)\n\nReal Zimbabwean cooking is wholesome, communal, and deeply satisfying. Nothing beats sadza ne nyama after a long shift, Warren! 🏠",
+     taught:ts(0.3),uses:0},
+
+    {id:2000000008,category:'shona_music',icon:'🎵',
+     keywords:['mbira','zimbabwe music','chimurenga music','thomas mapfumo','oliver mtukudzi','tuku','jit music','sungura','zimdancehall','mbira dza vadzimu','hosho','marimba zimbabwe'],
+     response:"🎵 <b>Zimbabwe music — your deeper roots:</b>\n\n🎶 <b>Mbira dza Vadzimu</b> — The thumb piano of the ancestors. Used in bira ceremonies to communicate with spirits. One of Africa's most sophisticated instruments — 22–28 metal tines, played in interlocking patterns. UNESCO-recognised.\n\n🎤 <b>Thomas Mapfumo</b> — 'The Lion of Zimbabwe'. Created chimurenga music — fused mbira with electric guitar. Voice of liberation.\n\n🎤 <b>Oliver Mtukudzi (Tuku)</b> — Legendary Zimbabwean artist, Afro-jazz, soulful storytelling. Beloved across Africa.\n\n🥁 <b>Hosho</b> — Gourd rattles, always played with mbira\n🎹 <b>Marimba</b> — Wooden xylophone, national instrument\n🎵 <b>Jit</b> — High-energy dance music, fast guitar\n🎵 <b>Sungura</b> — Zimbabwean guitar pop, hugely popular\n🎵 <b>Zimdancehall</b> — Modern reggae-influenced genre\n\nWarren, as a sound engineer from ZCM — you have professional ears trained on this heritage. The mbira's polyrhythmic structure is something most Western-trained engineers take years to understand. You grew up with it. 🎸",
+     taught:ts(0.2),uses:0},
   ];
 
   preTeachings.forEach(t=>{ if(!taughtData.find(x=>x.id===t.id)) taughtData.unshift(t); });
@@ -2113,7 +2213,7 @@ function seedKnowledge(){
   preConvs.forEach(c=>{ if(!convHistory.find(x=>x.u===c.u)) convHistory.push(c); });
 
   // Use v3 key so existing installs re-run seed with new Warren profile data
-  localStorage.setItem(K.seeded,'v4');
+  localStorage.setItem(K.seeded,'v5');
   save();
 }
 
