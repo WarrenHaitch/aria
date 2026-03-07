@@ -12,7 +12,7 @@
 <!-- PWA Manifest inline -->
 <script>
 // ── VERSION STAMP ── bump this string every time you upload a new ARIA file
-const ARIA_VERSION = '4.4.2';
+const ARIA_VERSION = '4.4.3';
 const ARIA_BUILD   = '2026-03-07';
 
 const manifestData = {
@@ -1431,8 +1431,8 @@ async function searchWeb(query, cat) {
 // ── MAIN GENERATE ──
 async function generateResponse(input) {
   ctx.msgCount++;
-  // Enrich input with conversation context for follow-ups
   const contextualInput = getContextualInput(input);
+  const lower = input.toLowerCase().trim();
 
   // Safety check FIRST
   const safetyResult = checkSafety(input);
@@ -1442,8 +1442,52 @@ async function generateResponse(input) {
     return { text:harmResp.text, category:'safety', confidence:1, source:'blocked', recalled:[], safetyResult };
   }
 
+  // ── EXPLICIT WEB SEARCH COMMAND — overrides everything including taught skills ──
+  const forceSearch = /^(search|google|look up|find|search the web|search online|search for|go online|browse)\b/i.test(lower)
+    || /search (the web|online|internet|for) (for |about )?.+/i.test(lower);
+  if (forceSearch) {
+    // Strip the command prefix to get the actual query
+    const query = input.replace(/^(search the web for|search the web|search online for|search online|search for|search|google|look up|find|go online|browse)\s*/i, '').trim() || input;
+    addTypingIndicator && null; // already showing
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model:'claude-sonnet-4-20250514', max_tokens:1000,
+          tools:[{type:'web_search_20250305',name:'web_search'}],
+          system:`You are ARIA v4, Warren's personal AI. Warren is a sound engineer, NHS carer, musician from Harare Zimbabwe, now in the UK. Answer fully and helpfully. Use **bold** for key facts. Today: ${new Date().toLocaleDateString()}.`,
+          messages:[{role:'user',content:query}]
+        })
+      });
+      const data = await res.json();
+      const result = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
+      if (result) {
+        const text = `🌐 <b>Web search: "${query}"</b>\n\n${result.replace(/\*\*(.*?)\*\*/g,'<b>$1</b>')}`;
+        addMem('search',`Web searched: "${query.slice(0,60)}"`, query.toLowerCase().split(' ').filter(w=>w.length>2).slice(0,5));
+        convHistory.push({u:input,a:result.slice(0,120),cat:'news',t:new Date().toISOString()});
+        logAudit(input,text,{blocked:false},'web_search'); save();
+        return {text, category:'news', confidence:.97, source:'web', recalled:[]};
+      }
+    } catch(e) {}
+    const text = `🌐 Web search failed — no connection? Try again in a moment.`;
+    return {text, category:'news', confidence:.5, source:'web', recalled:[]};
+  }
+
+  // ── EXPLICIT TEACH HELP — how to teach ARIA ──
+  if (/how (do i|can i|to) teach (you|aria)|teach (you|aria) (how|to|about)|how (do i|can i) (add|train|update)|how (does|do) teach/i.test(input)) {
+    const text = `✏️ <b>How to teach me — 4 ways:</b>\n\n` +
+      `1️⃣ <b>TEACH tab</b> (✏️ bottom nav) — fill in category name, trigger keywords, and my response. Tap TEACH ARIA. Done.\n\n` +
+      `2️⃣ <b>Quick templates</b> — in the ✏️ tab, scroll down to see pre-filled templates. Tap one, customise it, teach.\n\n` +
+      `3️⃣ <b>Natural chat</b> — just tell me things: "My name is X", "I work as Y", "I love Z" — I extract and remember automatically.\n\n` +
+      `4️⃣ <b>Ask Claude</b> — go to claude.ai and ask Claude to add new knowledge directly into your ARIA file. Then upload the new version.\n\n` +
+      `<em style="color:var(--mu3);font-size:.74rem">Taught skills use 2× keyword weight, so they always win over general responses.</em>`;
+    convHistory.push({u:input,a:'Explained 4 teaching methods',cat:'identity',t:new Date().toISOString()});
+    logAudit(input,text,{blocked:false},'teach_help'); save();
+    return {text, category:'identity', confidence:.97, source:'taught', recalled:[]};
+  }
+
   // Time
-  if(KEYWORDS.time_query.some(k=>input.toLowerCase().includes(k))) {
+  if(KEYWORDS.time_query.some(k=>lower.includes(k))) {
     const now=new Date();
     const text=`🕐 <b>Time →</b> <em>${now.toLocaleTimeString()}</em> · <em>${now.toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</em>`;
     logAudit(input,text,{blocked:false},'time');
@@ -1491,9 +1535,9 @@ async function generateResponse(input) {
 
   text = applyPersona(text);
   if (det.category !== 'unknown') addMem('topic',`Discussed "${det.category.replace(/_/g,' ')}" — "${input.slice(0,55)}"`,det.matched.concat([det.category]));
-  // For unknown, use stage-aware unknown response
   if (det.category === 'unknown' && !webResult) {
-    text = (recalled.length > 0 && recalled[0].score >= 2 ? memPfx : '') + getUnknownResponse(input);
+    const memPfx2 = (recalled.length > 0 && recalled[0].score >= 2) ? `🧠 <em style="color:var(--g5);font-size:.76rem">Recalled: ${recalled[0].content.slice(0,60)}…</em>\n\n` : '';
+    text = memPfx2 + getUnknownResponse(input);
   }
   convHistory.push({u:input,a:text.replace(/<[^>]+>/g,''),cat:det.category,t:new Date().toISOString()});
   if(convHistory.length>600) convHistory=convHistory.slice(-600);
