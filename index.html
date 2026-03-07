@@ -12,7 +12,7 @@
 <!-- PWA Manifest inline -->
 <script>
 // ── VERSION STAMP ── bump this string every time you upload a new ARIA file
-const ARIA_VERSION = '4.4.1';
+const ARIA_VERSION = '4.4.2';
 const ARIA_BUILD   = '2026-03-07';
 
 const manifestData = {
@@ -886,6 +886,9 @@ let topicLocks  = JSON.parse(localStorage.getItem(K.locks)    || '{}');
 let modeSettings= JSON.parse(localStorage.getItem(K.modes)    || '{}');
 let activePersona = localStorage.getItem(K.persona)           || 'aria';
 let ownerPin    = localStorage.getItem(K.pin)                 || '1234';
+
+// ── ENGINE STATE ──
+let ctx = { userName: null, fullName: null, lastCategory: null, msgCount: 0 };
 
 const save = () => {
   localStorage.setItem(K.mem,      JSON.stringify(memory));
