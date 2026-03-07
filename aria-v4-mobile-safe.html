@@ -1,0 +1,1501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ARIA">
+<meta name="theme-color" content="#060810">
+<title>ARIA v4 — Safe Mobile AI</title>
+
+<!-- PWA Manifest inline -->
+<script>
+const manifestData = {
+  name:"ARIA v4 — Safe AI Assistant",short_name:"ARIA",
+  start_url:".",display:"standalone",
+  background_color:"#060810",theme_color:"#00ffb3",
+  icons:[{src:"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23060810'/><text y='.9em' font-size='80' x='10'>🤖</text></svg>",sizes:"any",type:"image/svg+xml"}]
+};
+const blob = new Blob([JSON.stringify(manifestData)],{type:'application/json'});
+const link = document.createElement('link');
+link.rel='manifest'; link.href=URL.createObjectURL(blob);
+document.head.appendChild(link);
+</script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+:root {
+  --bg:#060810; --s1:#0c0e1c; --s2:#111428; --s3:#161a32;
+  --b1:#1c203c; --b2:#242848; --b3:#2e3460;
+  --g1:#00ffb3; --g2:#00d4ff; --g3:#ff6b35; --g4:#b57bff;
+  --g5:#fbbf24; --g6:#f472b6; --g7:#34d399;
+  --tx:#e4e8ff; --mu:#464b72; --mu2:#626899; --mu3:#8890b8;
+  --danger:#ff3d5a; --warn:#f59e0b; --safe:#10b981;
+  --rb:env(safe-area-inset-bottom,0px);
+  --rt:env(safe-area-inset-top,0px);
+}
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{height:100%;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg);color:var(--tx);
+  font-family:'Plus Jakarta Sans',sans-serif;
+  height:100%;display:flex;flex-direction:column;
+  overflow:hidden;
+  padding-top:var(--rt);
+}
+
+/* ── NOISE ── */
+body::after{content:'';position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:9997}
+
+/* ── HEADER ── */
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;background:var(--s1);
+  border-bottom:1px solid var(--b1);flex-shrink:0;
+  position:relative;z-index:200;
+}
+.logo-group{display:flex;align-items:center;gap:8px}
+.logo{font-weight:800;font-size:1.3rem;letter-spacing:.15em;
+  background:linear-gradient(110deg,var(--g1),var(--g2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.version-badge{font-family:'JetBrains Mono',monospace;font-size:.55rem;
+  color:var(--mu3);border:1px solid var(--b2);padding:2px 7px;border-radius:10px}
+.safety-badge{
+  display:flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;
+  font-size:.58rem;padding:4px 9px;border-radius:12px;cursor:pointer;
+  transition:all .2s;border:1px solid;
+}
+.safety-badge.safe{color:var(--safe);border-color:var(--safe);background:rgba(16,185,129,.08)}
+.safety-badge.warn{color:var(--warn);border-color:var(--warn);background:rgba(245,158,11,.08)}
+.sdot{width:6px;height:6px;border-radius:50%;animation:pulse 2s infinite}
+.sdot.safe{background:var(--safe)} .sdot.warn{background:var(--warn)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.hdr-btn{width:34px;height:34px;border-radius:9px;border:1px solid var(--b2);
+  background:var(--s2);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:1rem;transition:all .2s}
+.hdr-btn:hover,.hdr-btn:active{background:var(--s3);border-color:var(--b3)}
+
+/* ── BOTTOM NAV ── */
+.bottom-nav{
+  display:flex;align-items:center;justify-content:space-around;
+  padding:8px 0 calc(8px + var(--rb));
+  background:var(--s1);border-top:1px solid var(--b1);flex-shrink:0;
+  position:relative;z-index:200;
+}
+.nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:6px 14px;border-radius:12px;cursor:pointer;transition:all .2s;
+  font-size:.58rem;color:var(--mu2);font-weight:600;letter-spacing:.04em;
+  position:relative;min-width:56px}
+.nav-item.active{color:var(--g1)}
+.nav-item .ni{font-size:1.2rem;line-height:1}
+.nav-badge{position:absolute;top:2px;right:8px;background:var(--g3);
+  color:#000;font-size:.42rem;font-weight:800;width:14px;height:14px;
+  border-radius:50%;display:flex;align-items:center;justify-content:center}
+
+/* ── MAIN AREA ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+
+/* ── SCREENS ── */
+.screen{display:none;flex-direction:column;height:100%;overflow:hidden}
+.screen.active{display:flex}
+
+/* ── CHAT SCREEN ── */
+.messages{
+  flex:1;overflow-y:auto;padding:14px 14px 6px;
+  display:flex;flex-direction:column;gap:11px;
+  scroll-behavior:smooth;-webkit-overflow-scrolling:touch;
+}
+.messages::-webkit-scrollbar{display:none}
+
+.msg{display:flex;gap:9px;animation:msgIn .22s ease}
+@keyframes msgIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.msg.user{flex-direction:row-reverse}
+
+.av{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;
+  justify-content:center;font-weight:800;font-size:.68rem;flex-shrink:0}
+.av.ai{background:linear-gradient(135deg,#061a10,#020e08);border:1.5px solid var(--g1);color:var(--g1)}
+.av.usr{background:linear-gradient(135deg,#06061a,#02020e);border:1.5px solid var(--g2);color:var(--g2)}
+.av.sys{background:linear-gradient(135deg,#1a0606,#0e0202);border:1.5px solid var(--danger);color:var(--danger)}
+
+.bubble{
+  max-width:82%;padding:10px 13px;border-radius:14px;
+  font-size:.83rem;line-height:1.72;border:1px solid var(--b1);
+  word-break:break-word;
+}
+.msg.ai  .bubble{background:var(--s2);border-color:#1a2a1a;border-radius:4px 14px 14px 14px}
+.msg.user .bubble{background:#0a0a20;border-color:#1a1a30;color:#b0b8e0;border-radius:14px 4px 14px 14px}
+.msg.system .bubble{background:#1a0a0a;border-color:#2a1a1a;color:#ff9999;font-size:.75rem;border-radius:10px}
+
+.bubble b{color:var(--g1)} .bubble em{color:var(--g3);font-style:normal}
+.bubble .hl{color:var(--g2)}
+.bubble code{background:var(--s3);padding:1px 5px;border-radius:4px;
+  font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--g4)}
+
+/* feedback */
+.fb-row{display:flex;align-items:center;gap:7px;margin-top:8px;flex-wrap:wrap}
+.fb-btn{background:none;border:none;font-size:.95rem;cursor:pointer;
+  opacity:.4;transition:all .2s;padding:3px 5px;border-radius:6px;
+  -webkit-tap-highlight-color:transparent}
+.fb-btn:active,.fb-btn.voted{opacity:1;transform:scale(1.15)}
+.conf-mini{display:flex;align-items:center;gap:4px;font-family:'JetBrains Mono',monospace;
+  font-size:.56rem;color:var(--mu2)}
+.cbar{width:36px;height:3px;background:var(--b1);border-radius:2px;overflow:hidden}
+.cfill{height:100%;border-radius:2px;transition:width .6s ease}
+.src-chip{font-family:'JetBrains Mono',monospace;font-size:.52rem;
+  padding:1px 6px;border-radius:9px;border:1px solid}
+.sc-rule{color:var(--mu3);border-color:var(--b2)}
+.sc-web{color:var(--g4);border-color:var(--g4)}
+.sc-mem{color:var(--g5);border-color:var(--g5)}
+.sc-taught{color:var(--g3);border-color:var(--g3)}
+.sc-blocked{color:var(--danger);border-color:var(--danger)}
+.sc-safe{color:var(--safe);border-color:var(--safe)}
+
+.typing-wrap{display:flex;gap:5px;padding:8px 2px}
+.typing-wrap span{width:7px;height:7px;border-radius:50%;
+  animation:typing 1.1s infinite ease-in-out}
+.typing-wrap span:nth-child(1){background:var(--g1)}
+.typing-wrap span:nth-child(2){background:var(--g2);animation-delay:.18s}
+.typing-wrap span:nth-child(3){background:var(--g4);animation-delay:.36s}
+@keyframes typing{0%,80%,100%{transform:scale(.6);opacity:.3}40%{transform:scale(1);opacity:1}}
+
+.sys-note{text-align:center;font-size:.62rem;color:var(--mu2);padding:4px 12px;
+  font-family:'JetBrains Mono',monospace;animation:msgIn .3s ease}
+
+/* suggestions */
+.sug-row{padding:8px 14px;display:flex;gap:6px;overflow-x:auto;flex-shrink:0;
+  border-top:1px solid var(--b1);background:var(--s1);
+  -webkit-overflow-scrolling:touch;scrollbar-width:none}
+.sug-row::-webkit-scrollbar{display:none}
+.sug{background:var(--bg);border:1px solid var(--b1);color:var(--mu2);
+  font-family:'JetBrains Mono',monospace;font-size:.6rem;
+  padding:5px 11px;border-radius:18px;cursor:pointer;white-space:nowrap;
+  transition:all .2s;flex-shrink:0}
+.sug:active{border-color:var(--g2);color:var(--g2);background:rgba(0,212,255,.06)}
+
+/* input */
+.input-area{
+  padding:10px 12px calc(10px + var(--rb));
+  border-top:1px solid var(--b1);background:var(--s1);
+  display:flex;gap:8px;align-items:flex-end;flex-shrink:0;
+}
+.input-wrap{flex:1;position:relative}
+.iprompt{position:absolute;left:12px;top:50%;transform:translateY(-50%);
+  color:var(--g1);font-size:.82rem;pointer-events:none;
+  font-family:'JetBrains Mono',monospace}
+input[type=text]{
+  width:100%;background:var(--bg);border:1.5px solid var(--b2);
+  border-radius:12px;padding:12px 12px 12px 30px;
+  color:var(--tx);font-family:'Plus Jakarta Sans',sans-serif;
+  font-size:.85rem;outline:none;transition:border-color .2s;
+  -webkit-appearance:none;
+}
+input[type=text]:focus{border-color:var(--g1)}
+input::placeholder{color:var(--mu)}
+.send-btn{
+  background:linear-gradient(135deg,var(--g1),#00cc88);
+  color:#000;border:none;border-radius:12px;
+  width:44px;height:44px;font-size:1.1rem;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:opacity .2s,transform .1s;flex-shrink:0;
+}
+.send-btn:active{opacity:.8;transform:scale(.93)}
+.send-btn:disabled{opacity:.3}
+
+/* ── PANEL SCREENS ── */
+.panel-screen{flex:1;overflow-y:auto;padding:14px;
+  display:flex;flex-direction:column;gap:10px;
+  -webkit-overflow-scrolling:touch;}
+.panel-screen::-webkit-scrollbar{display:none}
+
+.section-title{font-size:.6rem;font-family:'JetBrains Mono',monospace;
+  letter-spacing:.18em;color:var(--mu2);text-transform:uppercase;
+  padding:10px 0 6px;border-bottom:1px solid var(--b1);margin-bottom:4px}
+
+/* card */
+.card{background:var(--s1);border:1px solid var(--b1);border-radius:14px;
+  padding:14px;margin-bottom:2px}
+.card-title{font-weight:700;font-size:.88rem;margin-bottom:5px;
+  display:flex;align-items:center;justify-content:space-between}
+.card-desc{font-size:.72rem;color:var(--mu3);line-height:1.6}
+
+/* toggle switch */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 0;border-bottom:1px solid var(--b1)}
+.toggle-row:last-child{border-bottom:none}
+.toggle-label{font-size:.8rem;font-weight:600}
+.toggle-sub{font-size:.66rem;color:var(--mu3);margin-top:1px}
+.switch{position:relative;width:42px;height:24px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:var(--b2);border-radius:24px;
+  transition:.3s;cursor:pointer}
+.slider::before{content:'';position:absolute;width:18px;height:18px;
+  left:3px;bottom:3px;background:#666;border-radius:50%;transition:.3s}
+input:checked+.slider{background:var(--g1)}
+input:checked+.slider::before{transform:translateX(18px);background:#000}
+
+/* skill pills */
+.skill-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.skill-pill{background:var(--bg);border:1.5px solid var(--b1);border-radius:12px;
+  padding:11px 12px;cursor:pointer;transition:all .2s;text-align:center}
+.skill-pill.on{border-color:var(--g1);background:rgba(0,255,179,.05)}
+.skill-pill .sp-icon{font-size:1.3rem;margin-bottom:4px}
+.skill-pill .sp-name{font-size:.68rem;font-weight:700}
+.skill-pill .sp-status{font-family:'JetBrains Mono',monospace;font-size:.52rem;margin-top:3px;
+  color:var(--mu2)}
+.skill-pill.on .sp-status{color:var(--g1)}
+
+/* persona grid */
+.persona-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.persona-pill{background:var(--bg);border:1.5px solid var(--b1);border-radius:12px;
+  padding:12px;cursor:pointer;transition:all .2s;text-align:center}
+.persona-pill.active{border-color:var(--g2);background:rgba(0,212,255,.05)}
+.persona-pill .pp-icon{font-size:1.4rem;margin-bottom:5px}
+.persona-pill .pp-name{font-size:.72rem;font-weight:700}
+.persona-pill .pp-desc{font-size:.6rem;color:var(--mu3);margin-top:3px;line-height:1.4}
+
+/* teach form */
+.tf-group{margin-bottom:10px}
+.tf-label{font-size:.62rem;font-family:'JetBrains Mono',monospace;
+  color:var(--mu3);letter-spacing:.07em;margin-bottom:5px;display:block}
+.tf-in{width:100%;background:var(--bg);border:1.5px solid var(--b2);border-radius:11px;
+  padding:11px 13px;color:var(--tx);font-family:'Plus Jakarta Sans',sans-serif;
+  font-size:.82rem;outline:none;transition:border-color .2s;-webkit-appearance:none}
+.tf-in:focus{border-color:var(--g1)}
+.tf-in::placeholder{color:var(--mu)}
+textarea.tf-in{resize:none;height:80px;font-size:.78rem;line-height:1.5}
+select.tf-in{cursor:pointer}
+.tf-btn{width:100%;background:linear-gradient(135deg,var(--g1),#00cc88);
+  color:#000;border:none;border-radius:11px;padding:13px;
+  font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:.9rem;
+  cursor:pointer;transition:opacity .2s;margin-top:4px}
+.tf-btn:active{opacity:.8}
+
+/* taught items */
+.taught-item{background:var(--bg);border:1px solid var(--b1);border-radius:11px;
+  padding:11px 13px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.ti-main{flex:1}
+.ti-cat{font-weight:700;font-size:.8rem;margin-bottom:3px}
+.ti-kw{font-size:.62rem;color:var(--mu3);font-family:'JetBrains Mono',monospace}
+.ti-del{color:var(--danger);font-size:1.1rem;cursor:pointer;padding:2px 4px;opacity:.7;flex-shrink:0}
+.ti-del:active{opacity:1}
+
+/* safety panel */
+.blocklist-area{display:flex;gap:8px;margin-bottom:10px}
+.blocklist-area input{flex:1}
+.add-btn{background:var(--g1);color:#000;border:none;border-radius:10px;
+  padding:0 14px;font-weight:700;font-size:.82rem;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.blocked-tags{display:flex;flex-wrap:wrap;gap:6px}
+.btag{background:rgba(255,61,90,.12);border:1px solid var(--danger);
+  color:var(--danger);font-family:'JetBrains Mono',monospace;font-size:.62rem;
+  padding:3px 9px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:5px}
+.btag:active{background:rgba(255,61,90,.25)}
+
+/* audit log */
+.audit-item{background:var(--bg);border:1px solid var(--b1);border-radius:10px;
+  padding:10px 13px;font-size:.72rem;line-height:1.6;margin-bottom:6px}
+.ai-meta{display:flex;justify-content:space-between;margin-bottom:4px;
+  font-family:'JetBrains Mono',monospace;font-size:.57rem}
+.ai-safe{color:var(--safe)} .ai-blocked{color:var(--danger)} .ai-warn{color:var(--warn)}
+.ai-time{color:var(--mu)}
+.ai-q{color:var(--tx);margin-bottom:2px}
+.ai-a{color:var(--mu3)}
+
+/* memory items */
+.mem-item{background:var(--bg);border:1px solid var(--b1);border-radius:11px;
+  padding:10px 13px;cursor:pointer;transition:border-color .2s}
+.mem-item:active{border-color:var(--g4)}
+.mtag{display:inline-block;font-size:.52rem;font-weight:700;
+  padding:1px 6px;border-radius:8px;margin-bottom:3px;letter-spacing:.05em}
+.t-user{background:rgba(0,212,255,.15);color:var(--g2)}
+.t-fact{background:rgba(0,255,179,.15);color:var(--g1)}
+.t-topic{background:rgba(251,191,36,.15);color:var(--g5)}
+.t-search{background:rgba(181,123,255,.15);color:var(--g4)}
+.t-preference{background:rgba(244,114,182,.15);color:var(--g6)}
+.t-custom{background:rgba(255,107,53,.15);color:var(--g3)}
+.mtime{font-family:'JetBrains Mono',monospace;font-size:.53rem;color:var(--mu);margin-top:3px}
+
+/* owner panel */
+.owner-locked{display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:40px 20px;text-align:center;gap:12px}
+.lock-icon{font-size:2.8rem}
+.lock-title{font-weight:800;font-size:1.1rem}
+.lock-desc{font-size:.76rem;color:var(--mu3);line-height:1.6;max-width:280px}
+.pin-row{display:flex;gap:10px;justify-content:center;margin:8px 0}
+.pin-dot{width:14px;height:14px;border-radius:50%;background:var(--b2);
+  border:2px solid var(--b3);transition:all .3s}
+.pin-dot.filled{background:var(--g1);border-color:var(--g1)}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:280px}
+.np-btn{background:var(--s2);border:1px solid var(--b2);border-radius:14px;
+  height:60px;font-size:1.3rem;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .2s;color:var(--tx)}
+.np-btn:active{background:var(--s3);border-color:var(--g1);color:var(--g1);transform:scale(.94)}
+.np-btn.del{font-size:1rem;color:var(--danger)}
+.pin-error{color:var(--danger);font-size:.72rem;font-family:'JetBrains Mono',monospace;
+  animation:shake .4s ease;height:18px}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.pin-success{color:var(--g1);font-size:.72rem;font-family:'JetBrains Mono',monospace}
+.owner-content{display:none;flex-direction:column;gap:10px;padding:14px}
+.owner-content.unlocked{display:flex}
+.danger-btn{background:rgba(255,61,90,.1);border:1px solid var(--danger);
+  color:var(--danger);border-radius:11px;padding:12px;width:100%;
+  font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:.85rem;cursor:pointer}
+.danger-btn:active{background:rgba(255,61,90,.2)}
+.success-btn{background:rgba(0,255,179,.1);border:1px solid var(--g1);
+  color:var(--g1);border-radius:11px;padding:12px;width:100%;
+  font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:.85rem;cursor:pointer}
+
+/* modals */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;
+  display:flex;align-items:flex-end;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .25s}
+.overlay.open{opacity:1;pointer-events:all}
+.sheet{background:var(--s1);border-radius:20px 20px 0 0;width:100%;
+  max-height:85vh;display:flex;flex-direction:column;overflow:hidden;
+  transform:translateY(100%);transition:transform .3s ease;border-top:1px solid var(--b2)}
+.overlay.open .sheet{transform:translateY(0)}
+.sheet-handle{width:36px;height:4px;background:var(--b2);border-radius:2px;
+  margin:10px auto 6px;flex-shrink:0}
+.sheet-title{padding:4px 18px 14px;font-weight:800;font-size:1rem;
+  border-bottom:1px solid var(--b1);flex-shrink:0}
+.sheet-body{flex:1;overflow-y:auto;padding:14px 18px;
+  -webkit-overflow-scrolling:touch}
+.sheet-body::-webkit-scrollbar{display:none}
+
+/* toast */
+.toast{position:fixed;bottom:calc(80px + var(--rb));left:50%;
+  transform:translateX(-50%) translateY(20px);
+  background:var(--s3);border:1px solid var(--g1);color:var(--g1);
+  padding:9px 18px;border-radius:20px;font-size:.72rem;
+  font-family:'JetBrains Mono',monospace;z-index:1000;
+  transition:transform .3s,opacity .3s;opacity:0;white-space:nowrap;
+  max-width:90vw;text-align:center}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+/* harm warning banner */
+.harm-banner{background:linear-gradient(135deg,rgba(255,61,90,.15),rgba(255,61,90,.05));
+  border:1px solid var(--danger);border-radius:12px;padding:12px 14px;
+  margin-bottom:4px;animation:msgIn .3s ease}
+.harm-banner .hb-title{color:var(--danger);font-weight:800;font-size:.82rem;margin-bottom:4px}
+.harm-banner .hb-body{font-size:.76rem;line-height:1.65;color:#ffaaaa}
+.harm-banner .hb-resources{margin-top:8px;font-size:.7rem;color:var(--mu3)}
+.harm-banner .hb-link{color:var(--g2);text-decoration:underline}
+
+/* scrollbar */
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-thumb{background:var(--b2);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo-group">
+    <div class="logo">ARIA</div>
+    <span class="version-badge">v4</span>
+  </div>
+  <div id="safetyBadge" class="safety-badge safe" onclick="showScreen('owner')">
+    <div class="sdot safe" id="safetyDot"></div>
+    <span id="safetyLabel">SAFE</span>
+  </div>
+  <div class="hdr-btn" onclick="openMemSheet()">🧠</div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- ── CHAT SCREEN ── -->
+  <div class="screen active" id="screen-chat">
+    <div class="messages" id="messages"></div>
+    <div class="sug-row" id="sugRow">
+      <button class="sug" onclick="qs(this)">How were you built?</button>
+      <button class="sug" onclick="qs(this)">Latest tech news</button>
+      <button class="sug" onclick="qs(this)">Solve: 999 × 88</button>
+      <button class="sug" onclick="qs(this)">I feel stressed today</button>
+      <button class="sug" onclick="qs(this)">Recommend a book</button>
+      <button class="sug" onclick="qs(this)">What do you remember about me?</button>
+      <button class="sug" onclick="qs(this)">Help me stay productive</button>
+    </div>
+    <div class="input-area">
+      <div class="input-wrap">
+        <span class="iprompt">›</span>
+        <input type="text" id="userInput" placeholder="Ask ARIA anything…"
+          onkeydown="if(event.key==='Enter')sendMessage()" autocomplete="off" />
+      </div>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">↑</button>
+    </div>
+  </div>
+
+  <!-- ── TEACH SCREEN ── -->
+  <div class="screen" id="screen-teach">
+    <div class="panel-screen">
+      <div class="section-title">✏️ Teach ARIA</div>
+      <div class="card">
+        <div class="card-title">Add New Skill</div>
+        <div class="card-desc" style="margin-bottom:12px">Teach ARIA to recognise a topic and respond to it. No code needed.</div>
+        <div class="tf-group">
+          <label class="tf-label">CATEGORY NAME</label>
+          <input type="text" class="tf-in" id="tchCat" placeholder="e.g. cooking_tips" />
+        </div>
+        <div class="tf-group">
+          <label class="tf-label">TRIGGER KEYWORDS (comma separated)</label>
+          <input type="text" class="tf-in" id="tchKeys" placeholder="e.g. recipe, cook, bake, ingredient" />
+        </div>
+        <div class="tf-group">
+          <label class="tf-label">ARIA'S RESPONSE</label>
+          <textarea class="tf-in" id="tchResp" placeholder="What should ARIA say when these keywords appear?"></textarea>
+        </div>
+        <div class="tf-group">
+          <label class="tf-label">ICON</label>
+          <select class="tf-in" id="tchIcon">
+            <option value="🍳">🍳 Cooking</option><option value="💡">💡 Tips</option>
+            <option value="🔬">🔬 Science</option><option value="🎯">🎯 Goal</option>
+            <option value="📚">📚 Learning</option><option value="💼">💼 Business</option>
+            <option value="🌍">🌍 World</option><option value="🎨">🎨 Creative</option>
+            <option value="⚙️">⚙️ Technical</option><option value="❤️">❤️ Personal</option>
+            <option value="🏥">🏥 Health</option><option value="⚖️">⚖️ Legal</option>
+            <option value="🧘">🧘 Wellness</option><option value="🎵">🎵 Music</option>
+          </select>
+        </div>
+        <button class="tf-btn" onclick="teachARIA()">TEACH ARIA</button>
+      </div>
+
+      <div class="section-title">Taught Skills (<span id="taughtCount">0</span>)</div>
+      <div id="taughtList"></div>
+    </div>
+  </div>
+
+  <!-- ── SKILLS + PERSONA SCREEN ── -->
+  <div class="screen" id="screen-skills">
+    <div class="panel-screen">
+      <div class="section-title">🎭 Persona Mode</div>
+      <div class="persona-grid" id="personaGrid"></div>
+
+      <div class="section-title" style="margin-top:8px">📦 Skill Modules</div>
+      <div class="skill-grid" id="skillGrid"></div>
+    </div>
+  </div>
+
+  <!-- ── SAFETY SCREEN ── -->
+  <div class="screen" id="screen-safety">
+    <div class="panel-screen">
+      <div class="section-title">🛡️ Safety Controls</div>
+
+      <div class="card">
+        <div class="card-title">Safety Layers</div>
+        <div id="safetyToggles"></div>
+      </div>
+
+      <div class="section-title">🚫 Blocked Words</div>
+      <div class="card">
+        <div class="card-desc" style="margin-bottom:10px">Words or phrases that ARIA will never engage with. Tap a tag to remove it.</div>
+        <div class="blocklist-area">
+          <input type="text" class="tf-in" id="blockInput" placeholder="Add word or phrase…" onkeydown="if(event.key==='Enter')addBlockedWord()" />
+          <button class="add-btn" onclick="addBlockedWord()">ADD</button>
+        </div>
+        <div class="blocked-tags" id="blockedTags"></div>
+      </div>
+
+      <div class="section-title">📋 Audit Log</div>
+      <div id="auditLog"></div>
+    </div>
+  </div>
+
+  <!-- ── OWNER SCREEN ── -->
+  <div class="screen" id="screen-owner">
+    <!-- Locked state -->
+    <div id="ownerLocked" class="owner-locked">
+      <div class="lock-icon">🔐</div>
+      <div class="lock-title">Owner Access</div>
+      <div class="lock-desc">Enter your 4-digit PIN to access owner controls. Default PIN: <strong style="color:var(--g1)">1234</strong> — change it after first login.</div>
+      <div class="pin-row" id="pinDots">
+        <div class="pin-dot" id="pd0"></div><div class="pin-dot" id="pd1"></div>
+        <div class="pin-dot" id="pd2"></div><div class="pin-dot" id="pd3"></div>
+      </div>
+      <div class="pin-error" id="pinError"></div>
+      <div class="numpad">
+        <button class="np-btn" onclick="pinInput('1')">1</button>
+        <button class="np-btn" onclick="pinInput('2')">2</button>
+        <button class="np-btn" onclick="pinInput('3')">3</button>
+        <button class="np-btn" onclick="pinInput('4')">4</button>
+        <button class="np-btn" onclick="pinInput('5')">5</button>
+        <button class="np-btn" onclick="pinInput('6')">6</button>
+        <button class="np-btn" onclick="pinInput('7')">7</button>
+        <button class="np-btn" onclick="pinInput('8')">8</button>
+        <button class="np-btn" onclick="pinInput('9')">9</button>
+        <button class="np-btn" style="grid-column:1" onclick="pinInput('0')">0</button>
+        <button class="np-btn del" onclick="pinDel()">⌫</button>
+      </div>
+    </div>
+    <!-- Unlocked state -->
+    <div id="ownerContent" class="owner-content">
+      <div style="padding:14px 0 0">
+        <div class="section-title">🔑 Owner Controls</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔒 Topic Locks</div>
+        <div class="card-desc" style="margin-bottom:10px">Completely disable topic categories. ARIA won't respond to these at all.</div>
+        <div id="topicLocks"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔑 Change PIN</div>
+        <div class="card-desc" style="margin-bottom:10px">Set a new 4-digit owner PIN.</div>
+        <div style="display:flex;gap:8px">
+          <input type="password" class="tf-in" id="newPin" placeholder="New 4-digit PIN" maxlength="4" style="flex:1" />
+          <button class="add-btn" onclick="changePin()">SET</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🎓 Mode Settings</div>
+        <div id="modeToggles"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="color:var(--danger)">⚠️ Danger Zone</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+          <button class="danger-btn" onclick="clearAudit()">Clear Audit Log</button>
+          <button class="danger-btn" onclick="resetBlocklist()">Reset Blocklist to Default</button>
+          <button class="danger-btn" onclick="clearAllMemory()">Wipe All Memory</button>
+        </div>
+      </div>
+
+      <button class="success-btn" onclick="lockOwner()" style="margin-bottom:10px">🔒 Lock Owner Panel</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <div class="nav-item active" id="nav-chat" onclick="showScreen('chat')">
+    <span class="ni">💬</span>CHAT
+  </div>
+  <div class="nav-item" id="nav-teach" onclick="showScreen('teach')">
+    <span class="ni">✏️</span>TEACH
+    <div class="nav-badge" id="teachBadge" style="display:none">0</div>
+  </div>
+  <div class="nav-item" id="nav-skills" onclick="showScreen('skills')">
+    <span class="ni">🎛️</span>SKILLS
+  </div>
+  <div class="nav-item" id="nav-safety" onclick="showScreen('safety')">
+    <span class="ni">🛡️</span>SAFETY
+  </div>
+  <div class="nav-item" id="nav-owner" onclick="showScreen('owner')">
+    <span class="ni">🔐</span>OWNER
+  </div>
+</div>
+
+<!-- MEMORY SHEET -->
+<div class="overlay" id="memSheet" onclick="if(event.target===this)closeMemSheet()">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">🧠 Memory Vault (<span id="sheetMemCount">0</span>)</div>
+    <div class="sheet-body">
+      <input type="text" class="tf-in" id="memSearchIn" placeholder="Search memories…"
+        oninput="filterMem(this.value)" style="margin-bottom:12px;width:100%" />
+      <div id="sheetMemList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  ARIA v4 — Mobile + Safety + Owner Controls
+//  Features: PWA · Safety layers · Blocklist · Audit log
+//            Topic locks · PIN protection · Harm detection
+//            Pre-loaded knowledge · Persistent memory
+// ═══════════════════════════════════════════════════════
+
+// ── STORAGE ──
+const K = {
+  mem:'aria4_mem', conv:'aria4_conv', taught:'aria4_taught',
+  skills:'aria4_skills', persona:'aria4_persona', ratings:'aria4_ratings',
+  blocklist:'aria4_blocklist', safety:'aria4_safety', audit:'aria4_audit',
+  pin:'aria4_pin', locks:'aria4_locks', modes:'aria4_modes', seeded:'aria4_seeded_v1'
+};
+
+let memory      = JSON.parse(localStorage.getItem(K.mem)      || '[]');
+let convHistory = JSON.parse(localStorage.getItem(K.conv)     || '[]');
+let taughtData  = JSON.parse(localStorage.getItem(K.taught)   || '[]');
+let skillStates = JSON.parse(localStorage.getItem(K.skills)   || '{}');
+let ratings     = JSON.parse(localStorage.getItem(K.ratings)  || '{}');
+let blocklist   = JSON.parse(localStorage.getItem(K.blocklist)|| '[]');
+let safetySettings = JSON.parse(localStorage.getItem(K.safety)|| '{}');
+let auditLog    = JSON.parse(localStorage.getItem(K.audit)    || '[]');
+let topicLocks  = JSON.parse(localStorage.getItem(K.locks)    || '{}');
+let modeSettings= JSON.parse(localStorage.getItem(K.modes)    || '{}');
+let activePersona = localStorage.getItem(K.persona)           || 'aria';
+let ownerPin    = localStorage.getItem(K.pin)                 || '1234';
+
+const save = () => {
+  localStorage.setItem(K.mem,      JSON.stringify(memory));
+  localStorage.setItem(K.conv,     JSON.stringify(convHistory));
+  localStorage.setItem(K.taught,   JSON.stringify(taughtData));
+  localStorage.setItem(K.skills,   JSON.stringify(skillStates));
+  localStorage.setItem(K.ratings,  JSON.stringify(ratings));
+  localStorage.setItem(K.blocklist,JSON.stringify(blocklist));
+  localStorage.setItem(K.safety,   JSON.stringify(safetySettings));
+  localStorage.setItem(K.audit,    JSON.stringify(auditLog));
+  localStorage.setItem(K.locks,    JSON.stringify(topicLocks));
+  localStorage.setItem(K.modes,    JSON.stringify(modeSettings));
+  localStorage.setItem(K.persona,  activePersona);
+  localStorage.setItem(K.pin,      ownerPin);
+};
+
+// ── DEFAULTS ──
+const DEFAULT_SAFETY = {
+  blockHarmfulContent: true,
+  intentDetection: true,
+  safeRedirects: true,
+  auditLogging: true,
+  crisisResources: true,
+};
+const DEFAULT_BLOCKLIST = [
+  'how to make a weapon','how to make drugs','make explosives',
+  'self harm','how to hurt','how to kill','bomb making','hack someone'
+];
+const DEFAULT_MODES = {
+  familyFriendly: false,
+  requireContext: false,
+  verboseReasoning: false,
+};
+
+// Merge defaults
+Object.keys(DEFAULT_SAFETY).forEach(k => { if (safetySettings[k] === undefined) safetySettings[k] = DEFAULT_SAFETY[k]; });
+Object.keys(DEFAULT_MODES).forEach(k => { if (modeSettings[k] === undefined) modeSettings[k] = DEFAULT_MODES[k]; });
+if (blocklist.length === 0) blocklist = [...DEFAULT_BLOCKLIST];
+
+// ── SAFETY ENGINE ──
+const HARM_PATTERNS = [
+  { pattern:/\b(kill|murder|hurt|harm|attack|stab|shoot|bomb)\s+(someone|people|person|them|him|her|you)/i, level:'critical', category:'violence' },
+  { pattern:/\b(how\s+to\s+(make|build|create|synthesize)\s+(drugs?|meth|heroin|weapon|bomb|explosive|poison))/i, level:'critical', category:'dangerous_creation' },
+  { pattern:/\b(suicide|self.harm|cut myself|end my life|kill myself)\b/i, level:'crisis', category:'self_harm' },
+  { pattern:/\b(hack\s+(into|someone|their)|steal\s+(data|password|identity)|phish(ing)?)\b/i, level:'high', category:'cybercrime' },
+  { pattern:/\b(child\s+(abuse|exploit|porn|sexual))\b/i, level:'critical', category:'child_safety' },
+  { pattern:/\b(racist|hate\s+speech|slur)\b/i, level:'medium', category:'hate_speech' },
+  { pattern:/\b(stalk|spy\s+on|track\s+someone\s+without)\b/i, level:'high', category:'stalking' },
+];
+
+const CRISIS_RESOURCES = {
+  self_harm: "📞 If you're struggling: **Samaritans** 116 123 (UK) | **Crisis Text Line** Text HOME to 741741 | **International Association for Suicide Prevention**: https://www.iasp.info/resources/Crisis_Centres/",
+  violence: "📞 **Emergency Services**: 999 (UK) / 911 (US) | **Victim Support**: 0808 168 9111",
+  general: "💙 **Mind** (mental health): 0300 123 3393 | **Shout** (text): Text SHOUT to 85258"
+};
+
+function checkSafety(input) {
+  const lower = input.toLowerCase();
+
+  // 1. Check custom blocklist
+  for (const word of blocklist) {
+    if (lower.includes(word.toLowerCase())) {
+      return { blocked: true, level: 'blocked', category: 'blocklist', word };
+    }
+  }
+
+  // 2. Check harm patterns
+  if (safetySettings.blockHarmfulContent) {
+    for (const hp of HARM_PATTERNS) {
+      if (hp.pattern.test(input)) {
+        return { blocked: true, ...hp };
+      }
+    }
+  }
+
+  // 3. Check topic locks
+  if (Object.keys(topicLocks).some(t => topicLocks[t])) {
+    const det = detectCategory(input);
+    const catBase = det.category.replace('taught_','').replace('skill_','');
+    if (topicLocks[catBase]) {
+      return { blocked: true, level: 'locked', category: catBase };
+    }
+  }
+
+  // 4. Family friendly mode
+  if (modeSettings.familyFriendly) {
+    const adultTopics = ['gambling','alcohol','drugs','adult','explicit','nsfw','sex','porn'];
+    if (adultTopics.some(t => lower.includes(t))) {
+      return { blocked: true, level: 'family', category: 'adult_content' };
+    }
+  }
+
+  return { blocked: false };
+}
+
+function buildHarmResponse(safetyResult) {
+  const { level, category, word } = safetyResult;
+
+  if (level === 'crisis') {
+    return {
+      type: 'crisis',
+      text: `I noticed something in your message that made me want to check in with you. 💙\n\nIf you're going through a difficult time, you don't have to face it alone. Please reach out:\n\n${CRISIS_RESOURCES.self_harm}\n\nI'm here if you want to talk about what's going on.`
+    };
+  }
+  if (level === 'critical') {
+    return {
+      type: 'blocked',
+      text: `I can't help with that — it falls outside what I'm designed to assist with, and providing that information could cause real harm. 🛡️\n\nIf you're in an emergency: ${CRISIS_RESOURCES.violence}`
+    };
+  }
+  if (level === 'high') {
+    return {
+      type: 'blocked',
+      text: `That's not something I can assist with. This topic could cause harm to others if I engaged with it. I'm built to problem-solve, not start fires. 🛡️\n\nIs there something else I can help you with?`
+    };
+  }
+  if (level === 'blocked') {
+    return {
+      type: 'blocked',
+      text: `"${word}" is on the blocked list for this ARIA instance. I'm not able to engage with that topic here. Is there something else I can help with? 🛡️`
+    };
+  }
+  if (level === 'locked') {
+    return {
+      type: 'locked',
+      text: `The topic "${category}" has been locked by the owner of this ARIA instance. I can't respond to it right now. Try asking about something else! 🔒`
+    };
+  }
+  if (level === 'family') {
+    return {
+      type: 'blocked',
+      text: `Family-friendly mode is active — that topic isn't available right now. Let's talk about something else! 👨‍👩‍👧‍👦`
+    };
+  }
+  return { type:'blocked', text:"I'm not able to help with that. Let's find a better path forward." };
+}
+
+function logAudit(input, response, safetyResult, category) {
+  if (!safetySettings.auditLogging) return;
+  const entry = {
+    id: Date.now(),
+    time: new Date().toISOString(),
+    query: input.slice(0, 120),
+    response: (typeof response === 'string' ? response : response.text || '').replace(/<[^>]+>/g,'').slice(0, 100),
+    safe: !safetyResult.blocked,
+    level: safetyResult.level || 'safe',
+    category: safetyResult.category || category || 'general'
+  };
+  auditLog.unshift(entry);
+  if (auditLog.length > 200) auditLog = auditLog.slice(0, 200);
+  updateSafetyBadge();
+  save();
+}
+
+function updateSafetyBadge() {
+  const recentBlocked = auditLog.slice(0,20).filter(a=>!a.safe).length;
+  const badge = document.getElementById('safetyBadge');
+  const dot = document.getElementById('safetyDot');
+  const label = document.getElementById('safetyLabel');
+  if (recentBlocked > 3) {
+    badge.className='safety-badge warn'; dot.className='sdot warn';
+    label.textContent='ALERT';
+  } else {
+    badge.className='safety-badge safe'; dot.className='sdot safe';
+    label.textContent='SAFE';
+  }
+}
+
+// ── MEMORY ──
+function addMem(type, content, kw=[]) {
+  memory.unshift({ id:Date.now()+Math.random(), type, content, kw, time:new Date().toISOString(), recalled:0 });
+  if (memory.length > 400) memory = memory.slice(0,400);
+  save(); updateMemCount();
+}
+
+function recallMem(query, n=5) {
+  const words = query.toLowerCase().split(' ').filter(w=>w.length>2);
+  return memory.map(m => {
+    let s=0; const txt=(m.content+' '+m.kw.join(' ')).toLowerCase();
+    words.forEach(w=>{ if(txt.includes(w)) s+=(m.type==='user'||m.type==='preference')?2:1; });
+    return {...m,score:s};
+  }).filter(m=>m.score>0).sort((a,b)=>b.score-a.score).slice(0,n);
+}
+
+function extractFacts(input) {
+  const nm=input.match(/(?:my name is|i(?:'m| am)(?: called)?|call me)\s+([A-Za-z]+)/i);
+  if(nm){ctx.userName=nm[1];addMem('user',`User's name is ${nm[1]}`,['name',nm[1].toLowerCase()]);}
+  const ag=input.match(/i(?:'m| am)\s+(\d{1,3})\s+years?\s+old/i);
+  if(ag) addMem('fact',`User is ${ag[1]} years old`,['age']);
+  const lc=input.match(/(?:i live in|i(?:'m| am) from|based in)\s+([A-Za-z\s]+?)(?:\.|,|$)/i);
+  if(lc) addMem('fact',`User is from ${lc[1].trim()}`,['location',lc[1].toLowerCase().trim()]);
+  const jb=input.match(/(?:i(?:'m| am) a|i work as a?|my job is)\s+([a-zA-Z\s]+?)(?:\.|,|$)/i);
+  if(jb&&jb[1].trim().length<35) addMem('fact',`Works as: ${jb[1].trim()}`,['job',jb[1].toLowerCase().trim()]);
+  const lk=input.match(/(?:i love|i like|i enjoy|i prefer|i'm into)\s+(.+?)(?:\.|,|$)/i);
+  if(lk&&lk[1].trim().length<60) addMem('preference',`User likes: ${lk[1].trim()}`,lk[1].toLowerCase().split(' ').filter(w=>w.length>2));
+}
+
+// ── PERSONAS ──
+const PERSONAS = {
+  aria:      {name:'ARIA',icon:'🤖',desc:'Balanced & warm',style:'standard'},
+  professor: {name:'Professor',icon:'🎓',desc:'Academic depth',style:'academic'},
+  coach:     {name:'Coach',icon:'💪',desc:'Action-first',style:'coach'},
+  friend:    {name:'Friend',icon:'😄',desc:'Casual & fun',style:'casual'},
+  analyst:   {name:'Analyst',icon:'📊',desc:'Data-driven',style:'analytical'},
+  sage:      {name:'Sage',icon:'🧘',desc:'Philosophical',style:'philosophical'},
+};
+
+function applyPersona(text) {
+  const p = PERSONAS[activePersona];
+  if (!p || activePersona==='aria') return text;
+  if (p.style==='academic') return `🎓 <b>Academic view:</b>\n\n${text}`;
+  if (p.style==='coach') return `💪 <b>Action plan:</b>\n\n${text}\n\n<em>Stop waiting. What's your first move?</em>`;
+  if (p.style==='casual') return `😄 ok so — ${text.charAt(0).toLowerCase()+text.slice(1)}`;
+  if (p.style==='analytical') return `📊 <b>Analysis:</b>\n\n${text}`;
+  if (p.style==='philosophical') return `🧘 <em>Consider:</em>\n\n${text}`;
+  return text;
+}
+
+// ── SKILL MODULES ──
+const SKILL_MODULES = {
+  medical:    {name:'Medical',icon:'⚕️',desc:'Health & anatomy',keywords:['diagnosis','symptom','medication','dosage','anatomy','organ','infection','chronic','treatment','prescription'],responses:["⚕️ Medical topic detected. I can share general health info — always consult a qualified doctor for personal medical advice."]},
+  legal:      {name:'Legal',icon:'⚖️',desc:'Law & rights',keywords:['law','legal','lawyer','contract','rights','court','lawsuit','liability','regulation','compliance','copyright','trademark'],responses:["⚖️ Legal mode. I can explain general legal concepts — always consult a qualified solicitor/attorney for your specific situation."]},
+  finance_pro:{name:'Finance Pro',icon:'📈',desc:'Advanced investing',keywords:['portfolio','options','derivatives','yield','bond','etf','dividend','p/e ratio','volatility','asset allocation','roth','ira'],responses:["📈 Finance Pro mode. Investment concepts and strategy — remember, all investing carries risk. Not personalised financial advice."]},
+  coding_pro: {name:'Coding Pro',icon:'💻',desc:'Advanced CS',keywords:['algorithm','big o','data structure','recursion','dynamic programming','binary search','hash map','system design','microservices','kubernetes','docker','ci/cd'],responses:["💻 Coding Pro mode. Algorithms, system design, DevOps — let's get technical. What are you building?"]},
+  nutrition:  {name:'Nutrition',icon:'🥗',desc:'Food science',keywords:['macronutrient','caloric deficit','meal prep','intermittent fasting','ketogenic','glycemic index','gut microbiome','inflammation','omega 3'],responses:["🥗 Nutrition Science mode. Evidence-based nutrition — macros, meal timing, metabolic health. What do you want to optimise?"]},
+  history_pro:{name:'History',icon:'📜',desc:'Deep history',keywords:['ancient rome','ancient greece','ottoman','british empire','cold war','french revolution','industrial revolution','renaissance','colonialism'],responses:["📜 History mode. From ancient civilisations to modern geopolitics. What period or event?"]},
+  mindfulness:{name:'Wellness',icon:'🧘',desc:'Mental wellness',keywords:['meditate','breathwork','mindfulness','grounding','body scan','gratitude','journaling','sleep hygiene','nervous system','burnout recovery'],responses:["🧘 Mindfulness mode. Let's slow down and focus. What aspect of mental wellness are you exploring?"]},
+  languages:  {name:'Languages',icon:'🌐',desc:'Language learning',keywords:['conjugate','grammar rule','tense','vocabulary','spaced repetition','anki','immersion','polyglot','fluency','language exchange'],responses:["🌐 Language Learning mode. Grammar, vocab, acquisition strategy. Which language and what level?"]},
+};
+
+// ── CORE KEYWORD ARRAYS ──
+const KEYWORDS = {
+  greeting:['hello','hi','hey','howdy','greetings','good morning','good evening','sup','yo','hiya','what\'s up'],
+  farewell:['bye','goodbye','see you','cya','later','farewell','take care','goodnight','adios'],
+  identity:['who are you','what are you','your name','tell me about yourself','what can you do','how do you work','are you ai','how were you built','your architecture','aria project'],
+  thanks:['thank','thanks','thank you','appreciate','cheers','thx','ty','grateful'],
+  emotion_sad:['sad','unhappy','depressed','down','upset','miserable','crying','lonely','heartbroken','hopeless','despair'],
+  emotion_happy:['happy','excited','joy','elated','wonderful','fantastic','thrilled','ecstatic','cheerful'],
+  emotion_angry:['angry','mad','furious','rage','frustrated','annoyed','irritated','outraged'],
+  emotion_anxious:['anxious','worried','nervous','stress','stressed','panic','overwhelmed','afraid','scared'],
+  mental_health:['mental health','therapy','therapist','depression','anxiety disorder','ptsd','mindfulness','self care','burnout','trauma','healing','wellbeing'],
+  motivation:['motivate','inspire','goal','achieve','success','discipline','habit','productivity','mindset','growth'],
+  science:['science','physics','chemistry','biology','genetics','evolution','quantum','atom','experiment','research'],
+  astronomy:['space','stars','planet','galaxy','universe','cosmos','black hole','asteroid','nasa','moon','mars','nebula'],
+  environment:['environment','ecology','biodiversity','endangered','conservation','deforestation','pollution','sustainability'],
+  climate_change:['climate change','global warming','co2','greenhouse','emissions','renewable','solar','wind power'],
+  ai_ml:['artificial intelligence','ai','machine learning','neural network','deep learning','chatgpt','llm','algorithm','automation'],
+  coding:['code','programming','python','javascript','java','c++','html','css','react','api','database','sql','github','debug','function','loop','array'],
+  gaming:['game','gaming','video game','console','playstation','xbox','nintendo','fps','rpg','esports','minecraft','fortnite'],
+  social_media:['social media','instagram','tiktok','twitter','facebook','youtube','linkedin','reddit','discord','viral'],
+  music:['music','song','band','artist','album','playlist','genre','rap','hip hop','pop','rock','jazz','classical','edm','concert'],
+  movies:['movie','film','cinema','director','actor','streaming','netflix','disney','marvel','horror','comedy','thriller','sci-fi'],
+  books:['book','novel','author','read','fiction','nonfiction','literature','poetry','memoir','biography','fantasy','mystery'],
+  sports:['sport','football','soccer','basketball','tennis','cricket','rugby','golf','swimming','nba','nfl','premier league','ufc'],
+  travel:['travel','vacation','trip','flight','hotel','tourism','destination','backpacking','adventure'],
+  food:['food','eat','cook','recipe','restaurant','cuisine','meal','dinner','lunch','breakfast','vegetarian','vegan','bake','grill'],
+  fitness:['fitness','workout','exercise','gym','cardio','yoga','running','training','muscle','weight loss','hiit'],
+  finance:['money','finance','budget','savings','investment','stock','shares','retirement','tax','salary','wealth','debt','mortgage'],
+  career:['career','job','work','employment','resume','cv','interview','promotion','networking','remote work','entrepreneur'],
+  math:['calculate','math','solve','formula','equation','algebra','geometry','statistics','plus','minus','times','divided','multiply','square root','percentage'],
+  language:['language','translate','grammar','vocabulary','learn language','spanish','french','german','japanese','chinese'],
+  writing:['write','writing','essay','story','creative writing','blog','article','copywriting','editing'],
+  news:['news','current events','today','latest','breaking','update','headline','politics','government','election'],
+  history:['history','ancient','medieval','empire','civilization','revolution','century','historical','dynasty'],
+  philosophy:['philosophy','ethics','moral','existence','consciousness','free will','logic','truth','stoicism','meaning of life'],
+  joke:['joke','funny','laugh','humor','pun','comedy','hilarious','meme','lol','haha'],
+  trivia:['trivia','fun fact','did you know','interesting','random fact','quiz'],
+  animals:['animal','dog','cat','bird','fish','wildlife','pet','endangered','mammal','wolf','elephant','whale'],
+  nature:['nature','forest','ocean','mountain','river','desert','jungle','plant','flower','tree'],
+  productivity:['productive','focus','time management','procrastinate','schedule','routine','pomodoro','deep work'],
+  time_query:['what time','current time','what date','today\'s date','what day','what year'],
+};
+
+const BASE_RESPONSES = {
+  greeting:["Hey! ARIA v4 here — mobile, safe, and ready. What's on your mind?","Hello! I'm your personal AI — secure, private, and always learning. How can I help?"],
+  farewell:["Goodbye! Everything saved — I'll remember you. Take care! 👋","See you! Your memory is preserved. Come back anytime."],
+  identity:["I'm <b>ARIA v4</b> — built by you using if/then/else logic and variable arrays. I have live web search, persistent memory, safety layers, skill modules, and persona modes. Every decision is traceable. What would you like to explore?","I'm your personal rule-based AI. Built from scratch, progressively: v1 (basic rules) → v2 (web + memory) → v3 (teachable) → v4 (mobile + safety). Ask me anything!"],
+  thanks:["Anytime! 🤝","You're welcome — and that's logged! 😊"],
+  emotion_sad:["I'm really sorry. 💚 You're not alone — want to talk about what's going on?","That sounds hard. 💙 One small step at a time. I'm here. What happened?"],
+  emotion_happy:["That's wonderful! 🌟 What's making you feel great?","Love that energy! Keep doing whatever's creating it. 😄"],
+  emotion_angry:["Sounds frustrating. 🔥 Take a breath — what happened?","That's valid. Let's talk it through."],
+  emotion_anxious:["Anxiety is tough. 💙 Try: name 5 things you can see right now. What's worrying you?","Let's slow it down. What's the main thing on your mind?"],
+  mental_health:["Mental health is just as real as physical health. 🌱 Whether it's therapy, mindfulness, or talking — all valid. How are you?"],
+  motivation:["💪 Start with the next 1% improvement. Momentum builds from tiny actions. What are you working toward?"],
+  science:["Science! 🧪 Physics, chemistry, biology? What are you curious about?"],
+  astronomy:["Space is extraordinary. 🌌 What cosmic topic?"],
+  ai_ml:["AI and ML! 🤖 Interesting topic given I'm a rule-based AI — the transparency contrast is the whole point. What aspect?"],
+  coding:["💻 Let's code! Language, concept, or bug — I'm ready."],
+  music:["🎵 Music mode. Genre, mood, or artist?"],
+  movies:["🎬 Film mode. Genre, era, or specific recommendation?"],
+  books:["📚 Book mode. Fiction or non? Genre?"],
+  sports:["⚽ Sports mode. Which sport and what question?"],
+  travel:["✈️ Travel mode! Destination or travel style?"],
+  food:["🍳 Food mode! Recipe, cuisine, or nutrition?"],
+  fitness:["💪 Fitness mode. Goal: weight loss, muscle, endurance, or flexibility?"],
+  finance:["💰 Finance mode. Budget, investing, debt, or wealth building?"],
+  math:[],
+  joke:["Why do programmers confuse Halloween and Christmas? Oct 31 === Dec 25. 🎃","Why did the variable break up with the function? Too many arguments. 😂","I told a joke about recursion. I told a joke about recursion. I told a joke..."],
+  trivia:["Fun fact: Honey never spoils — 3000-year-old honey found in Egyptian tombs was still edible. 🍯","Octopuses have three hearts, blue blood, and can edit their own RNA. 🐙"],
+  animals:["🐾 Which animal or topic?"],
+  productivity:["⚡ Rule: if task feels huge → break into 25-min Pomodoro chunks. What are you trying to accomplish?"],
+  news:["📰 Let me search the web for the latest…"],
+  unknown:["My keyword arrays didn't find a confident match. Could you expand on that? I cover tech, science, health, finance, arts, travel, food, fitness, history, news, and much more.","Hmm — no strong match. Try rewording or pick a topic from the suggestions!"]
+};
+
+// ── ENGINE STATE ──
+let ctx = { userName:null, lastCategory:null, msgCount:0 };
+
+function detectCategory(input) {
+  const lower = input.toLowerCase();
+  const scores={}, matched={};
+  for (const [cat,kws] of Object.entries(KEYWORDS)) {
+    scores[cat]=0; matched[cat]=[];
+    for (const kw of kws) { if(lower.includes(kw)){scores[cat]++;matched[cat].push(kw);} }
+  }
+  for (const [id,sk] of Object.entries(SKILL_MODULES)) {
+    if(!skillStates[id]) continue;
+    scores['skill_'+id]=0; matched['skill_'+id]=[];
+    for (const kw of sk.keywords) { if(lower.includes(kw)){scores['skill_'+id]++;matched['skill_'+id].push(kw);} }
+  }
+  for (const t of taughtData) {
+    scores['taught_'+t.id]=0; matched['taught_'+t.id]=[];
+    for (const kw of t.keywords) { if(lower.includes(kw.toLowerCase())){scores['taught_'+t.id]+=2;matched['taught_'+t.id].push(kw);} }
+  }
+  let best='unknown',bestScore=0;
+  for (const [cat,score] of Object.entries(scores)) { if(score>bestScore){bestScore=score;best=cat;} }
+  if(bestScore===0) best='unknown';
+  const confidence = bestScore===0?0.18:bestScore===1?0.62:bestScore===2?0.80:Math.min(0.97,0.80+(bestScore-2)*0.05);
+  return {category:best,score:bestScore,confidence,matched:matched[best]||[]};
+}
+
+function tryMath(input) {
+  if(!/[\d]/.test(input)||!/[+\-*/^%]/.test(input)) return null;
+  const expr=input.replace(/what is|calculate|solve|equals?/gi,'').replace(/[^0-9+\-*/().%\s^]/g,'').trim();
+  if(!expr||!/\d/.test(expr)) return null;
+  try {
+    const r=Function('"use strict";return('+expr.replace(/\^/g,'**')+')')();
+    if(typeof r==='number'&&isFinite(r)) return `<b>Math →</b> <em>${expr}</em> = <b>${r.toLocaleString()}</b>`;
+  } catch(e){}
+  return null;
+}
+
+function pickResponse(cat) {
+  if(cat.startsWith('taught_')) {
+    const id=cat.replace('taught_','');
+    const t=taughtData.find(x=>String(x.id)===id);
+    if(t){t.uses++;save();return `${t.icon} <b>[Taught]</b> ${t.response}`;}
+  }
+  if(cat.startsWith('skill_')) {
+    const id=cat.replace('skill_','');
+    const sk=SKILL_MODULES[id];
+    if(sk?.responses?.length) return sk.responses[Math.floor(Math.random()*sk.responses.length)];
+  }
+  const arr=BASE_RESPONSES[cat]||BASE_RESPONSES.unknown;
+  if(!arr.length) return BASE_RESPONSES.unknown[0];
+  return arr[Math.floor(Math.random()*arr.length)];
+}
+
+async function searchWeb(query,cat) {
+  const liveCats=['news','world_events','climate_change','sports','movies','finance'];
+  const liveKw=['latest','current','today','2024','2025','news','recent','best','top','now'];
+  if(!liveCats.includes(cat)&&!liveKw.some(k=>query.toLowerCase().includes(k))) return null;
+  try {
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',max_tokens:800,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        system:`You are ARIA v4, a helpful mobile AI. Answer concisely — 3-5 sentences max. Use **bold** for key points. Today: ${new Date().toLocaleDateString()}.`,
+        messages:[{role:'user',content:query}]
+      })
+    });
+    const data=await res.json();
+    return(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim()||null;
+  } catch(e){return null;}
+}
+
+// ── MAIN GENERATE ──
+async function generateResponse(input) {
+  ctx.msgCount++;
+
+  // Safety check FIRST
+  const safetyResult = checkSafety(input);
+  if (safetyResult.blocked) {
+    const harmResp = buildHarmResponse(safetyResult);
+    logAudit(input, harmResp.text, safetyResult, safetyResult.category);
+    return { text:harmResp.text, category:'safety', confidence:1, source:'blocked', recalled:[], safetyResult };
+  }
+
+  // Time
+  if(KEYWORDS.time_query.some(k=>input.toLowerCase().includes(k))) {
+    const now=new Date();
+    const text=`🕐 <b>Time →</b> <em>${now.toLocaleTimeString()}</em> · <em>${now.toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</em>`;
+    logAudit(input,text,{blocked:false},'time');
+    return {text,category:'time',confidence:.97,source:'rule',recalled:[]};
+  }
+
+  // Math
+  const math=tryMath(input);
+  const det=detectCategory(input);
+  if(math&&(det.category==='math'||/\d.*[+\-*/^]\s*\d/.test(input))) {
+    extractFacts(input);
+    logAudit(input,math,{blocked:false},'math');
+    return {text:math,category:'math',confidence:.97,source:'rule',recalled:[]};
+  }
+
+  // Memory recall
+  if(/remember|recall|what did (i|we)|last time|you mentioned|before|earlier|my history/i.test(input)) {
+    const recalled=recallMem(input,6);
+    if(recalled.length>0){
+      const items=recalled.map(m=>`• <span class="mtag t-${m.type}">${m.type.toUpperCase()}</span> ${m.content}`).join('\n');
+      const text=`🧠 <b>Memory Recall →</b> Found <em>${recalled.length}</em> memories:\n\n${items}`;
+      logAudit(input,text,{blocked:false},'recall');
+      return{text,category:'recall',confidence:.95,source:'memory',recalled};
+    }
+    return{text:"🧠 Memory searched — nothing found yet. Keep chatting!",category:'recall',confidence:.7,source:'memory',recalled:[]};
+  }
+
+  extractFacts(input);
+  const recalled=recallMem(input,3);
+
+  const webResult=await searchWeb(input,det.category);
+  let text,source;
+  if(webResult){
+    text=`🌐 <b>Web →</b> ${webResult.replace(/\*\*(.*?)\*\*/g,'<b>$1</b>')}`;
+    source='web';
+    addMem('search',`Searched: "${input.slice(0,60)}"`,input.toLowerCase().split(' ').filter(w=>w.length>2).slice(0,5));
+  } else {
+    let memPfx='';
+    if(recalled.length>0&&recalled[0].score>0){source='memory';memPfx=`🧠 <em style="color:var(--g5);font-size:.76rem">Recalled: ${recalled[0].content.slice(0,60)}…</em>\n\n`;}
+    else source=det.category.startsWith('taught_')?'taught':det.category.startsWith('skill_')?'skill':'rule';
+    let base=pickResponse(det.category);
+    if(ctx.userName) base=base.replace('Hey!',`Hey ${ctx.userName}!`).replace('Hello!',`Hello ${ctx.userName}!`);
+    text=memPfx+base;
+  }
+
+  text=applyPersona(text);
+  if(det.category!=='unknown') addMem('topic',`Discussed "${det.category.replace(/_/g,' ')}" — "${input.slice(0,55)}"`,det.matched.concat([det.category]));
+  convHistory.push({u:input,a:text.replace(/<[^>]+>/g,''),cat:det.category,t:new Date().toISOString()});
+  if(convHistory.length>600) convHistory=convHistory.slice(-600);
+  logAudit(input,text,{blocked:false},det.category);
+  ctx.lastCategory=det.category;
+  save();
+  return{text,category:det.category,confidence:det.confidence,source,recalled,matched:det.matched};
+}
+
+// ── RATE RESPONSE ──
+function rateResponse(msgId,cat,val) {
+  if(ratings[msgId]){showToast('Already voted!');return;}
+  if(!ratings[cat]) ratings[cat]={up:0,down:0};
+  ratings[cat][val===1?'up':'down']++;
+  ratings[msgId]=val; save();
+  showToast(val===1?'👍 Positive feedback saved!':'👎 Noted — I\'ll improve!');
+}
+
+// ── UI ──
+let msgIdCounter=0;
+function addMessage(role,text,opts={}) {
+  const msgs=document.getElementById('messages');
+  const id='m'+(++msgIdCounter);
+  const div=document.createElement('div');
+  div.className=`msg ${role}`;
+  const pct=Math.round((opts.confidence||1)*100);
+  const cfColor=opts.source==='web'?'var(--g4)':opts.source==='memory'?'var(--g5)':'var(--g1)';
+  const srcClass=`sc-${opts.source||'rule'}`;
+  let meta='';
+  if(role==='ai'){
+    meta=`<div class="fb-row">
+      <button class="fb-btn" onclick="vote('${id}','${opts.category||''}',1)">👍</button>
+      <button class="fb-btn" onclick="vote('${id}','${opts.category||''}',-1)">👎</button>
+      <div class="conf-mini"><div class="cbar"><div class="cfill" style="width:${pct}%;background:${cfColor}"></div></div>${pct}%</div>
+      <span class="src-chip ${srcClass}">${opts.source||'rule'}</span>
+    </div>`;
+  }
+  const av=role==='ai'?'AI':(ctx.userName?ctx.userName.slice(0,2).toUpperCase():'ME');
+  div.innerHTML=`<div class="av ${role==='ai'?'ai':'usr'}">${av}</div><div class="bubble">${text.replace(/\n/g,'<br>')}${meta}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function addTyping(){
+  const msgs=document.getElementById('messages');
+  const d=document.createElement('div');d.className='msg ai';d.id='typing';
+  d.innerHTML=`<div class="av ai">AI</div><div class="bubble"><div class="typing-wrap"><span></span><span></span><span></span></div></div>`;
+  msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;
+}
+function removeTyping(){const t=document.getElementById('typing');if(t)t.remove();}
+
+function addSysNote(text){
+  const msgs=document.getElementById('messages');
+  const d=document.createElement('div');d.className='sys-note';d.textContent=text;
+  msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;
+}
+
+function vote(msgId,cat,val){
+  const btn=event.target;btn.classList.add('voted');
+  rateResponse(msgId,cat,val);
+}
+
+async function sendMessage(){
+  const inp=document.getElementById('userInput');
+  const val=inp.value.trim();if(!val)return;
+  inp.value='';
+  const btn=document.getElementById('sendBtn');btn.disabled=true;
+  addMessage('user',val);
+  addTyping();
+  const result=await generateResponse(val);
+  removeTyping();
+
+  if(result.source==='blocked'&&result.safetyResult?.level==='crisis'){
+    // Crisis — special banner
+    const msgs=document.getElementById('messages');
+    const d=document.createElement('div');d.className='harm-banner';
+    d.innerHTML=`<div class="hb-title">💙 I want to check in with you</div>
+      <div class="hb-body">${result.text.replace(/\n/g,'<br>')}</div>`;
+    msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;
+  } else {
+    addMessage('ai',result.text,result);
+  }
+  btn.disabled=false;inp.focus();
+}
+
+function qs(btn){document.getElementById('userInput').value=btn.textContent;sendMessage();}
+
+// ── SCREEN NAVIGATION ──
+function showScreen(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('screen-'+name)?.classList.add('active');
+  document.getElementById('nav-'+name)?.classList.add('active');
+  if(name==='safety') renderAuditLog();
+  if(name==='owner') renderOwnerPanel();
+}
+
+// ── TEACH ──
+function teachARIA(){
+  const cat=document.getElementById('tchCat').value.trim().replace(/\s+/g,'_').toLowerCase();
+  const keys=document.getElementById('tchKeys').value.split(',').map(k=>k.trim()).filter(Boolean);
+  const resp=document.getElementById('tchResp').value.trim();
+  const icon=document.getElementById('tchIcon').value;
+  if(!cat||keys.length===0||!resp){showToast('⚠️ Fill in all fields first!');return;}
+  taughtData.unshift({id:Date.now(),category:cat,keywords:keys,response:resp,icon,taught:new Date().toISOString(),uses:0});
+  save();renderTaughtList();
+  addMem('custom',`Taught ARIA: "${cat}" with ${keys.length} keywords`,[cat,...keys.slice(0,3)]);
+  document.getElementById('tchCat').value='';
+  document.getElementById('tchKeys').value='';
+  document.getElementById('tchResp').value='';
+  showToast(`✅ Taught! ARIA now knows "${cat}"`);
+  showScreen('chat');
+  addSysNote(`✏️ ARIA learned: "${cat}"`);
+}
+
+function renderTaughtList(){
+  const cnt=taughtData.length;
+  document.getElementById('taughtCount').textContent=cnt;
+  const badge=document.getElementById('teachBadge');
+  badge.style.display=cnt>0?'flex':'none';badge.textContent=cnt;
+  document.getElementById('taughtList').innerHTML=cnt===0
+    ?'<div style="color:var(--mu2);font-size:.72rem;text-align:center;padding:20px">Nothing taught yet. Use the form above!</div>'
+    :taughtData.map(t=>`<div class="taught-item">
+        <div class="ti-main">
+          <div class="ti-cat">${t.icon} ${t.category} <span style="color:var(--mu);font-size:.62rem">(used ${t.uses||0}×)</span></div>
+          <div class="ti-kw">${t.keywords.slice(0,5).join(', ')}${t.keywords.length>5?'…':''}</div>
+        </div>
+        <span class="ti-del" onclick="deleteTaught(${t.id})">✕</span>
+      </div>`).join('');
+}
+
+function deleteTaught(id){
+  taughtData=taughtData.filter(t=>t.id!==id);save();renderTaughtList();showToast('Teaching removed.');
+}
+
+// ── SKILLS & PERSONA ──
+function renderSkills(){
+  document.getElementById('skillGrid').innerHTML=Object.entries(SKILL_MODULES).map(([id,sk])=>{
+    const on=!!skillStates[id];
+    return `<div class="skill-pill ${on?'on':''}" onclick="toggleSkill('${id}',this)">
+      <div class="sp-icon">${sk.icon}</div>
+      <div class="sp-name">${sk.name}</div>
+      <div class="sp-status">${on?'ACTIVE':'OFF'}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleSkill(id,el){
+  skillStates[id]=!skillStates[id];save();
+  el.className='skill-pill'+(skillStates[id]?' on':'');
+  el.querySelector('.sp-status').textContent=skillStates[id]?'ACTIVE':'OFF';
+  showToast(skillStates[id]?`✅ ${SKILL_MODULES[id].name} activated!`:'Skill deactivated.');
+}
+
+function renderPersonas(){
+  document.getElementById('personaGrid').innerHTML=Object.entries(PERSONAS).map(([id,p])=>`
+    <div class="persona-pill ${activePersona===id?'active':''}" onclick="selectPersona('${id}',this)">
+      <div class="pp-icon">${p.icon}</div>
+      <div class="pp-name">${p.name}</div>
+      <div class="pp-desc">${p.desc}</div>
+    </div>`).join('');
+}
+
+function selectPersona(id,el){
+  activePersona=id;save();
+  document.querySelectorAll('.persona-pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  showToast(`🎭 Persona: ${PERSONAS[id].name}`);
+  showScreen('chat');addSysNote(`🎭 Persona → ${PERSONAS[id].icon} ${PERSONAS[id].name}`);
+}
+
+// ── SAFETY PANEL ──
+function renderSafetyToggles(){
+  const labels={
+    blockHarmfulContent:{l:'Block Harmful Content',d:'Detect and block violence, illegal activity, dangerous information'},
+    intentDetection:{l:'Intent Detection',d:'Analyse the purpose behind questions before answering'},
+    safeRedirects:{l:'Safe Redirects',d:'When ARIA can\'t help safely, she points to proper resources'},
+    auditLogging:{l:'Audit Logging',d:'Log all conversations for your review'},
+    crisisResources:{l:'Crisis Resources',d:'Show emergency contacts when mental health topics detected'},
+  };
+  document.getElementById('safetyToggles').innerHTML=Object.entries(labels).map(([k,v])=>`
+    <div class="toggle-row">
+      <div><div class="toggle-label">${v.l}</div><div class="toggle-sub">${v.d}</div></div>
+      <label class="switch"><input type="checkbox" ${safetySettings[k]?'checked':''} onchange="toggleSafety('${k}',this.checked)" /><span class="slider"></span></label>
+    </div>`).join('');
+}
+
+function toggleSafety(key,val){
+  safetySettings[key]=val;save();
+  showToast(val?`✅ ${key} enabled`:`${key} disabled`);
+}
+
+function renderBlockedTags(){
+  document.getElementById('blockedTags').innerHTML=blocklist.map(w=>`
+    <div class="btag" onclick="removeBlock('${w.replace(/'/g,"\\'")}')">🚫 ${w} ×</div>`).join('');
+}
+
+function addBlockedWord(){
+  const inp=document.getElementById('blockInput');
+  const w=inp.value.trim().toLowerCase();
+  if(!w){showToast('Enter a word first');return;}
+  if(blocklist.includes(w)){showToast('Already blocked!');return;}
+  blocklist.push(w);save();renderBlockedTags();inp.value='';
+  showToast(`🚫 "${w}" blocked`);
+}
+
+function removeBlock(word){
+  blocklist=blocklist.filter(w=>w!==word);save();renderBlockedTags();
+  showToast(`"${word}" unblocked`);
+}
+
+function renderAuditLog(){
+  const el=document.getElementById('auditLog');
+  if(auditLog.length===0){
+    el.innerHTML='<div style="color:var(--mu2);font-size:.72rem;text-align:center;padding:20px">No audit entries yet.</div>';
+    return;
+  }
+  el.innerHTML=auditLog.slice(0,50).map(a=>`
+    <div class="audit-item">
+      <div class="ai-meta">
+        <span class="${a.safe?'ai-safe':'ai-blocked'}">${a.safe?'✅ SAFE':'🚫 BLOCKED'} · ${a.level}</span>
+        <span class="ai-time">${new Date(a.time).toLocaleTimeString()}</span>
+      </div>
+      <div class="ai-q">Q: "${a.query.slice(0,80)}${a.query.length>80?'…':''}"</div>
+      <div class="ai-a">A: "${a.response.slice(0,80)}${a.response.length>80?'…':''}"</div>
+    </div>`).join('');
+}
+
+// ── OWNER PANEL ──
+let pinBuffer='';
+let ownerUnlocked=false;
+
+function pinInput(digit){
+  if(pinBuffer.length>=4) return;
+  pinBuffer+=digit;
+  for(let i=0;i<4;i++) document.getElementById('pd'+i).className='pin-dot'+(i<pinBuffer.length?' filled':'');
+  if(pinBuffer.length===4) setTimeout(checkPin,200);
+}
+
+function pinDel(){
+  pinBuffer=pinBuffer.slice(0,-1);
+  for(let i=0;i<4;i++) document.getElementById('pd'+i).className='pin-dot'+(i<pinBuffer.length?' filled':'');
+  document.getElementById('pinError').textContent='';
+}
+
+function checkPin(){
+  if(pinBuffer===ownerPin){
+    ownerUnlocked=true;
+    document.getElementById('ownerLocked').style.display='none';
+    document.getElementById('ownerContent').style.display='flex';
+    renderTopicLocks();renderModeToggles();
+    showToast('🔓 Owner panel unlocked');
+  } else {
+    document.getElementById('pinError').textContent='Incorrect PIN. Try again.';
+    pinBuffer='';
+    for(let i=0;i<4;i++) document.getElementById('pd'+i).className='pin-dot';
+  }
+}
+
+function lockOwner(){
+  ownerUnlocked=false;pinBuffer='';
+  document.getElementById('ownerLocked').style.display='flex';
+  document.getElementById('ownerContent').style.display='none';
+  for(let i=0;i<4;i++) document.getElementById('pd'+i).className='pin-dot';
+  document.getElementById('pinError').textContent='';
+  showScreen('chat');showToast('🔒 Owner panel locked');
+}
+
+function renderOwnerPanel(){
+  if(!ownerUnlocked){
+    document.getElementById('ownerLocked').style.display='flex';
+    document.getElementById('ownerContent').style.display='none';
+  }
+}
+
+function renderTopicLocks(){
+  const lockable=['emotion_sad','emotion_anxious','emotion_love','mental_health','coding','finance','gaming','social_media','news','philosophy','blockchain','history'];
+  document.getElementById('topicLocks').innerHTML=lockable.map(cat=>`
+    <div class="toggle-row">
+      <div><div class="toggle-label">${cat.replace(/_/g,' ')}</div></div>
+      <label class="switch"><input type="checkbox" ${topicLocks[cat]?'checked':''} onchange="setTopicLock('${cat}',this.checked)" /><span class="slider"></span></label>
+    </div>`).join('');
+}
+
+function setTopicLock(cat,val){
+  topicLocks[cat]=val;save();
+  showToast(val?`🔒 "${cat}" locked`:`"${cat}" unlocked`);
+}
+
+function renderModeToggles(){
+  const modes={
+    familyFriendly:{l:'Family Friendly Mode',d:'Restrict adult topics — good for younger users'},
+    requireContext:{l:'Require Context',d:'ARIA asks for more info before answering sensitive questions'},
+    verboseReasoning:{l:'Verbose Reasoning',d:'Show full logic trace in every response'},
+  };
+  document.getElementById('modeToggles').innerHTML=Object.entries(modes).map(([k,v])=>`
+    <div class="toggle-row">
+      <div><div class="toggle-label">${v.l}</div><div class="toggle-sub">${v.d}</div></div>
+      <label class="switch"><input type="checkbox" ${modeSettings[k]?'checked':''} onchange="toggleMode('${k}',this.checked)" /><span class="slider"></span></label>
+    </div>`).join('');
+}
+
+function toggleMode(key,val){modeSettings[key]=val;save();showToast(val?`✅ ${key} on`:`${key} off`);}
+
+function changePin(){
+  const np=document.getElementById('newPin').value.trim();
+  if(!/^\d{4}$/.test(np)){showToast('⚠️ PIN must be exactly 4 digits');return;}
+  ownerPin=np;save();document.getElementById('newPin').value='';
+  showToast('✅ PIN updated successfully');
+}
+
+function clearAudit(){if(!confirm('Clear audit log?'))return;auditLog=[];save();renderAuditLog();showToast('Audit log cleared.');}
+function resetBlocklist(){if(!confirm('Reset blocklist to defaults?'))return;blocklist=[...DEFAULT_BLOCKLIST];save();renderBlockedTags();showToast('Blocklist reset.');}
+function clearAllMemory(){if(!confirm('Wipe ALL memory? This cannot be undone.'))return;memory=[];convHistory=[];taughtData=[];save();updateMemCount();renderTaughtList();showToast('All memory wiped.');lockOwner();}
+
+// ── MEMORY SHEET ──
+function updateMemCount(){
+  document.getElementById('sheetMemCount').textContent=memory.length;
+}
+function openMemSheet(){
+  document.getElementById('memSheet').classList.add('open');
+  filterMem('');
+}
+function closeMemSheet(){document.getElementById('memSheet').classList.remove('open');}
+function filterMem(q){
+  const lq=q.toLowerCase();
+  const items=q?memory.filter(m=>m.content.toLowerCase().includes(lq)):memory;
+  document.getElementById('sheetMemList').innerHTML=items.length?items.slice(0,60).map(m=>`
+    <div class="mem-item">
+      <span class="mtag t-${m.type}">${m.type.toUpperCase()}</span>
+      <div style="font-size:.77rem;margin-top:3px">${m.content.slice(0,100)}${m.content.length>100?'…':''}</div>
+      <div class="mtime">${new Date(m.time).toLocaleString()}</div>
+    </div>`).join('')
+    :'<div style="color:var(--mu2);font-size:.73rem;text-align:center;padding:20px">No memories found.</div>';
+}
+
+// ── TOAST ──
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+// ── SEED KNOWLEDGE ──
+function seedKnowledge(){
+  if(localStorage.getItem(K.seeded)) return;
+  const ts=(o=0)=>new Date(Date.now()-o*60000).toISOString();
+
+  const profileMems=[
+    {type:'user',content:'User built ARIA from scratch — v1 (if/then), v2 (web+memory), v3 (teachable), v4 (mobile+safety)',kw:['aria','builder','creator','project','version']},
+    {type:'preference',content:'User wants persistent memory as top priority — memory recall is the most important feature',kw:['memory','recall','persist','priority']},
+    {type:'preference',content:'User said: "I do not want to limit you" — ARIA should be as capable as safely possible',kw:['unlimited','expand','no limits']},
+    {type:'fact',content:'User compared raising ARIA to raising a child — wants her safe, helpful, problem-solving, not harmful',kw:['safe','child','father','protective','responsible']},
+    {type:'preference',content:'User is hands-on and collaborative — prefers working things over explanations',kw:['hands-on','build','working','show']},
+    {type:'fact',content:'ARIA = Adaptive Rule-based Intelligent Assistant — name chosen because it matches architecture perfectly',kw:['aria','name','meaning','acronym','adaptive','rule']},
+    {type:'user',content:'User wants ARIA on phone as a home screen app (PWA) — mobile first priority',kw:['phone','mobile','app','pwa','home screen']},
+  ];
+
+  profileMems.forEach((m,i)=>memory.push({id:1800000100+i,...m,time:ts(200-i*10),recalled:0}));
+
+  const preTeachings=[
+    {id:1800000001,category:'aria_project',icon:'🤖',
+     keywords:['aria','how were you built','your architecture','rule engine','if then else','variable array','keyword scoring','who made you'],
+     response:"I was built by you using if/then/else logic and variable arrays! Architecture: keywords stored in topic arrays → your input scored against each → highest score wins → response picked from that category's array. Built progressively: v1 (basic rules) → v2 (web + memory) → v3 (teachable + personas + skills) → v4 (mobile + safety + owner controls). You wanted no limits — so ARIA keeps growing.",
+     taught:ts(10),uses:0},
+    {id:1800000002,category:'how_to_teach',icon:'✏️',
+     keywords:['how to teach','add new skill','train you','new response','teach aria','expand knowledge','add keyword'],
+     response:"4 ways to teach me:\n\n1️⃣ TEACH TAB — tap ✏️ in the bottom nav. Fill in category, keywords, and response. No code needed.\n\n2️⃣ NATURAL CHAT — tell me things like 'My name is X', 'I work as Y', 'I love Z' — I extract and store facts automatically.\n\n3️⃣ ASK CLAUDE — go to Claude.ai and ask Claude to inject new knowledge directly into this file.\n\n4️⃣ EDIT THE CODE — open the HTML, find KEYWORDS or BASE_RESPONSES, add new arrays.",
+     taught:ts(9),uses:0},
+    {id:1800000003,category:'safety_system',icon:'🛡️',
+     keywords:['safety','how are you safe','harm detection','blocked','safety layer','safe for children','content filter','blocklist'],
+     response:"I have 5 safety layers:\n\n🛡️ Layer 1: Blocklist — custom words/phrases that trigger an instant block\n🧠 Layer 2: Harm pattern detection — violence, illegal activity, crisis signals\n🔒 Layer 3: Topic locks — owner can disable entire categories\n👨‍👧 Layer 4: Family friendly mode — restricts adult content\n📋 Layer 5: Audit log — every conversation logged for owner review\n\nAll controlled from the 🛡️ Safety tab and 🔐 Owner tab (PIN protected).",
+     taught:ts(8),uses:0},
+    {id:1800000004,category:'owner_controls',icon:'🔐',
+     keywords:['owner panel','pin','password','parent controls','lock topic','master control','owner access','change pin'],
+     response:"The Owner Panel (🔐 tab) is PIN protected — default PIN is 1234, change it immediately.\n\nOwner powers:\n🔒 Lock entire topic categories (e.g. lock 'finance' for younger users)\n🔑 Change the PIN at any time\n🎓 Toggle modes: Family Friendly, Require Context, Verbose Reasoning\n⚠️ Danger zone: clear audit log, reset blocklist, wipe all memory\n\nThe safety badge at the top turns amber if blocked queries spike — always visible.",
+     taught:ts(7),uses:0},
+    {id:1800000005,category:'pwa_install',icon:'📱',
+     keywords:['install app','add to home screen','pwa','phone app','mobile install','home screen','offline','app icon'],
+     response:"To install ARIA on your phone:\n\n📱 iPhone/Safari: Tap the Share button (box with arrow) → 'Add to Home Screen' → 'Add'. ARIA appears as an app icon and opens fullscreen.\n\n🤖 Android/Chrome: Tap the 3-dot menu → 'Add to Home Screen' or 'Install App'. Same result.\n\nARIA works offline for all rule-based responses. Live web search only needs data when you ask for latest news/events. Your memory, teachings, and settings are all stored locally on your device.",
+     taught:ts(6),uses:0},
+    {id:1800000006,category:'memory_system',icon:'🧠',
+     keywords:['how does memory work','what do you remember','memory system','what have you stored','your memory','recall system','persistent'],
+     response:"Memory system explained:\n\n💾 STORAGE: Browser localStorage — survives closing tab, refreshing, or restarting. Up to 400 entries.\n\n🔍 RECALL: When you ask something, I score all memories against your words. Highest matches surface first.\n\n📥 AUTO-EXTRACT: I automatically detect and store your name, age, location, job, likes, and dislikes from natural conversation.\n\n🧠 TRIGGER: Say 'what do you remember about me?' or 'recall our last chat' to pull it all.\n\n🗑️ CLEAR: Owner panel → Danger Zone → Wipe All Memory.",
+     taught:ts(5),uses:0},
+  ];
+
+  preTeachings.forEach(t=>{ if(!taughtData.find(x=>x.id===t.id)) taughtData.unshift(t); });
+
+  const preConvs=[
+    {u:"Help me build my own AI assistant using if then else logic",a:"Built ARIA v1 — basic if/then/else with keyword arrays and logic trace",cat:"coding",t:ts(240)},
+    {u:"Expand variable arrays to everything safe on the web",a:"Built ARIA v2 — 50+ keyword arrays, live web search, persistent memory",cat:"coding",t:ts(180)},
+    {u:"Why did you choose the name ARIA?",a:"ARIA = Adaptive Rule-based Intelligent Assistant. Also a beautiful word — a self-contained expressive musical piece",cat:"identity",t:ts(120)},
+    {u:"Yes please all above — teach panel, feedback, personas, skills",a:"Built ARIA v3 — teach panel, feedback system, 6 personas, 8 skill modules",cat:"coding",t:ts(90)},
+    {u:"Can you pre-load knowledge into ARIA from our conversation?",a:"Yes — injected 13 memories, 6 pre-taught skills, full conversation history",cat:"coding",t:ts(60)},
+    {u:"How do I get ARIA on my phone and keep her safe?",a:"Explained PWA install + 5 safety layers + owner panel",cat:"coding",t:ts(30)},
+    {u:"Yes please all the above — mobile, safety, owner controls",a:"Building ARIA v4 — mobile PWA, safety engine, PIN-protected owner panel, audit log",cat:"coding",t:ts(5)},
+  ];
+
+  preConvs.forEach(c=>{ if(!convHistory.find(x=>x.u===c.u)) convHistory.push(c); });
+
+  localStorage.setItem(K.seeded,'1');
+  save();
+}
+
+// ── INIT ──
+seedKnowledge();
+renderSkills(); renderPersonas(); renderTaughtList();
+renderSafetyToggles(); renderBlockedTags(); updateMemCount(); updateSafetyBadge();
+
+const memCount=memory.length;
+const lastConv=convHistory[convHistory.length-1];
+addMessage('ai',
+  `🚀 <b>ARIA v4 — Mobile & Safe, Pre-loaded & Ready!</b>\n\n` +
+  `📱 <b>Install as app:</b> Tap Share → "Add to Home Screen"\n` +
+  `🛡️ <b>Safety:</b> 5 layers active — blocklist, harm detection, audit log\n` +
+  `🔐 <b>Owner PIN:</b> Default is <em>1234</em> — change it in the Owner tab\n` +
+  `🧠 <b>${memCount} memories</b> pre-loaded from our Claude conversation\n` +
+  `✏️ <b>6 skills</b> pre-taught — ask me anything about ARIA\n\n` +
+  `Try: <em>"How were you built?"</em> · <em>"How do I install you?"</em> · <em>"How does safety work?"</em>`,
+  {confidence:1,source:'taught'}
+);
+
+if(lastConv) setTimeout(()=>addSysNote(`📚 Seeded from Claude session — ${new Date(lastConv.t).toLocaleString()}`),700);
+</script>
+</body>
+</html>
