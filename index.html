@@ -12,7 +12,7 @@
 <!-- PWA Manifest inline -->
 <script>
 // ── VERSION STAMP ── bump this string every time you upload a new ARIA file
-const ARIA_VERSION = '4.4.8';
+const ARIA_VERSION = '4.5.0';
 const ARIA_BUILD   = '2026-03-07';
 
 const manifestData = {
@@ -1415,7 +1415,10 @@ async function searchWeb(query, cat) {
   const isUnknown = cat === 'unknown';
   const isFactual = lower.includes('capital of') || lower.includes('definition of') || lower.includes('meaning of') || lower.includes('history of');
 
+  // Only fire background web search if query is substantial enough
+  const wordCount = lower.trim().split(/\s+/).length;
   if (!isLive && !isKnowledgeQ && !isUnknown && !isFactual) return null;
+  if (wordCount < 3 && !isLive && !isKnowledgeQ) return null; // single/double words handled locally
 
   return await fetchPublicSearch(query);
 }
@@ -1475,7 +1478,7 @@ async function fetchPublicSearch(query) {
   try {
     const controller2 = new AbortController();
     const timer2 = setTimeout(() => controller2.abort(), 6000);
-    const wikiQuery = query.replace(/^(what is|who is|who was|what are|tell me about|check for|search for|find)\s*/i, '').trim();
+    const wikiQuery = query.replace(/^(what is|who is|who was|what are|tell me about|check for|search for|find|about)\s*/i, '').trim();
     const wikiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiQuery)}`;
     const wikiRes = await fetch(wikiUrl, { signal: controller2.signal });
     clearTimeout(timer2);
@@ -1510,7 +1513,7 @@ async function generateResponse(input) {
     || /^(search|check|find|look).*(web|online|internet|google)/i.test(lower)
     || /search (the web|online|internet|for) (for |about )?.+/i.test(lower);
   if (forceSearch) {
-    const query = input.replace(/^(check the web for|check the web|check online for|check online|check on the web for|check on the web|check for|search the web for|search the web|search online for|search online|search for|search|google|look up|lookup|find|check|go online|browse)\s*/i, '').trim() || input;
+    const query = input.replace(/^(check the web for|check the web|check online for|check online|check on the web for|check on the web|check for|search the web for|search the web|search online for|search online|search for|search|google|look up|lookup|find|check|go online|browse)\s*/i, '').replace(/^(about|for|on|the)\s+/i,'').trim() || input;
 
     // Live status messages in the typing bubble
     updateTypingStatus('🌐 Connecting…');
@@ -1524,7 +1527,9 @@ async function generateResponse(input) {
       if (result) {
         const cap = query.charAt(0).toUpperCase() + query.slice(1);
         const text = `🌐 <b>${cap}</b>\n\n${result}`;
-        addMem('search',`Web searched: "${query.slice(0,60)}"`, query.toLowerCase().split(' ').filter(w=>w.length>2).slice(0,5));
+        // Save the actual result content so ARIA learns from it
+        const plainResult = result.replace(/<[^>]+>/g,'').slice(0,150);
+        addMem('search', `Web result for "${query.slice(0,40)}": ${plainResult}`, query.toLowerCase().split(' ').filter(w=>w.length>2).slice(0,6));
         convHistory.push({u:input,a:result.slice(0,120),cat:'news',t:new Date().toISOString()});
         logAudit(input,text,{blocked:false},'web_search'); save();
         return {text, category:'news', confidence:.97, source:'web', recalled:[]};
@@ -1547,7 +1552,7 @@ async function generateResponse(input) {
     'maita basa': `Maita basa, Warren! 🙏\n\n(Thank you!) Ndakafara kukubatsira — I am happy to help. Chero nguva — anytime.`,
     'ndatenda': `Ndatendawo Warren! 🙏\n\n(Thank you too!) Ndakafara — I am glad. Zvimwe zvamunoda here? (Anything else you need?)`,
   };
-  const shonaMatch = Object.keys(shonaGreetMap).find(k => lower.startsWith(k) || lower === k);
+  const shonaMatch = Object.keys(shonaGreetMap).find(k => lower === k || lower === k + '!' || lower === k + '.' || lower === k + '?');
   if (shonaMatch) {
     const text = shonaGreetMap[shonaMatch];
     addMem('preference', `Warren greeted ARIA in Shona: "${input}"`, ['shona','greeting','mhoro','language']);
@@ -1604,7 +1609,8 @@ async function generateResponse(input) {
   if(webResult){
     text=`🌐 <b>Web →</b> ${webResult.replace(/\*\*(.*?)\*\*/g,'<b>$1</b>')}`;
     source='web';
-    addMem('search',`Searched: "${input.slice(0,60)}"`,input.toLowerCase().split(' ').filter(w=>w.length>2).slice(0,5));
+    const plainWeb = webResult.replace(/<[^>]+>/g,'').slice(0,150);
+    addMem('search',`Web result for "${input.slice(0,40)}": ${plainWeb}`,input.toLowerCase().split(' ').filter(w=>w.length>2).slice(0,6));
   } else {
     let memPfx='';
     if(recalled.length>0&&recalled[0].score>0){source='memory';memPfx=`🧠 <em style="color:var(--g5);font-size:.76rem">Recalled: ${recalled[0].content.slice(0,60)}…</em>\n\n`;}
