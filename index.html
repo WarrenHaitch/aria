@@ -12,7 +12,7 @@
 <!-- PWA Manifest inline -->
 <script>
 // ── VERSION STAMP ── bump this string every time you upload a new ARIA file
-const ARIA_VERSION = '4.4.7';
+const ARIA_VERSION = '4.4.8';
 const ARIA_BUILD   = '2026-03-07';
 
 const manifestData = {
@@ -1426,31 +1426,45 @@ async function fetchPublicSearch(query) {
   const timer = setTimeout(() => controller.abort(), 8000);
 
   try {
-    // Try DuckDuckGo Instant Answer API first
     const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
     const res = await fetch(ddgUrl, { signal: controller.signal });
     clearTimeout(timer);
     const data = await res.json();
 
-    // DuckDuckGo returns AbstractText for factual queries
+    // Best: direct abstract (Wikipedia-sourced factual answer)
     if (data.AbstractText && data.AbstractText.length > 40) {
-      const source = data.AbstractSource ? ` <em style="color:var(--mu3);font-size:.7rem">[${data.AbstractSource}]</em>` : '';
-      return `${data.AbstractText}${source}`;
+      const src = data.AbstractSource ? `<span style="color:var(--mu3);font-size:.72rem"> · ${data.AbstractSource}</span>` : '';
+      const text = data.AbstractText.length > 350 ? data.AbstractText.slice(0,350)+'…' : data.AbstractText;
+      return `${text}${src}`;
     }
 
-    // Try Answer (short direct answers like calculations, facts)
-    if (data.Answer && data.Answer.length > 5) {
-      return data.Answer;
+    // Direct short answer (calculations, definitions, quick facts)
+    if (data.Answer && data.Answer.length > 3) {
+      return `<b>${data.Answer}</b>`;
     }
 
-    // Try RelatedTopics for broader queries
+    // Infobox data (structured facts like country populations, movie info)
+    if (data.Infobox && data.Infobox.content && data.Infobox.content.length > 0) {
+      const facts = data.Infobox.content
+        .filter(f => f.label && f.value)
+        .slice(0, 4)
+        .map(f => `<b>${f.label}:</b> ${f.value}`)
+        .join('\n');
+      if (facts) return facts;
+    }
+
+    // Related topics — strip category headers (those have no Text but have Name)
     if (data.RelatedTopics && data.RelatedTopics.length > 0) {
       const topics = data.RelatedTopics
-        .filter(t => t.Text && t.Text.length > 20)
+        .filter(t => t.Text && t.Text.length > 25 && !t.Name)
         .slice(0, 3)
-        .map(t => `• ${t.Text}`)
-        .join('\n');
-      if (topics) return `Here's what I found:\n\n${topics}`;
+        .map(t => {
+          // Clean up "Topic Title Description" format DDG uses
+          const clean = t.Text.replace(/^([A-Z][^\s]+(\s[A-Z][^\s]+)*)\s/, '<b>$1</b> ');
+          return `• ${clean}`;
+        })
+        .join('\n\n');
+      if (topics) return topics;
     }
   } catch(e) {
     clearTimeout(timer);
@@ -1461,14 +1475,15 @@ async function fetchPublicSearch(query) {
   try {
     const controller2 = new AbortController();
     const timer2 = setTimeout(() => controller2.abort(), 6000);
-    const wikiQuery = query.replace(/^(what is|who is|who was|what are|tell me about)\s*/i, '').trim();
+    const wikiQuery = query.replace(/^(what is|who is|who was|what are|tell me about|check for|search for|find)\s*/i, '').trim();
     const wikiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiQuery)}`;
     const wikiRes = await fetch(wikiUrl, { signal: controller2.signal });
     clearTimeout(timer2);
     if (wikiRes.ok) {
       const wiki = await wikiRes.json();
       if (wiki.extract && wiki.extract.length > 50) {
-        return `${wiki.extract.slice(0, 400)}${wiki.extract.length > 400 ? '…' : ''} <em style="color:var(--mu3);font-size:.7rem">[Wikipedia]</em>`;
+        const extract = wiki.extract.length > 380 ? wiki.extract.slice(0,380)+'…' : wiki.extract;
+        return `${extract}<span style="color:var(--mu3);font-size:.72rem"> · Wikipedia</span>`;
       }
     }
   } catch(e2) {}
@@ -1507,7 +1522,8 @@ async function generateResponse(input) {
       const result = await fetchPublicSearch(query);
       clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
       if (result) {
-        const text = `🌐 <b>Web: "${query}"</b>\n\n${result}`;
+        const cap = query.charAt(0).toUpperCase() + query.slice(1);
+        const text = `🌐 <b>${cap}</b>\n\n${result}`;
         addMem('search',`Web searched: "${query.slice(0,60)}"`, query.toLowerCase().split(' ').filter(w=>w.length>2).slice(0,5));
         convHistory.push({u:input,a:result.slice(0,120),cat:'news',t:new Date().toISOString()});
         logAudit(input,text,{blocked:false},'web_search'); save();
