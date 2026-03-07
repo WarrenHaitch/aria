@@ -26,60 +26,42 @@ const link = document.createElement('link');
 link.rel='manifest'; link.href=URL.createObjectURL(blob);
 document.head.appendChild(link);
 
-// ── SERVICE WORKER (offline + update detection) ──
-const SW_CODE = `
+// ── PWA MANIFEST ──
+
+
+// ── SERVICE WORKER — aggressive cache busting ──
+if ('serviceWorker' in navigator) {
+  // On every load: unregister ALL old service workers and wipe ALL caches
+  // This ensures the new file always loads fresh from GitHub
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => r.unregister());
+  });
+  caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+
+  // Re-register fresh SW
+  const SW_CODE = `
 const CACHE = 'aria-v${ARIA_VERSION}';
-const URLS  = ['/'];           // cache the root page
-
 self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(URLS)).then(() => self.skipWaiting())
-  );
+  e.waitUntil(self.skipWaiting());
 });
-
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
-  // Notify all open tabs that a new version is live
-  self.clients.matchAll({type:'window'}).then(clients =>
-    clients.forEach(c => c.postMessage({type:'NEW_VERSION', version:'${ARIA_VERSION}', build:'${ARIA_BUILD}'}))
-  );
 });
-
 self.addEventListener('fetch', e => {
-  // Network-first for the HTML (so updates always land), cache-fallback for offline
   if (e.request.mode === 'navigate') {
     e.respondWith(
-      fetch(e.request).then(res => {
-        const clone = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, clone));
-        return res;
-      }).catch(() => caches.match(e.request))
+      fetch(e.request, {cache:'no-store'}).catch(() => caches.match(e.request))
     );
   }
 });
 `;
-
-if ('serviceWorker' in navigator) {
   const swBlob = new Blob([SW_CODE], {type:'application/javascript'});
   const swUrl  = URL.createObjectURL(swBlob);
-
-  navigator.serviceWorker.register(swUrl, {scope:'/'})
-    .then(reg => {
-      // Poll for updates every 60 seconds while app is open
-      setInterval(() => reg.update(), 60000);
-    })
-    .catch(() => {}); // Fail silently if SW not supported
-
-  // Listen for update messages from Service Worker
-  navigator.serviceWorker.addEventListener('message', e => {
-    if (e.data?.type === 'NEW_VERSION') {
-      showUpdateBanner(e.data.version, e.data.build);
-    }
-  });
+  navigator.serviceWorker.register(swUrl, {scope:'/'}).catch(() => {});
 }
 </script>
 
@@ -2580,6 +2562,7 @@ showScreen = function(name) {
   if (name === 'stats') renderStatsScreen();
   if (name === 'chat') renderSuggestions();
 };
+try {
 seedKnowledge();
 renderSkills(); renderPersonas(); renderTaughtList();
 renderSafetyToggles(); renderBlockedTags(); updateMemCount(); updateSafetyBadge();
@@ -2628,6 +2611,16 @@ addMessage('ai',
 );
 
 setTimeout(() => addSysNote(`${stage.emoji} ${stage.name} · ${memCount} memories · v${ARIA_VERSION} · ${new Date().toLocaleDateString('en-GB')}`), 700);
+
+} catch(err) {
+  // Show error visibly so it's never a silent blank screen again
+  document.getElementById('messages').innerHTML =
+    `<div style="padding:20px;color:#ff3d5a;font-family:monospace;font-size:.8rem;line-height:1.8">
+      <b>⚠️ ARIA startup error — please screenshot and report:</b><br><br>
+      ${err.message}<br><br>
+      ${err.stack?.slice(0,300) || ''}
+    </div>`;
+}
 </script>
 </body>
 </html>
