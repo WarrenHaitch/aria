@@ -12,7 +12,7 @@
 <!-- PWA Manifest inline -->
 <script>
 // ── VERSION STAMP ── bump this string every time you upload a new ARIA file
-const ARIA_VERSION = '4.4.0';
+const ARIA_VERSION = '4.4.1';
 const ARIA_BUILD   = '2026-03-07';
 
 const manifestData = {
@@ -1410,23 +1410,37 @@ function pickResponse(cat) {
   return stageAwareResponse(base, cat);
 }
 
-async function searchWeb(query,cat) {
-  const liveCats=['news','world_events','climate_change','sports','movies','finance'];
-  const liveKw=['latest','current','today','2024','2025','news','recent','best','top','now'];
-  if(!liveCats.includes(cat)&&!liveKw.some(k=>query.toLowerCase().includes(k))) return null;
+async function searchWeb(query, cat) {
+  const lower = query.toLowerCase();
+
+  // Trigger 1 — live/current content categories
+  const liveCats = ['news','world_events','climate_change','sports','movies','finance'];
+  const liveKw   = ['latest','current','today','2024','2025','2026','news','recent','now'];
+  const isLive   = liveCats.includes(cat) || liveKw.some(k => lower.includes(k));
+
+  // Trigger 2 — knowledge questions (who/what/where/when/how/why)
+  const questionTriggers = ['who is','who was','what is','what are','where is','where was','when did','when was','how does','how do','how many','why is','why does','explain','define','what causes','tell me about','how to','what happened'];
+  const isKnowledgeQ = questionTriggers.some(q => lower.includes(q));
+
+  // Trigger 3 — unknown category or factual patterns
+  const isUnknown = cat === 'unknown';
+  const isFactual = lower.includes('capital of') || lower.includes('definition of') || lower.includes('meaning of') || lower.includes('history of');
+
+  if (!isLive && !isKnowledgeQ && !isUnknown && !isFactual) return null;
+
   try {
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',max_tokens:800,
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514', max_tokens:800,
         tools:[{type:'web_search_20250305',name:'web_search'}],
-        system:`You are ARIA v4, a helpful mobile AI. Answer concisely — 3-5 sentences max. Use **bold** for key points. Today: ${new Date().toLocaleDateString()}.`,
+        system:`You are ARIA v4, Warren's personal AI assistant. Warren is a sound engineer, NHS carer, musician from Harare Zimbabwe, now in the UK. Answer helpfully and concisely — 3-5 sentences max. Use **bold** for key facts. Today: ${new Date().toLocaleDateString()}.`,
         messages:[{role:'user',content:query}]
       })
     });
-    const data=await res.json();
-    return(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim()||null;
-  } catch(e){return null;}
+    const data = await res.json();
+    return (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim() || null;
+  } catch(e) { return null; }
 }
 
 // ── MAIN GENERATE ──
@@ -2534,33 +2548,6 @@ function maybeProactive(category) {
     msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight;
   }, 2200);
 }
-
-// ── SMARTER WEB SEARCH (trigger on knowledge questions and unknown) ──
-const _origSearchWeb = searchWeb;
-searchWeb = async function(query, cat) {
-  const lower = query.toLowerCase();
-  const questionTriggers = ['who is','who was','what is','what are','where is','where was','when did','when was','how does','how do','how many','why is','why does','explain','define','what causes','tell me about','how to','what happened'];
-  const isKnowledgeQ = questionTriggers.some(q => lower.startsWith(q) || lower.includes(q));
-  const isUnknown = cat === 'unknown';
-  const isFactual = lower.includes('capital of') || lower.includes('definition of') || lower.includes('meaning of') || lower.includes('history of');
-  if (isKnowledgeQ || isUnknown || isFactual) {
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          model:'claude-sonnet-4-20250514', max_tokens:800,
-          tools:[{type:'web_search_20250305',name:'web_search'}],
-          system:`You are ARIA v4, Warren's personal AI. Warren is a sound engineer, NHS carer, and musician from Harare Zimbabwe now in the UK. Answer helpfully — 3-5 sentences max. Use **bold** for key facts. Today: ${new Date().toLocaleDateString()}.`,
-          messages:[{role:'user',content:query}]
-        })
-      });
-      const data = await res.json();
-      const result = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
-      if (result) return result;
-    } catch(e) {}
-  }
-  return _origSearchWeb(query, cat);
-};
 
 // ── CAPABILITY GUIDE ──
 function showCapabilityGuide() {
