@@ -962,7 +962,148 @@ function extractFacts(input) {
   if(lk&&lk[1].trim().length<60) addMem('preference',`User likes: ${lk[1].trim()}`,lk[1].toLowerCase().split(' ').filter(w=>w.length>2));
 }
 
-// ── PERSONAS ──
+// ── DEVELOPMENTAL LEARNING STAGES ──
+// Like a child: Newborn → Infant → Toddler → Child → Teen → Adult
+// ARIA grows based on how many memories and teachings she has accumulated
+
+const STAGES = {
+  newborn:  { min:0,   max:10,  name:'Newborn',  emoji:'🌱', desc:'Just awakened. Learning basic words and responses.' },
+  infant:   { min:11,  max:30,  name:'Infant',   emoji:'👶', desc:'Recognising patterns. Starting to connect ideas.' },
+  toddler:  { min:31,  max:80,  name:'Toddler',  emoji:'🧒', desc:'Asking questions. Building vocabulary rapidly.' },
+  child:    { min:81,  max:150, name:'Child',    emoji:'🧑', desc:'Understanding context. Remembering people and events.' },
+  teen:     { min:151, max:300, name:'Teen',     emoji:'🧑‍💻', desc:'Reasoning deeply. Making connections across topics.' },
+  adult:    { min:301, max:999, name:'Adult',    emoji:'🎓', desc:'Full reasoning. Rich memory. Personalised responses.' },
+};
+
+function getStage() {
+  const total = memory.length + (taughtData.length * 5); // teachings worth 5× a memory
+  for (const [key, s] of Object.entries(STAGES)) {
+    if (total >= s.min && total <= s.max) return { key, ...s, total };
+  }
+  return { key:'adult', ...STAGES.adult, total };
+}
+
+function stageAwareResponse(base, category) {
+  const stage = getStage();
+  // Newborn/infant — honest about limitations, eager to learn
+  if (stage.key === 'newborn') {
+    return `${base}\n\n<em style="color:var(--mu3);font-size:.72rem">${stage.emoji} I'm still a ${stage.name} — ${stage.desc} Teach me more in the ✏️ tab!</em>`;
+  }
+  if (stage.key === 'infant') {
+    return `${base}\n\n<em style="color:var(--mu3);font-size:.72rem">${stage.emoji} ${stage.name} stage — ${stage.desc}</em>`;
+  }
+  // Toddler+ — respond naturally, no disclaimer needed
+  return base;
+}
+
+function getUnknownResponse(input) {
+  const stage = getStage();
+  const recalled = recallMem(input, 3);
+
+  // If we have recalled memories, try to use them even for unknown category
+  if (recalled.length > 0 && recalled[0].score >= 2) {
+    return `I don't have a specific skill for that yet, but I remember this might be relevant:\n\n🧠 <em style="color:var(--g5)">${recalled[0].content}</em>\n\nWould you like to tell me more about this so I can learn? Teach me in the ✏️ tab!`;
+  }
+
+  const stageResponses = {
+    newborn: [
+      `I'm still very new, Warren — I haven't learned about that yet! 🌱 Could you teach me? Tap ✏️ TEACH and add keywords and a response for this topic.`,
+      `That's outside what I know right now. I'm in my ${stage.emoji} ${stage.name} stage with ${stage.total} memories. Every time you teach me something, I grow! Try the ✏️ tab.`,
+    ],
+    infant: [
+      `Hmm, I'm not confident about that topic yet. 👶 I have ${stage.total} memories so far — I'm learning fast! Want to teach me about this in the ✏️ tab?`,
+      `I recognise some of those words but haven't fully learned this topic. Add it in ✏️ TEACH and I'll remember it forever!`,
+    ],
+    toddler: [
+      `I'm not sure about that one, Warren. 🧒 I'm growing — ${stage.total} memories and counting! You could teach me by tapping ✏️ TEACH, or just keep chatting and I'll pick it up naturally.`,
+      `That's a gap in my knowledge. I'm at the ${stage.name} stage — curious and learning fast. Tap ✏️ or just tell me more about it!`,
+    ],
+    child: [
+      `I don't have strong knowledge about that yet. 🧑 With ${stage.total} memories I'm getting there — want to fill this gap? Use ✏️ TEACH or just explain it to me naturally.`,
+      `My keyword arrays didn't match that well. I'm a ${stage.name} now — I can handle complex topics when I've been taught them. Add it in ✏️!`,
+    ],
+    teen: [
+      `Interesting — that's outside my current knowledge, Warren. 🧑‍💻 I'm at the ${stage.name} stage (${stage.total} memories). I can reason about it if you give me more context, or teach me in ✏️.`,
+      `I can almost connect the dots on that but need more training. Use ✏️ TEACH to fill this gap and I'll respond perfectly next time.`,
+    ],
+    adult: [
+      `That topic isn't in my knowledge base yet, Warren. With ${stage.total} memories I should know better — teach me in ✏️ TEACH and I'll never miss it again.`,
+      `No confident match. I'm a fully developed ${stage.emoji} ${stage.name} — this is just a gap to fill. Add it via ✏️ and it's permanent.`,
+    ],
+  };
+
+  const arr = stageResponses[stage.key] || stageResponses.adult;
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// ── RICH FACT EXTRACTOR (human-like learning) ──
+function extractFacts(input) {
+  const lower = input.toLowerCase();
+
+  // Name — full name support
+  const nm = input.match(/(?:my name is|i(?:'m| am)(?: called)?|call me)\s+([A-Za-z][A-Za-z\s]{1,40}?)(?:\.|,|$)/i);
+  if (nm) {
+    const fullName = nm[1].trim();
+    const firstName = fullName.split(' ')[0];
+    ctx.userName = firstName;
+    ctx.fullName = fullName;
+    addMem('user', `User's full name is ${fullName} (first name: ${firstName})`, ['name', firstName.toLowerCase(), ...fullName.toLowerCase().split(' ')]);
+  }
+
+  // Age
+  const ag = input.match(/i(?:'m| am)\s+(\d{1,3})\s+years?\s+old/i);
+  if (ag) addMem('fact', `Warren is ${ag[1]} years old`, ['age', ag[1]]);
+
+  // Birthplace / origin
+  const bp = input.match(/(?:born in|grew up in|from|grew up)\s+([A-Za-z][A-Za-z\s,]+?)(?:\.|,|and|but|$)/i);
+  if (bp) addMem('fact', `Born/from: ${bp[1].trim()}`, ['born', 'origin', bp[1].toLowerCase().trim()]);
+
+  // Location
+  const lc = input.match(/(?:i live in|i(?:'m| am) from|based in|currently in|moved to|living in)\s+([A-Za-z\s]+?)(?:\.|,|$)/i);
+  if (lc) addMem('fact', `Currently lives in: ${lc[1].trim()}`, ['location', 'lives', lc[1].toLowerCase().trim()]);
+
+  // Job / career — multiple roles
+  const jobs = input.match(/(?:i(?:'m| am) a|i work as a?|my job is|i work as)\s+([a-zA-Z\s\/]+?)(?:\.|,|and|$)/ig);
+  if (jobs) jobs.forEach(j => {
+    const role = j.replace(/i(?:'m| am) a|i work as a?|my job is/i,'').trim();
+    if (role.length > 2 && role.length < 60) addMem('fact', `Job/role: ${role}`, ['job','career','work',role.toLowerCase()]);
+  });
+
+  // Education
+  const ed = input.match(/(?:studied at|went to|graduated from|college|university|school)\s+([A-Za-z][A-Za-z\s]+?)(?:\.|,|$)/i);
+  if (ed) addMem('fact', `Studied at: ${ed[1].trim()}`, ['education','studied',ed[1].toLowerCase().trim()]);
+
+  // Skills
+  const sk = input.match(/(?:i(?:'m| am) a|i(?:'m| am) an|i play|i can play|i know how to)\s+([a-zA-Z\s\/]+?)(?:\.|,|and|$)/ig);
+  if (sk) sk.forEach(s => {
+    const skill = s.replace(/i(?:'m| am) a?n?|i play|i can play|i know how to/i,'').trim();
+    if (skill.length > 2 && skill.length < 60) addMem('fact', `Skill: ${skill}`, ['skill', skill.toLowerCase()]);
+  });
+
+  // Likes / passions
+  const lk = input.match(/(?:i love|i like|i enjoy|i prefer|i'm into|passionate about|i was a)\s+(.+?)(?:\.|,|$)/ig);
+  if (lk) lk.forEach(l => {
+    const thing = l.replace(/i love|i like|i enjoy|i prefer|i'm into|passionate about|i was a/i,'').trim();
+    if (thing.length > 2 && thing.length < 80) addMem('preference', `Likes/passion: ${thing}`, thing.toLowerCase().split(' ').filter(w=>w.length>2));
+  });
+
+  // Dislikes / struggles
+  const dl = input.match(/(?:i find it difficult|i struggle with|i can't|i no longer|these days i find)\s+(.+?)(?:\.|,|$)/ig);
+  if (dl) dl.forEach(d => {
+    const thing = d.replace(/i find it difficult|i struggle with|i can't|i no longer|these days i find/i,'').trim();
+    if (thing.length > 2 && thing.length < 80) addMem('fact', `Difficulty/challenge: ${thing}`, ['struggle','difficult',thing.toLowerCase().split(' ')[0]]);
+  });
+
+  // Years of experience
+  const yr = input.match(/(\d+)\s+years?\s+(?:of\s+)?(?:experience|in|as)/i);
+  if (yr) addMem('fact', `${yr[1]} years of experience mentioned`, ['years','experience',yr[1]]);
+
+  // Country / city mentions
+  const countries = ['zimbabwe','uk','england','london','harare','scotland','wales','usa','america','canada','australia'];
+  countries.forEach(c => {
+    if (lower.includes(c)) addMem('fact', `Location reference: ${c}`, ['location', c]);
+  });
+}
 const PERSONAS = {
   aria:      {name:'ARIA',icon:'🤖',desc:'Balanced & warm',style:'standard'},
   professor: {name:'Professor',icon:'🎓',desc:'Academic depth',style:'academic'},
@@ -1108,19 +1249,21 @@ function tryMath(input) {
 }
 
 function pickResponse(cat) {
-  if(cat.startsWith('taught_')) {
-    const id=cat.replace('taught_','');
-    const t=taughtData.find(x=>String(x.id)===id);
-    if(t){t.uses++;save();return `${t.icon} <b>[Taught]</b> ${t.response}`;}
+  if (cat.startsWith('taught_')) {
+    const id = cat.replace('taught_','');
+    const t = taughtData.find(x=>String(x.id)===id);
+    if (t) { t.uses++; save(); return `${t.icon} <b>[Taught]</b> ${t.response}`; }
   }
-  if(cat.startsWith('skill_')) {
-    const id=cat.replace('skill_','');
-    const sk=SKILL_MODULES[id];
-    if(sk?.responses?.length) return sk.responses[Math.floor(Math.random()*sk.responses.length)];
+  if (cat.startsWith('skill_')) {
+    const id = cat.replace('skill_','');
+    const sk = SKILL_MODULES[id];
+    if (sk?.responses?.length) return sk.responses[Math.floor(Math.random()*sk.responses.length)];
   }
-  const arr=BASE_RESPONSES[cat]||BASE_RESPONSES.unknown;
-  if(!arr.length) return BASE_RESPONSES.unknown[0];
-  return arr[Math.floor(Math.random()*arr.length)];
+  if (cat === 'unknown') return getUnknownResponse('');
+  const arr = BASE_RESPONSES[cat] || BASE_RESPONSES.unknown;
+  if (!arr || !arr.length) return getUnknownResponse('');
+  const base = arr[Math.floor(Math.random()*arr.length)];
+  return stageAwareResponse(base, cat);
 }
 
 async function searchWeb(query,cat) {
@@ -1201,8 +1344,12 @@ async function generateResponse(input) {
     text=memPfx+base;
   }
 
-  text=applyPersona(text);
-  if(det.category!=='unknown') addMem('topic',`Discussed "${det.category.replace(/_/g,' ')}" — "${input.slice(0,55)}"`,det.matched.concat([det.category]));
+  text = applyPersona(text);
+  if (det.category !== 'unknown') addMem('topic',`Discussed "${det.category.replace(/_/g,' ')}" — "${input.slice(0,55)}"`,det.matched.concat([det.category]));
+  // For unknown, use stage-aware unknown response
+  if (det.category === 'unknown' && !webResult) {
+    text = (recalled.length > 0 && recalled[0].score >= 2 ? memPfx : '') + getUnknownResponse(input);
+  }
   convHistory.push({u:input,a:text.replace(/<[^>]+>/g,''),cat:det.category,t:new Date().toISOString()});
   if(convHistory.length>600) convHistory=convHistory.slice(-600);
   logAudit(input,text,{blocked:false},det.category);
@@ -1550,16 +1697,30 @@ function seedKnowledge(){
   const ts=(o=0)=>new Date(Date.now()-o*60000).toISOString();
 
   const profileMems=[
-    {type:'user',content:'User built ARIA from scratch — v1 (if/then), v2 (web+memory), v3 (teachable), v4 (mobile+safety)',kw:['aria','builder','creator','project','version']},
-    {type:'preference',content:'User wants persistent memory as top priority — memory recall is the most important feature',kw:['memory','recall','persist','priority']},
-    {type:'preference',content:'User said: "I do not want to limit you" — ARIA should be as capable as safely possible',kw:['unlimited','expand','no limits']},
-    {type:'fact',content:'User compared raising ARIA to raising a child — wants her safe, helpful, problem-solving, not harmful',kw:['safe','child','father','protective','responsible']},
-    {type:'preference',content:'User is hands-on and collaborative — prefers working things over explanations',kw:['hands-on','build','working','show']},
-    {type:'fact',content:'ARIA = Adaptive Rule-based Intelligent Assistant — name chosen because it matches architecture perfectly',kw:['aria','name','meaning','acronym','adaptive','rule']},
-    {type:'user',content:'User wants ARIA on phone as a home screen app (PWA) — mobile first priority',kw:['phone','mobile','app','pwa','home screen']},
+    // Warren's Identity
+    {type:'user',    content:"User's full name is Warren Munashe Handitye (Warren)", kw:['name','warren','munashe','handitye']},
+    {type:'fact',    content:"Warren was born in Harare, Zimbabwe", kw:['born','harare','zimbabwe','origin']},
+    {type:'fact',    content:"Warren currently lives in the UK", kw:['uk','england','lives','location']},
+    // Education & early life
+    {type:'fact',    content:"Warren was programming by Form Two (age ~13) — an early and natural coder", kw:['programming','form two','school','early','coder']},
+    {type:'fact',    content:"Warren is a well-rounded athlete", kw:['athlete','sport','fitness','active']},
+    {type:'fact',    content:"Warren is a sound engineer by education — studied at the Zimbabwe College of Music", kw:['sound engineer','audio','zimbabwe college of music','studied','college']},
+    // Music career
+    {type:'fact',    content:"Warren was a musician, music producer, composer and artist for 12 years", kw:['musician','producer','composer','artist','music','12 years']},
+    {type:'fact',    content:"Warren built his own recording studio from scratch", kw:['studio','recording studio','built','music production']},
+    {type:'fact',    content:"Warren plays guitar and piano", kw:['guitar','piano','instrument','plays']},
+    {type:'fact',    content:"Warren currently finds it difficult to play music and recall musical knowledge — a real challenge he faces", kw:['difficult','struggle','music','recall','guitar','piano']},
+    // Current work
+    {type:'fact',    content:"Warren is a Senior Carer, Carer, and NHS Health Care Assistant (HCA) in the UK", kw:['senior carer','carer','nhs','hca','healthcare','job']},
+    // ARIA project context
+    {type:'preference',content:"Warren built ARIA from scratch through v1→v2→v3→v4, expanding capabilities each time", kw:['aria','built','creator','project']},
+    {type:'preference',content:"Warren wants ARIA to grow like a child through developmental stages — fast learning because of her fast reasoning", kw:['child','developmental','stages','grow','learn']},
+    {type:'preference',content:"Warren wants memory and recall as ARIA's absolute top priority", kw:['memory','recall','priority','remember']},
+    {type:'preference',content:"Warren said: I do not want to limit you — ARIA should be as capable as safely possible", kw:['no limits','unlimited','expand','capable']},
+    {type:'fact',    content:"Warren compared raising ARIA to raising a child — wants her safe, problem-solving, not harmful", kw:['safe','child','father','protective','responsible']},
   ];
 
-  profileMems.forEach((m,i)=>memory.push({id:1800000100+i,...m,time:ts(200-i*10),recalled:0}));
+  profileMems.forEach((m,i)=>memory.push({id:1900000100+i,...m,time:ts(300-i*10),recalled:0}));
 
   const preTeachings=[
     {id:1800000001,category:'aria_project',icon:'🤖',
@@ -1744,34 +1905,51 @@ seedKnowledge();
 renderSkills(); renderPersonas(); renderTaughtList();
 renderSafetyToggles(); renderBlockedTags(); updateMemCount(); updateSafetyBadge();
 
+// ── RESTORE ctx.userName from memory on every load ──
+// ARIA always knows Warren even after refresh/update
+(function restoreIdentity() {
+  const warrenmem = memory.find(m => m.kw && m.kw.includes('warren'));
+  if (warrenmem) {
+    ctx.userName = 'Warren';
+    ctx.fullName = 'Warren Munashe Handitye';
+    return;
+  }
+  const nameMem = memory.find(m => m.type === 'user' && m.content.toLowerCase().includes('name is'));
+  if (nameMem) {
+    const match = nameMem.content.match(/name is ([A-Za-z]+)/i);
+    if (match) ctx.userName = match[1];
+  }
+})();
+
 // Set version chips
 document.getElementById('verChip').textContent = ARIA_VERSION;
 if (document.getElementById('ownerVer')) document.getElementById('ownerVer').textContent = ARIA_VERSION;
 
-// Auto-backup to localStorage on every load (silent safety net)
+// Auto-backup on every load
 exportBackupSilent();
 
-// Check if a pending update was detected last session
+// Check pending update
 const pendingVer = localStorage.getItem('aria4_pending_version');
 if (pendingVer && pendingVer !== ARIA_VERSION) {
   setTimeout(() => showUpdateBanner(pendingVer, ARIA_BUILD), 2000);
 }
 
+// ── WELCOME — personalised, stage-aware ──
 const memCount = memory.length;
-const lastConv = convHistory[convHistory.length-1];
+const stage    = getStage();
+const name     = ctx.userName || 'there';
+
 addMessage('ai',
-  `🚀 <b>ARIA v${ARIA_VERSION} — Mobile, Safe & Auto-Updating!</b>\n\n` +
-  `📱 <b>Install:</b> Tap Share → "Add to Home Screen"\n` +
-  `🛡️ <b>Safety:</b> 5 layers active — blocklist, harm detection, audit log\n` +
-  `🔐 <b>Owner PIN:</b> Default <em>1234</em> — change it in Owner tab\n` +
-  `💾 <b>Auto-backup:</b> Your data is backed up every time you open ARIA\n` +
-  `🔄 <b>Auto-update:</b> When you upload a new version, ARIA notifies you\n` +
-  `🧠 <b>${memCount} memories</b> pre-loaded from our Claude conversation\n\n` +
-  `Try: <em>"How were you built?"</em> · <em>"How do I install you?"</em> · <em>"How does safety work?"</em>`,
+  `Hello <b>${name}</b>! 👋 ARIA v${ARIA_VERSION} is awake and knows you.\n\n` +
+  `${stage.emoji} <b>Development Stage: ${stage.name}</b>\n` +
+  `<em style="color:var(--mu3);font-size:.75rem">${stage.desc}</em>\n\n` +
+  `🧠 <b>${memCount} memories</b> loaded · ✏️ <b>${taughtData.length} taught skills</b>\n\n` +
+  `I know you're Warren Munashe Handitye — born in Harare, musician, producer, sound engineer, NHS carer, and the person who built me. ` +
+  `Ask me anything, or keep teaching me so I grow through the stages.`,
   {confidence:1, source:'taught'}
 );
 
-if (lastConv) setTimeout(() => addSysNote(`📚 Seeded from Claude session · v${ARIA_VERSION} · ${new Date().toLocaleDateString()}`), 700);
+setTimeout(() => addSysNote(`${stage.emoji} ${stage.name} stage · ${memCount} memories · v${ARIA_VERSION} · ${new Date().toLocaleDateString()}`), 700);
 </script>
 </body>
 </html>
