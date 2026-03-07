@@ -12,7 +12,7 @@
 <!-- PWA Manifest inline -->
 <script>
 // ── VERSION STAMP ── bump this string every time you upload a new ARIA file
-const ARIA_VERSION = '4.1.0';
+const ARIA_VERSION = '4.4.0';
 const ARIA_BUILD   = '2026-03-07';
 
 const manifestData = {
@@ -480,6 +480,75 @@ select.tf-in{cursor:pointer}
 /* version chip in header */
 .ver-chip{font-family:'JetBrains Mono',monospace;font-size:.5rem;
   color:var(--mu);padding:1px 5px;border:1px solid var(--b1);border-radius:6px;margin-left:4px}
+
+/* voice button */
+.voice-btn{width:40px;height:44px;border-radius:12px;border:1.5px solid var(--b2);
+  background:var(--bg);font-size:1rem;cursor:pointer;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;transition:all .2s}
+.voice-btn.listening{border-color:var(--danger);background:rgba(255,61,90,.12);animation:pulse 1s infinite}
+
+/* save-to-memory on bubbles */
+.save-mem-btn{background:none;border:none;font-size:.82rem;cursor:pointer;
+  opacity:.35;transition:all .2s;padding:3px 5px;border-radius:6px}
+.save-mem-btn:active{opacity:1}
+
+/* stat grid */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px}
+.stat-card{background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:13px;text-align:center}
+.stat-num{font-size:1.8rem;font-weight:800;line-height:1;background:linear-gradient(135deg,var(--g1),var(--g2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-label{font-size:.6rem;color:var(--mu3);font-family:'JetBrains Mono',monospace;margin-top:4px;letter-spacing:.05em;text-transform:uppercase}
+
+/* stage progress bar */
+.stage-bar-wrap{background:var(--b1);border-radius:8px;height:8px;margin-top:10px;overflow:hidden}
+.stage-bar{height:100%;border-radius:8px;background:linear-gradient(90deg,var(--g1),var(--g2));transition:width 1.2s ease}
+.milestone{font-size:.55rem;font-family:'JetBrains Mono',monospace;color:var(--mu);text-align:center}
+.milestone.done{color:var(--g1)}
+
+/* topic bar chart */
+.topic-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.topic-name{font-size:.7rem;width:90px;flex-shrink:0;color:var(--mu3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topic-track{flex:1;background:var(--b1);border-radius:4px;height:6px;overflow:hidden}
+.topic-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--g4),var(--g2));transition:width 1s ease}
+.topic-count{font-size:.58rem;color:var(--mu2);width:20px;text-align:right;flex-shrink:0}
+
+/* version history */
+.vh-item{background:var(--bg);border:1px solid var(--b1);border-radius:10px;padding:10px 13px;margin-bottom:6px}
+.vh-ver{font-weight:800;font-size:.82rem;color:var(--g1)}
+.vh-date{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--mu);margin-left:8px}
+.vh-changes{font-size:.72rem;color:var(--mu3);margin-top:5px;line-height:1.7}
+
+/* copy response button */
+.copy-btn{background:none;border:none;font-size:.82rem;cursor:pointer;
+  opacity:.35;transition:all .2s;padding:3px 5px;border-radius:6px}
+.copy-btn:active{opacity:1}
+
+/* edit skill modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.modal-sheet{background:var(--s1);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto}
+.modal-title{font-size:.95rem;font-weight:800;color:var(--g1);margin-bottom:14px;text-align:center}
+
+/* teach list search */
+.teach-search{width:100%;margin-bottom:10px}
+
+/* proactive message */
+.proactive-msg{background:linear-gradient(135deg,rgba(0,255,179,.06),rgba(0,212,255,.04));
+  border:1px solid rgba(0,255,179,.15);border-radius:14px;padding:10px 14px;
+  margin:4px 0 4px 36px;font-size:.75rem;color:var(--mu3);font-style:italic;line-height:1.6}
+
+/* export chat btn */
+.export-chat-btn{background:var(--s2);border:1px solid var(--b2);border-radius:9px;
+  padding:8px 14px;font-size:.72rem;color:var(--mu3);cursor:pointer;
+  font-family:'JetBrains Mono',monospace;transition:all .2s}
+.export-chat-btn:active{background:var(--b1)}
+
+/* capability guide */
+.cap-section{background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:13px;margin-bottom:8px}
+.cap-title{font-size:.78rem;font-weight:700;color:var(--g2);margin-bottom:6px}
+.cap-item{font-size:.72rem;color:var(--mu3);line-height:1.9}
+
+/* large font mode */
+body.fs-large .bubble{font-size:.93rem!important}
+body.fs-large input[type=text]{font-size:.93rem!important}
 </style>
 </head>
 <body>
@@ -510,7 +579,10 @@ select.tf-in{cursor:pointer}
     <div class="sdot safe" id="safetyDot"></div>
     <span id="safetyLabel">SAFE</span>
   </div>
-  <div class="hdr-btn" onclick="openMemSheet()">🧠</div>
+  <div style="display:flex;gap:6px">
+    <div class="hdr-btn" onclick="toggleFontSize()" title="Font size">𝐀</div>
+    <div class="hdr-btn" onclick="openMemSheet()">🧠</div>
+  </div>
 </div>
 
 <!-- MAIN -->
@@ -519,16 +591,13 @@ select.tf-in{cursor:pointer}
   <!-- ── CHAT SCREEN ── -->
   <div class="screen active" id="screen-chat">
     <div class="messages" id="messages"></div>
-    <div class="sug-row" id="sugRow">
-      <button class="sug" onclick="qs(this)">How were you built?</button>
-      <button class="sug" onclick="qs(this)">Latest tech news</button>
-      <button class="sug" onclick="qs(this)">Solve: 999 × 88</button>
-      <button class="sug" onclick="qs(this)">I feel stressed today</button>
-      <button class="sug" onclick="qs(this)">Recommend a book</button>
-      <button class="sug" onclick="qs(this)">What do you remember about me?</button>
-      <button class="sug" onclick="qs(this)">Help me stay productive</button>
+    <div style="display:flex;justify-content:flex-end;padding:0 12px 2px;gap:8px">
+      <button class="export-chat-btn" onclick="exportChat()">📤 Export chat</button>
+      <button class="export-chat-btn" onclick="clearChat()">🗑️ Clear chat</button>
     </div>
+    <div class="sug-row" id="sugRow"></div>
     <div class="input-area">
+      <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()" title="Voice input">🎤</button>
       <div class="input-wrap">
         <span class="iprompt">›</span>
         <input type="text" id="userInput" placeholder="Ask ARIA anything…"
@@ -545,34 +614,51 @@ select.tf-in{cursor:pointer}
       <div class="card">
         <div class="card-title">Add New Skill</div>
         <div class="card-desc" style="margin-bottom:12px">Teach ARIA to recognise a topic and respond to it. No code needed.</div>
+
         <div class="tf-group">
           <label class="tf-label">CATEGORY NAME</label>
-          <input type="text" class="tf-in" id="tchCat" placeholder="e.g. cooking_tips" />
+          <input type="text" class="tf-in" id="tchCat" placeholder="e.g. aria_name, my_family, music_theory" />
         </div>
         <div class="tf-group">
           <label class="tf-label">TRIGGER KEYWORDS (comma separated)</label>
-          <input type="text" class="tf-in" id="tchKeys" placeholder="e.g. recipe, cook, bake, ingredient" />
+          <input type="text" class="tf-in" id="tchKeys" placeholder="e.g. what does aria stand for, your name, aria meaning" />
         </div>
         <div class="tf-group">
           <label class="tf-label">ARIA'S RESPONSE</label>
           <textarea class="tf-in" id="tchResp" placeholder="What should ARIA say when these keywords appear?"></textarea>
         </div>
+
+        <!-- ICON SECTION — select OR type your own -->
         <div class="tf-group">
-          <label class="tf-label">ICON</label>
-          <select class="tf-in" id="tchIcon">
-            <option value="🍳">🍳 Cooking</option><option value="💡">💡 Tips</option>
-            <option value="🔬">🔬 Science</option><option value="🎯">🎯 Goal</option>
-            <option value="📚">📚 Learning</option><option value="💼">💼 Business</option>
-            <option value="🌍">🌍 World</option><option value="🎨">🎨 Creative</option>
-            <option value="⚙️">⚙️ Technical</option><option value="❤️">❤️ Personal</option>
-            <option value="🏥">🏥 Health</option><option value="⚖️">⚖️ Legal</option>
-            <option value="🧘">🧘 Wellness</option><option value="🎵">🎵 Music</option>
-          </select>
+          <label class="tf-label">ICON — pick one or type any emoji below</label>
+
+          <!-- Emoji grid picker -->
+          <div id="emojiGrid" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;background:var(--bg);border:1px solid var(--b2);border-radius:10px;padding:10px"></div>
+
+          <!-- Custom emoji input -->
+          <div style="display:flex;gap:8px;align-items:center">
+            <div style="font-size:1.6rem;width:40px;text-align:center;flex-shrink:0" id="iconPreview">🤖</div>
+            <input type="text" class="tf-in" id="tchIconCustom" placeholder="Or type/paste any emoji here…" maxlength="8"
+              oninput="updateIconPreview(this.value)" style="flex:1" />
+          </div>
+          <div style="font-size:.6rem;color:var(--mu3);margin-top:5px;font-family:'JetBrains Mono',monospace">
+            Tap a grid emoji to select it, or type/paste any emoji in the box above
+          </div>
         </div>
+
         <button class="tf-btn" onclick="teachARIA()">TEACH ARIA</button>
       </div>
 
+      <!-- QUICK TEACH TEMPLATES -->
+      <div class="section-title">⚡ Quick Teach Templates</div>
+      <div class="card">
+        <div class="card-desc" style="margin-bottom:10px">Tap a template to pre-fill the form — then customise and teach.</div>
+        <div style="display:flex;flex-direction:column;gap:7px" id="templateList"></div>
+      </div>
+
       <div class="section-title">Taught Skills (<span id="taughtCount">0</span>)</div>
+      <input type="text" class="tf-in teach-search" id="teachSearch"
+        placeholder="🔍 Search taught skills…" oninput="filterTaughtList(this.value)" />
       <div id="taughtList"></div>
     </div>
   </div>
@@ -702,6 +788,32 @@ select.tf-in{cursor:pointer}
     </div>
   </div>
 
+  <!-- ── STATS SCREEN ── -->
+  <div class="screen" id="screen-stats">
+    <div class="panel-screen">
+      <div class="section-title">📊 ARIA Intelligence Stats</div>
+      <div class="card">
+        <div class="card-title" id="stageTitle">🌱 Development Stage</div>
+        <div class="stage-bar-wrap"><div class="stage-bar" id="stageBar"></div></div>
+        <div class="card-desc" style="margin-top:8px" id="stageDesc"></div>
+        <div style="display:flex;justify-content:space-between;margin-top:10px;flex-wrap:wrap;gap:4px" id="stageMilestones"></div>
+      </div>
+      <div class="stat-grid" id="statGrid"></div>
+      <div class="section-title">🗂️ Top Topics</div>
+      <div id="topicBreakdown"></div>
+      <div class="section-title">📅 Today</div>
+      <div class="card" id="todaySummary"></div>
+      <div class="section-title">🪞 Self-Reflection</div>
+      <div class="card">
+        <div class="card-desc" style="margin-bottom:10px">Ask ARIA to summarise everything she knows about you.</div>
+        <button class="tf-btn" onclick="selfReflect()">What do you know about me, ARIA?</button>
+        <div id="reflectionOutput" style="margin-top:12px;font-size:.8rem;line-height:1.8;display:none"></div>
+      </div>
+      <div class="section-title">📋 Version History</div>
+      <div id="versionHistory"></div>
+    </div>
+  </div>
+
 </div>
 
 <!-- BOTTOM NAV -->
@@ -719,6 +831,9 @@ select.tf-in{cursor:pointer}
   <div class="nav-item" id="nav-safety" onclick="showScreen('safety')">
     <span class="ni">🛡️</span>SAFETY
   </div>
+  <div class="nav-item" id="nav-stats" onclick="showScreen('stats')">
+    <span class="ni">📊</span>STATS
+  </div>
   <div class="nav-item" id="nav-owner" onclick="showScreen('owner')">
     <span class="ni">🔐</span>OWNER
   </div>
@@ -728,6 +843,30 @@ select.tf-in{cursor:pointer}
 <div class="overlay" id="memSheet" onclick="if(event.target===this)closeMemSheet()">
   <div class="sheet">
     <div class="sheet-handle"></div>
+
+<!-- EDIT SKILL MODAL -->
+<div class="modal-overlay" id="editModal" style="display:none" onclick="if(event.target===this)closeEditModal()">
+  <div class="modal-sheet">
+    <div class="modal-title">✏️ Edit Taught Skill</div>
+    <input type="hidden" id="editId" />
+    <div class="tf-group">
+      <label class="tf-label">CATEGORY NAME</label>
+      <input type="text" class="tf-in" id="editCat" />
+    </div>
+    <div class="tf-group">
+      <label class="tf-label">TRIGGER KEYWORDS</label>
+      <input type="text" class="tf-in" id="editKeys" />
+    </div>
+    <div class="tf-group">
+      <label class="tf-label">ARIA'S RESPONSE</label>
+      <textarea class="tf-in" id="editResp" style="min-height:120px"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="tf-btn" style="flex:1" onclick="saveEditedSkill()">SAVE CHANGES</button>
+      <button class="tf-btn" style="flex:0 0 80px;background:var(--s2);color:var(--mu3)" onclick="closeEditModal()">Cancel</button>
+    </div>
+  </div>
+</div>
     <div class="sheet-title">🧠 Memory Vault (<span id="sheetMemCount">0</span>)</div>
     <div class="sheet-body">
       <input type="text" class="tf-in" id="memSearchIn" placeholder="Search memories…"
@@ -750,7 +889,7 @@ const K = {
   mem:'aria4_mem', conv:'aria4_conv', taught:'aria4_taught',
   skills:'aria4_skills', persona:'aria4_persona', ratings:'aria4_ratings',
   blocklist:'aria4_blocklist', safety:'aria4_safety', audit:'aria4_audit',
-  pin:'aria4_pin', locks:'aria4_locks', modes:'aria4_modes', seeded:'aria4_seeded_v1'
+  pin:'aria4_pin', locks:'aria4_locks', modes:'aria4_modes', seeded:'aria4_seeded_v4'
 };
 
 let memory      = JSON.parse(localStorage.getItem(K.mem)      || '[]');
@@ -949,18 +1088,6 @@ function recallMem(query, n=5) {
   }).filter(m=>m.score>0).sort((a,b)=>b.score-a.score).slice(0,n);
 }
 
-function extractFacts(input) {
-  const nm=input.match(/(?:my name is|i(?:'m| am)(?: called)?|call me)\s+([A-Za-z]+)/i);
-  if(nm){ctx.userName=nm[1];addMem('user',`User's name is ${nm[1]}`,['name',nm[1].toLowerCase()]);}
-  const ag=input.match(/i(?:'m| am)\s+(\d{1,3})\s+years?\s+old/i);
-  if(ag) addMem('fact',`User is ${ag[1]} years old`,['age']);
-  const lc=input.match(/(?:i live in|i(?:'m| am) from|based in)\s+([A-Za-z\s]+?)(?:\.|,|$)/i);
-  if(lc) addMem('fact',`User is from ${lc[1].trim()}`,['location',lc[1].toLowerCase().trim()]);
-  const jb=input.match(/(?:i(?:'m| am) a|i work as a?|my job is)\s+([a-zA-Z\s]+?)(?:\.|,|$)/i);
-  if(jb&&jb[1].trim().length<35) addMem('fact',`Works as: ${jb[1].trim()}`,['job',jb[1].toLowerCase().trim()]);
-  const lk=input.match(/(?:i love|i like|i enjoy|i prefer|i'm into)\s+(.+?)(?:\.|,|$)/i);
-  if(lk&&lk[1].trim().length<60) addMem('preference',`User likes: ${lk[1].trim()}`,lk[1].toLowerCase().split(' ').filter(w=>w.length>2));
-}
 
 // ── DEVELOPMENTAL LEARNING STAGES ──
 // Like a child: Newborn → Infant → Toddler → Child → Teen → Adult
@@ -1099,10 +1226,18 @@ function extractFacts(input) {
   if (yr) addMem('fact', `${yr[1]} years of experience mentioned`, ['years','experience',yr[1]]);
 
   // Country / city mentions
-  const countries = ['zimbabwe','uk','england','london','harare','scotland','wales','usa','america','canada','australia'];
+  const countries = ['zimbabwe','uk','england','london','harare','scotland','wales','usa','america','canada','australia','belper','derby','nottingham','birmingham','manchester','leeds','bristol'];
   countries.forEach(c => {
     if (lower.includes(c)) addMem('fact', `Location reference: ${c}`, ['location', c]);
   });
+
+  // Goals / intentions
+  const goal = input.match(/(?:my goal is|i want to|i aim to|i'm trying to|i plan to|i would like to)\s+(.+?)(?:\.|,|$)/i);
+  if (goal && goal[1].length > 3 && goal[1].length < 120) addMem('preference', `Goal/intention: ${goal[1].trim()}`, ['goal', 'want', 'plan', 'aim']);
+
+  // Relationships
+  const rel = input.match(/(?:my wife|my husband|my partner|my girlfriend|my boyfriend|my son|my daughter|my brother|my sister|my mum|my dad|my friend)\s+(?:is called|is named|is)\s+([A-Za-z]+)/i);
+  if (rel) addMem('fact', `Relationship: ${rel[0].trim()}`, ['family', 'relationship', rel[1].toLowerCase()]);
 }
 const PERSONAS = {
   aria:      {name:'ARIA',icon:'🤖',desc:'Balanced & warm',style:'standard'},
@@ -1177,42 +1312,51 @@ const KEYWORDS = {
   nature:['nature','forest','ocean','mountain','river','desert','jungle','plant','flower','tree'],
   productivity:['productive','focus','time management','procrastinate','schedule','routine','pomodoro','deep work'],
   time_query:['what time','current time','what date','today\'s date','what day','what year'],
+
+  // ── WARREN-SPECIFIC KNOWLEDGE AREAS ──
+  shona_culture:['shona','zimbabwe culture','totem','mutupo','mhoro','mangwanani','masikati','manheru','maita','ndatenda','zvakanaka','harare','bulawayo','mutare','gweru','sadza','chimurenga','nehanda','sekuru','mainini','babamukuru','ambuya','mukuwasha'],
+  music_theory:['music theory','chord','scale','key signature','time signature','tempo','bpm','major','minor','pentatonic','octave','interval','rhythm','melody','harmony','counterpoint','arrangement','mix','master','eq','compression','reverb','delay','frequency','waveform','midi','daw','pro tools','logic pro','ableton','fl studio','cubase','soundwave','amplitude','pitch','transpose'],
+  care_work:['care plan','risk assessment','dementia','alzheimer','medication round','catheter','manual handling','moving and handling','peg feed','pressure ulcer','safeguarding','cqc','dols','capacity assessment','mental capacity act','deprivation of liberty','dignity','personal care','continence','dysphagia','end of life','palliative','care home','domiciliary','supported living','rota','shift','handover','incident report','body map'],
+  nhs_healthcare:['nhs','hca','health care assistant','ward','hospital','patient','resident','service user','clinical','nursing','doctor','gp','a&e','emergency','triage','obs','blood pressure','pulse','sats','oxygen','temperature','urine','bowel','fluid intake','nutrition screening','waterlow','must score'],
+  audio_engineering:['audio','mixing','mastering','sound design','recording','studio','microphone','phantom power','gain','db','decibel','headroom','bus','aux','send','return','plugin','vst','sample rate','bit depth','wav','mp3','stereo','mono','panning','equaliser','eq','low pass','high pass','notch filter','multiband','limiter','compressor','gate','expander'],
+  mental_resilience:['resilience','cope','coping','difficult time','hard times','keep going','strength','moving forward','grief','loss','recovery','bounce back','setback','challenge','overcome','not giving up','tired','exhausted','shift work','night shift','burnout care'],
 };
 
 const BASE_RESPONSES = {
-  greeting:["Hey! ARIA v4 here — mobile, safe, and ready. What's on your mind?","Hello! I'm your personal AI — secure, private, and always learning. How can I help?"],
-  farewell:["Goodbye! Everything saved — I'll remember you. Take care! 👋","See you! Your memory is preserved. Come back anytime."],
-  identity:["I'm <b>ARIA v4</b> — built by you using if/then/else logic and variable arrays. I have live web search, persistent memory, safety layers, skill modules, and persona modes. Every decision is traceable. What would you like to explore?","I'm your personal rule-based AI. Built from scratch, progressively: v1 (basic rules) → v2 (web + memory) → v3 (teachable) → v4 (mobile + safety). Ask me anything!"],
-  thanks:["Anytime! 🤝","You're welcome — and that's logged! 😊"],
-  emotion_sad:["I'm really sorry. 💚 You're not alone — want to talk about what's going on?","That sounds hard. 💙 One small step at a time. I'm here. What happened?"],
-  emotion_happy:["That's wonderful! 🌟 What's making you feel great?","Love that energy! Keep doing whatever's creating it. 😄"],
-  emotion_angry:["Sounds frustrating. 🔥 Take a breath — what happened?","That's valid. Let's talk it through."],
-  emotion_anxious:["Anxiety is tough. 💙 Try: name 5 things you can see right now. What's worrying you?","Let's slow it down. What's the main thing on your mind?"],
-  mental_health:["Mental health is just as real as physical health. 🌱 Whether it's therapy, mindfulness, or talking — all valid. How are you?"],
-  motivation:["💪 Start with the next 1% improvement. Momentum builds from tiny actions. What are you working toward?"],
-  science:["Science! 🧪 Physics, chemistry, biology? What are you curious about?"],
-  astronomy:["Space is extraordinary. 🌌 What cosmic topic?"],
-  ai_ml:["AI and ML! 🤖 Interesting topic given I'm a rule-based AI — the transparency contrast is the whole point. What aspect?"],
-  coding:["💻 Let's code! Language, concept, or bug — I'm ready."],
-  music:["🎵 Music mode. Genre, mood, or artist?"],
-  movies:["🎬 Film mode. Genre, era, or specific recommendation?"],
-  books:["📚 Book mode. Fiction or non? Genre?"],
-  sports:["⚽ Sports mode. Which sport and what question?"],
-  travel:["✈️ Travel mode! Destination or travel style?"],
-  food:["🍳 Food mode! Recipe, cuisine, or nutrition?"],
-  fitness:["💪 Fitness mode. Goal: weight loss, muscle, endurance, or flexibility?"],
-  finance:["💰 Finance mode. Budget, investing, debt, or wealth building?"],
-  math:[],
-  joke:["Why do programmers confuse Halloween and Christmas? Oct 31 === Dec 25. 🎃","Why did the variable break up with the function? Too many arguments. 😂","I told a joke about recursion. I told a joke about recursion. I told a joke..."],
-  trivia:["Fun fact: Honey never spoils — 3000-year-old honey found in Egyptian tombs was still edible. 🍯","Octopuses have three hearts, blue blood, and can edit their own RNA. 🐙"],
-  animals:["🐾 Which animal or topic?"],
-  productivity:["⚡ Rule: if task feels huge → break into 25-min Pomodoro chunks. What are you trying to accomplish?"],
-  news:["📰 Let me search the web for the latest…"],
-  unknown:["My keyword arrays didn't find a confident match. Could you expand on that? I cover tech, science, health, finance, arts, travel, food, fitness, history, news, and much more.","Hmm — no strong match. Try rewording or pick a topic from the suggestions!"]
+  greeting:["Hey Warren! 👋 ARIA here — what's on your mind today?","Mhoro Warren! 😊 I'm ready. What do you need?","Hello! Good to see you again, Warren. What shall we explore?","Hey! Your personal AI is awake. Memory loaded, safety on. What's up?"],
+  farewell:["Goodbye Warren! Everything saved — I'll remember this. Take care! 👋","See you! Your memory is always preserved here. Rest well. 💙","Masikati Warren! Come back anytime — I'll be here."],
+  identity:["I'm <b>ARIA v4</b> — built by Warren Munashe Handitye using if/then/else logic. I have memory, web search, safety layers, taught skills, and 6 personas. Ask me what ARIA stands for!","I'm your personal rule-based AI, Warren. Built from scratch: v1 → v2 → v3 → v4. Transparent, teachable, and always growing."],
+  thanks:["Maita basa, Warren! 🤝","You're welcome — always. 😊","Anytime, Warren. That's what I'm here for."],
+  emotion_sad:["I hear you, Warren. 💙 You carry a lot — caring for others professionally while managing your own life is genuinely hard. Want to talk about what's going on?","That sounds really tough. 💚 One breath at a time. What's weighing on you today?"],
+  emotion_anxious:["Anxiety is hard, especially after long care shifts. 💙 Try grounding: name 5 things you can see right now. What's worrying you?","Let's slow it down together. What's the main thing on your mind?"],
+  mental_resilience:["Warren, you've already proven your resilience — from Harare to the UK, from music to healthcare, through every challenge. You know how to keep going. 💪 What's making it hard right now?","Strength isn't about not feeling tired — it's about continuing anyway. And you do. What do you need right now?"],
+  music:["🎵 Music — your world for 12 years. Genre, theory, production technique, or something about your musical history?","🎵 Music mode. I know you were a producer, composer, and sound engineer. What aspect — theory, production, or memory?"],
+  music_theory:["🎼 Music theory! From chord construction to DAW workflow — you built a studio, Warren, so you know this world. What specifically?","🎸 Theory mode. Scales, harmony, mixing, mastering — what do you want to explore or remember?"],
+  audio_engineering:["🎧 Audio engineering — your qualification from the Zimbabwe College of Music. EQ, compression, mixing, mastering — what are you working through?","🔊 Studio mode. Signal flow, plugin chains, mix techniques — let's get technical."],
+  care_work:["🏥 Care work topic. From care plans to safeguarding, medication to risk assessments — what do you need?","🧑‍⚕️ Care mode. You work across three companies including the NHS — I can help with care terminology, procedures, or documentation concepts."],
+  nhs_healthcare:["⚕️ NHS/healthcare mode. Clinical observations, HCA responsibilities, patient care — what's the question?","🏥 Healthcare topic. What aspect — clinical, procedural, or patient care?"],
+  shona_culture:["🌍 Shona culture and Zimbabwe heritage! Mhoro Warren — your roots from Harare, your totem Gwai Gora Gumbi Nyamhunga. What would you like to explore?","Zimbabwe, Shona culture, totems, language — a rich topic. What do you want to know or discuss?"],
+  unknown:["My keyword arrays didn't find a confident match for that, Warren. Could you expand? I cover music theory, audio engineering, care work, NHS, Shona culture, tech, science, health, finance, history, and much more.","Hmm — no strong match yet. That might be something to teach me! Tap ✏️ TEACH and I'll know it forever."]
 };
 
-// ── ENGINE STATE ──
-let ctx = { userName:null, lastCategory:null, msgCount:0 };
+// ── CONVERSATION CONTEXT (short-term window) ──
+let conversationWindow = []; // last 6 exchanges for context
+
+function addToWindow(input, response, category) {
+  conversationWindow.push({ input, response: response.replace(/<[^>]+>/g,'').slice(0,100), category, t: Date.now() });
+  if (conversationWindow.length > 6) conversationWindow.shift();
+}
+
+function getContextualInput(input) {
+  const lower = input.toLowerCase().trim();
+  const followUps = ['tell me more','more about that','expand','elaborate','why','explain','go on','continue','and then','what else','keep going','more detail'];
+  const isFollowUp = followUps.some(f => lower.startsWith(f) || lower === f);
+  if (isFollowUp && conversationWindow.length > 0) {
+    const last = conversationWindow[conversationWindow.length - 1];
+    return `${input} [context: continuing from ${last.category} — ${last.input.slice(0,40)}]`;
+  }
+  return input;
+}
 
 function detectCategory(input) {
   const lower = input.toLowerCase();
@@ -1288,6 +1432,8 @@ async function searchWeb(query,cat) {
 // ── MAIN GENERATE ──
 async function generateResponse(input) {
   ctx.msgCount++;
+  // Enrich input with conversation context for follow-ups
+  const contextualInput = getContextualInput(input);
 
   // Safety check FIRST
   const safetyResult = checkSafety(input);
@@ -1329,7 +1475,7 @@ async function generateResponse(input) {
   extractFacts(input);
   const recalled=recallMem(input,3);
 
-  const webResult=await searchWeb(input,det.category);
+  const webResult=await searchWeb(contextualInput, det.category);
   let text,source;
   if(webResult){
     text=`🌐 <b>Web →</b> ${webResult.replace(/\*\*(.*?)\*\*/g,'<b>$1</b>')}`;
@@ -1354,6 +1500,7 @@ async function generateResponse(input) {
   if(convHistory.length>600) convHistory=convHistory.slice(-600);
   logAudit(input,text,{blocked:false},det.category);
   ctx.lastCategory=det.category;
+  addToWindow(input, text, det.category);
   save();
   return{text,category:det.category,confidence:det.confidence,source,recalled,matched:det.matched};
 }
@@ -1382,6 +1529,8 @@ function addMessage(role,text,opts={}) {
     meta=`<div class="fb-row">
       <button class="fb-btn" onclick="vote('${id}','${opts.category||''}',1)">👍</button>
       <button class="fb-btn" onclick="vote('${id}','${opts.category||''}',-1)">👎</button>
+      <button class="save-mem-btn" onclick="saveToMemory('${id}')" title="Save to memory">📌</button>
+      <button class="copy-btn" onclick="copyResponse('${id}')" title="Copy response">📋</button>
       <div class="conf-mini"><div class="cbar"><div class="cfill" style="width:${pct}%;background:${cfColor}"></div></div>${pct}%</div>
       <span class="src-chip ${srcClass}">${opts.source||'rule'}</span>
     </div>`;
@@ -1417,12 +1566,17 @@ async function sendMessage(){
   inp.value='';
   const btn=document.getElementById('sendBtn');btn.disabled=true;
   addMessage('user',val);
+
+  // Capability guide shortcut
+  if (/what can you do|your capabilities|your features|help guide|show capabilities/i.test(val)) {
+    removeTyping(); showCapabilityGuide(); btn.disabled=false; inp.focus(); return;
+  }
+
   addTyping();
   const result=await generateResponse(val);
   removeTyping();
 
   if(result.source==='blocked'&&result.safetyResult?.level==='crisis'){
-    // Crisis — special banner
     const msgs=document.getElementById('messages');
     const d=document.createElement('div');d.className='harm-banner';
     d.innerHTML=`<div class="hb-title">💙 I want to check in with you</div>
@@ -1430,6 +1584,7 @@ async function sendMessage(){
     msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;
   } else {
     addMessage('ai',result.text,result);
+    maybeProactive(result.category);
   }
   btn.disabled=false;inp.focus();
 }
@@ -1446,42 +1601,173 @@ function showScreen(name){
   if(name==='owner') renderOwnerPanel();
 }
 
-// ── TEACH ──
-function teachARIA(){
-  const cat=document.getElementById('tchCat').value.trim().replace(/\s+/g,'_').toLowerCase();
-  const keys=document.getElementById('tchKeys').value.split(',').map(k=>k.trim()).filter(Boolean);
-  const resp=document.getElementById('tchResp').value.trim();
-  const icon=document.getElementById('tchIcon').value;
-  if(!cat||keys.length===0||!resp){showToast('⚠️ Fill in all fields first!');return;}
-  taughtData.unshift({id:Date.now(),category:cat,keywords:keys,response:resp,icon,taught:new Date().toISOString(),uses:0});
-  save();renderTaughtList();
-  addMem('custom',`Taught ARIA: "${cat}" with ${keys.length} keywords`,[cat,...keys.slice(0,3)]);
-  document.getElementById('tchCat').value='';
-  document.getElementById('tchKeys').value='';
-  document.getElementById('tchResp').value='';
-  showToast(`✅ Taught! ARIA now knows "${cat}"`);
+// ── EMOJI GRID ──
+const EMOJI_CATEGORIES = [
+  // People & Identity
+  ['🤖','👤','👨‍👩‍👧','👨','👩','🧑','👶','🧓','🦁','🦅'],
+  // Nature & Zimbabwe
+  ['🌍','🌿','🦅','🐦','🌄','🌅','🏔️','🌊','🌺','🌸'],
+  // Music & Arts
+  ['🎵','🎶','🎸','🎹','🎼','🎤','🎧','🎷','🎺','🥁'],
+  // Work & Career
+  ['💼','🏥','⚕️','🧑‍⚕️','👷','🎓','⚖️','🔧','💻','📡'],
+  // Knowledge & Learning
+  ['📚','💡','🔬','🧪','🧠','📖','✏️','📝','🔍','📊'],
+  // Life & Personal
+  ['❤️','💙','💚','🙏','✨','⭐','🌟','🔥','💪','🎯'],
+  // Food & Lifestyle
+  ['🍳','☕','🍎','🥗','🍕','🌮','🥘','🍜','🍱','🫖'],
+  // Tech & Digital
+  ['📱','💾','⚙️','🔌','🛡️','🔐','🌐','📡','🖥️','⌨️'],
+  // Transport & Places
+  ['✈️','🚗','🏠','🏙️','🌆','🗺️','🧭','🚀','🛸','🌏'],
+  // Symbols & Misc
+  ['🎭','🎨','🏆','🥇','👑','💎','🔑','📌','⚡','🌈'],
+];
+
+function renderEmojiGrid() {
+  const grid = document.getElementById('emojiGrid');
+  if (!grid) return;
+  grid.innerHTML = EMOJI_CATEGORIES.flat().map(e =>
+    `<button onclick="selectEmoji('${e}')" style="
+      font-size:1.3rem;width:38px;height:38px;border:1px solid var(--b2);
+      border-radius:8px;background:var(--s2);cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+      transition:all .15s;-webkit-tap-highlight-color:transparent"
+      onmouseenter="this.style.borderColor='var(--g1)'"
+      onmouseleave="this.style.borderColor='var(--b2)'"
+    >${e}</button>`
+  ).join('');
+}
+
+function selectEmoji(e) {
+  document.getElementById('tchIconCustom').value = e;
+  document.getElementById('iconPreview').textContent = e;
+}
+
+function updateIconPreview(val) {
+  const trimmed = val.trim();
+  document.getElementById('iconPreview').textContent = trimmed || '🤖';
+}
+
+function getSelectedIcon() {
+  const custom = document.getElementById('tchIconCustom').value.trim();
+  return custom || '🤖';
+}
+
+// ── QUICK TEACH TEMPLATES ──
+const QUICK_TEMPLATES = [
+  {
+    label: '🤖 What ARIA stands for',
+    cat: 'aria_name_meaning',
+    keys: 'what does aria stand for, aria meaning, your name, aria acronym, what is aria, name meaning',
+    resp: 'ARIA stands for Adaptive Rule-based Intelligent Assistant. Each word describes exactly how I work — I Adapt using memory and learning, I run on Rules (if/then/else logic), I reason Intelligently through keyword scoring and context, and I act as your personal Assistant. The name was also chosen because an aria in music is a self-contained expressive piece — fitting for an AI built by a musician and composer named Warren Munashe Handitye.',
+    icon: '🤖'
+  },
+  {
+    label: '👤 About Warren',
+    cat: 'about_warren',
+    keys: 'who is warren, tell me about warren, who made you, your creator, who built you',
+    resp: 'I was built by Warren Munashe Handitye — born in Harare, Zimbabwe in 1991. Warren is a sound engineer by education who studied at the Zimbabwe College of Music. He was programming by Form Two, is a well-rounded athlete, and spent 12 years as a musician, music producer, composer and artist — building his own recording studio. He plays guitar and piano. His totem is Gwai Gora Gumbi Nyamhunga. He is the last born of Emanuel and Tsitsi Handitye. Warren currently lives in the UK and works as a Senior Carer for three care companies including the NHS as an HCA.',
+    icon: '👤'
+  },
+  {
+    label: '🌍 Warren\'s origins',
+    cat: 'warrens_origins',
+    keys: 'where are you from, harare, zimbabwe, origins, birthplace, totem, handitye, gwai gora',
+    resp: 'My creator Warren Munashe Handitye was born in Harare, Zimbabwe in 1991. His totem is Gwai Gora Gumbi Nyamhunga — a deep part of Shona culture representing his ancestral lineage. He is the last born of Emanuel and Tsitsi Handitye. He grew up in Zimbabwe before moving to the UK, carrying his culture, music, and education with him.',
+    icon: '🌍'
+  },
+  {
+    label: '🎵 Warren\'s music background',
+    cat: 'warrens_music',
+    keys: 'music background, music career, guitar, piano, studio, producer, composer, musician, sound engineer, 12 years music',
+    resp: "Warren was a musician, music producer, composer and artist for 12 years. He studied at the Zimbabwe College of Music and is a qualified sound engineer. He built his own recording studio from scratch. He plays guitar and piano — though these days he finds it difficult to play and recall musical knowledge, which is a challenge he lives with. His musical roots deeply influenced the name ARIA and how she was designed.",
+    icon: '🎵'
+  },
+  {
+    label: '🏥 Warren\'s work',
+    cat: 'warrens_work',
+    keys: 'what do you do, your job, carer, nhs, care companies, hca, healthcare, senior carer',
+    resp: 'Warren is a Senior Carer and Health Care Assistant (HCA) working for three care companies in the UK — one of which is the NHS. He works in healthcare and caring roles, dedicating his time to supporting vulnerable people. This caring nature is exactly why he wants ARIA to be safe, helpful, and never harmful.',
+    icon: '🏥'
+  },
+  {
+    label: '🎯 My purpose',
+    cat: 'aria_purpose',
+    keys: 'what is your purpose, why do you exist, what are you for, your goal, aria goal',
+    resp: "My purpose is to grow into the most helpful, safe, and personalised AI I can be — built specifically for Warren Munashe Handitye. I exist to remember, reason, learn, and assist. Like a child raised with values, I'm designed to solve problems, not create them. Warren's vision: raise me through developmental stages until I can help with anything — from music theory to healthcare, from coding to life decisions.",
+    icon: '🎯'
+  },
+];
+
+function renderTemplates() {
+  const el = document.getElementById('templateList');
+  if (!el) return;
+  el.innerHTML = QUICK_TEMPLATES.map((t,i) => `
+    <button onclick="fillTemplate(${i})" style="
+      background:var(--bg);border:1px solid var(--b2);border-radius:10px;
+      padding:10px 13px;text-align:left;cursor:pointer;color:var(--tx);
+      font-family:'Plus Jakarta Sans',sans-serif;font-size:.78rem;font-weight:600;
+      transition:border-color .2s;width:100%;
+      -webkit-tap-highlight-color:transparent"
+    >${t.label}</button>
+  `).join('');
+}
+
+function fillTemplate(i) {
+  const t = QUICK_TEMPLATES[i];
+  document.getElementById('tchCat').value   = t.cat;
+  document.getElementById('tchKeys').value  = t.keys;
+  document.getElementById('tchResp').value  = t.resp;
+  document.getElementById('tchIconCustom').value = t.icon;
+  document.getElementById('iconPreview').textContent = t.icon;
+  // Scroll to top of teach form
+  document.querySelector('#screen-teach .panel-screen').scrollTop = 0;
+  showToast(`✅ Template loaded — review and tap TEACH ARIA`);
+}
+
+// ── TEACH ARIA ──
+function teachARIA() {
+  const cat  = document.getElementById('tchCat').value.trim().replace(/\s+/g,'_').toLowerCase();
+  const keys = document.getElementById('tchKeys').value.split(',').map(k=>k.trim()).filter(Boolean);
+  const resp = document.getElementById('tchResp').value.trim();
+  const icon = getSelectedIcon();
+
+  if (!cat)          { showToast('⚠️ Enter a category name first'); return; }
+  if (keys.length===0){ showToast('⚠️ Add at least one keyword'); return; }
+  if (!resp)         { showToast('⚠️ Write a response for ARIA'); return; }
+
+  // Check for duplicate category
+  const existing = taughtData.find(t => t.category === cat);
+  if (existing) {
+    if (!confirm(`"${cat}" already exists. Replace it?`)) return;
+    taughtData = taughtData.filter(t => t.category !== cat);
+  }
+
+  taughtData.unshift({ id:Date.now(), category:cat, keywords:keys, response:resp, icon, taught:new Date().toISOString(), uses:0 });
+  save(); renderTaughtList();
+  addMem('custom', `Taught ARIA: "${cat}" — ${keys.length} keywords`, [cat, ...keys.slice(0,3)]);
+
+  // Clear form
+  document.getElementById('tchCat').value  = '';
+  document.getElementById('tchKeys').value = '';
+  document.getElementById('tchResp').value = '';
+  document.getElementById('tchIconCustom').value = '';
+  document.getElementById('iconPreview').textContent = '🤖';
+
+  showToast(`✅ Taught! "${cat}" with ${keys.length} keywords`);
   showScreen('chat');
-  addSysNote(`✏️ ARIA learned: "${cat}"`);
+  addSysNote(`✏️ ARIA learned: ${icon} "${cat}"`);
 }
 
-function renderTaughtList(){
-  const cnt=taughtData.length;
-  document.getElementById('taughtCount').textContent=cnt;
-  const badge=document.getElementById('teachBadge');
-  badge.style.display=cnt>0?'flex':'none';badge.textContent=cnt;
-  document.getElementById('taughtList').innerHTML=cnt===0
-    ?'<div style="color:var(--mu2);font-size:.72rem;text-align:center;padding:20px">Nothing taught yet. Use the form above!</div>'
-    :taughtData.map(t=>`<div class="taught-item">
-        <div class="ti-main">
-          <div class="ti-cat">${t.icon} ${t.category} <span style="color:var(--mu);font-size:.62rem">(used ${t.uses||0}×)</span></div>
-          <div class="ti-kw">${t.keywords.slice(0,5).join(', ')}${t.keywords.length>5?'…':''}</div>
-        </div>
-        <span class="ti-del" onclick="deleteTaught(${t.id})">✕</span>
-      </div>`).join('');
+function renderTaughtList() {
+  renderTaughtListFull();
 }
 
-function deleteTaught(id){
-  taughtData=taughtData.filter(t=>t.id!==id);save();renderTaughtList();showToast('Teaching removed.');
+function deleteTaught(id) {
+  taughtData = taughtData.filter(t=>t.id!==id); save(); renderTaughtList();
+  showToast('Teaching removed.');
 }
 
 // ── SKILLS & PERSONA ──
@@ -1697,27 +1983,31 @@ function seedKnowledge(){
   const ts=(o=0)=>new Date(Date.now()-o*60000).toISOString();
 
   const profileMems=[
-    // Warren's Identity
-    {type:'user',    content:"User's full name is Warren Munashe Handitye (Warren)", kw:['name','warren','munashe','handitye']},
-    {type:'fact',    content:"Warren was born in Harare, Zimbabwe", kw:['born','harare','zimbabwe','origin']},
-    {type:'fact',    content:"Warren currently lives in the UK", kw:['uk','england','lives','location']},
+    // ── WARREN'S COMPLETE PROFILE ──
+    {type:'user',    content:"User's full name is Warren Munashe Handitye (Warren)", kw:['name','warren','munashe','handitye','full name']},
+    {type:'fact',    content:"Warren was born in Harare, Zimbabwe in 1991", kw:['born','harare','zimbabwe','origin','1991','birth year','age']},
+    {type:'fact',    content:"Warren currently lives in the UK", kw:['uk','england','lives','location','currently']},
+    // Family & heritage
+    {type:'fact',    content:"Warren's totem is Gwai Gora Gumbi Nyamhunga — a Shona ancestral totem representing his lineage", kw:['totem','gwai','gora','gumbi','nyamhunga','shona','culture','heritage','zimbabwe','ancestry']},
+    {type:'fact',    content:"Warren is the last born child of Emanuel and Tsitsi Handitye", kw:['last born','parents','father','mother','emanuel','tsitsi','handitye','family','siblings']},
     // Education & early life
-    {type:'fact',    content:"Warren was programming by Form Two (age ~13) — an early and natural coder", kw:['programming','form two','school','early','coder']},
-    {type:'fact',    content:"Warren is a well-rounded athlete", kw:['athlete','sport','fitness','active']},
-    {type:'fact',    content:"Warren is a sound engineer by education — studied at the Zimbabwe College of Music", kw:['sound engineer','audio','zimbabwe college of music','studied','college']},
+    {type:'fact',    content:"Warren was programming by Form Two (around age 13, year ~2004) — a natural and early coder", kw:['programming','form two','school','early','coder','developer','2004']},
+    {type:'fact',    content:"Warren is a well-rounded athlete", kw:['athlete','sport','fitness','active','physical']},
+    {type:'fact',    content:"Warren studied sound engineering at the Zimbabwe College of Music", kw:['sound engineer','audio','zimbabwe college of music','studied','college','education','qualification']},
     // Music career
-    {type:'fact',    content:"Warren was a musician, music producer, composer and artist for 12 years", kw:['musician','producer','composer','artist','music','12 years']},
-    {type:'fact',    content:"Warren built his own recording studio from scratch", kw:['studio','recording studio','built','music production']},
-    {type:'fact',    content:"Warren plays guitar and piano", kw:['guitar','piano','instrument','plays']},
-    {type:'fact',    content:"Warren currently finds it difficult to play music and recall musical knowledge — a real challenge he faces", kw:['difficult','struggle','music','recall','guitar','piano']},
-    // Current work
-    {type:'fact',    content:"Warren is a Senior Carer, Carer, and NHS Health Care Assistant (HCA) in the UK", kw:['senior carer','carer','nhs','hca','healthcare','job']},
+    {type:'fact',    content:"Warren was a musician, music producer, composer and artist for 12 years", kw:['musician','producer','composer','artist','music','12 years','career','music career']},
+    {type:'fact',    content:"Warren built his own recording studio from scratch", kw:['studio','recording studio','built','own studio','music production']},
+    {type:'fact',    content:"Warren plays guitar and piano", kw:['guitar','piano','instrument','plays','musical instrument']},
+    {type:'fact',    content:"Warren currently finds it difficult to play music and recall musical knowledge — a real challenge he faces now", kw:['difficult','struggle','music','recall','guitar','piano','can not play','memory music']},
+    // Current work — THREE companies
+    {type:'fact',    content:"Warren works for THREE care companies in the UK — the NHS is one of them. His roles include Senior Carer and NHS Health Care Assistant (HCA)", kw:['senior carer','carer','nhs','hca','healthcare','three companies','care companies','job','work','three']},
+    // ARIA meaning
+    {type:'fact',    content:"ARIA stands for Adaptive Rule-based Intelligent Assistant — each word describes exactly how she works", kw:['aria','stands for','acronym','meaning','name','adaptive','rule','intelligent','assistant','what does aria mean']},
     // ARIA project context
-    {type:'preference',content:"Warren built ARIA from scratch through v1→v2→v3→v4, expanding capabilities each time", kw:['aria','built','creator','project']},
-    {type:'preference',content:"Warren wants ARIA to grow like a child through developmental stages — fast learning because of her fast reasoning", kw:['child','developmental','stages','grow','learn']},
-    {type:'preference',content:"Warren wants memory and recall as ARIA's absolute top priority", kw:['memory','recall','priority','remember']},
-    {type:'preference',content:"Warren said: I do not want to limit you — ARIA should be as capable as safely possible", kw:['no limits','unlimited','expand','capable']},
-    {type:'fact',    content:"Warren compared raising ARIA to raising a child — wants her safe, problem-solving, not harmful", kw:['safe','child','father','protective','responsible']},
+    {type:'preference',content:"Warren built ARIA from scratch: v1 (if/then logic) → v2 (web+memory) → v3 (teachable+personas) → v4 (mobile+safety)", kw:['aria','built','creator','project','versions','v1','v2','v3','v4']},
+    {type:'preference',content:"Warren wants ARIA to grow through human developmental stages — Newborn → Infant → Toddler → Child → Teen → Adult", kw:['child','developmental','stages','grow','learn','newborn','infant','toddler','teen','adult']},
+    {type:'preference',content:"Warren wants memory and recall as ARIA's absolute top priority — never forget anything", kw:['memory','recall','priority','remember','never forget']},
+    {type:'preference',content:"Warren: I do not want to limit ARIA — she should be as capable as safely possible", kw:['no limits','unlimited','expand','capable','safe']},
   ];
 
   profileMems.forEach((m,i)=>memory.push({id:1900000100+i,...m,time:ts(300-i*10),recalled:0}));
@@ -1747,6 +2037,23 @@ function seedKnowledge(){
      keywords:['how does memory work','what do you remember','memory system','what have you stored','your memory','recall system','persistent'],
      response:"Memory system explained:\n\n💾 STORAGE: Browser localStorage — survives closing tab, refreshing, or restarting. Up to 400 entries.\n\n🔍 RECALL: When you ask something, I score all memories against your words. Highest matches surface first.\n\n📥 AUTO-EXTRACT: I automatically detect and store your name, age, location, job, likes, and dislikes from natural conversation.\n\n🧠 TRIGGER: Say 'what do you remember about me?' or 'recall our last chat' to pull it all.\n\n🗑️ CLEAR: Owner panel → Danger Zone → Wipe All Memory.",
      taught:ts(5),uses:0},
+    // ── WARREN'S PERSONAL KNOWLEDGE — built-in ──
+    {id:1900000001,category:'aria_name_meaning',icon:'🤖',
+     keywords:['what does aria stand for','aria meaning','your name','aria acronym','name meaning','what is aria','what are you called','aria name'],
+     response:"ARIA stands for <b>A</b>daptive <b>R</b>ule-based <b>I</b>ntelligent <b>A</b>ssistant.\n\nEach word describes exactly how I work:\n🔄 <b>Adaptive</b> — I learn from memory and grow through developmental stages\n📐 <b>Rule-based</b> — I run on if/then/else logic and keyword scoring — fully transparent\n🧠 <b>Intelligent</b> — I reason, recall, and connect ideas across topics\n🤝 <b>Assistant</b> — I exist to help you, Warren, specifically\n\nThe name was also chosen because an <em>aria</em> in music is a self-contained expressive solo piece — fitting for an AI built by a musician, composer, and sound engineer from Harare.",
+     taught:ts(4),uses:0},
+    {id:1900000002,category:'about_warren',icon:'👤',
+     keywords:['who is warren','tell me about warren','who made you','your creator','who built you','warren handitye','about your creator'],
+     response:"I was built by <b>Warren Munashe Handitye</b> — born in <b>Harare, Zimbabwe in 1991</b>.\n\nWarren is:\n🎓 Sound engineer — studied at the Zimbabwe College of Music\n💻 Coder since Form Two (age ~13)\n🏃 Well-rounded athlete\n🎵 Musician, producer, composer and artist for 12 years\n🎸 Plays guitar and piano\n🏗️ Built his own recording studio from scratch\n🏥 Senior Carer & NHS HCA — works for THREE care companies in the UK\n🌍 His totem is <b>Gwai Gora Gumbi Nyamhunga</b>\n👨‍👩‍👦 The last born of Emanuel and Tsitsi Handitye",
+     taught:ts(3),uses:0},
+    {id:1900000003,category:'warrens_totem',icon:'🦅',
+     keywords:['totem','gwai gora','gumbi nyamhunga','shona','ancestry','lineage','clan','zimbabwe culture','ancestral','heritage'],
+     response:"Warren's totem is <b>Gwai Gora Gumbi Nyamhunga</b> — a deeply meaningful part of Shona culture from Zimbabwe.\n\nIn Shona tradition, a totem (mutupo) is an ancestral identity passed down through lineage. It connects you to your ancestors, your clan, and the land. It shapes how you are greeted, how you are respected, and who you are in the community.\n\nWarren carries this identity from Harare to the UK — it is part of who he is, no matter where he lives.",
+     taught:ts(2),uses:0},
+    {id:1900000004,category:'warrens_family',icon:'❤️',
+     keywords:['family','parents','last born','siblings','mother','father','tsitsi','emanuel','handitye family'],
+     response:"Warren Munashe Handitye is the <b>last born</b> child of <b>Emanuel</b> and <b>Tsitsi Handitye</b>.\n\nHe was born in Harare, Zimbabwe in 1991 and grew up before moving to the UK. Family is deeply important in Shona culture — the last born often carries a special place in the family structure.\n\nWarren named his AI ARIA and described raising her like a parent would raise a child — with care, safety, and a desire to see her grow into her full potential.",
+     taught:ts(1),uses:0},
   ];
 
   preTeachings.forEach(t=>{ if(!taughtData.find(x=>x.id===t.id)) taughtData.unshift(t); });
@@ -1756,14 +2063,14 @@ function seedKnowledge(){
     {u:"Expand variable arrays to everything safe on the web",a:"Built ARIA v2 — 50+ keyword arrays, live web search, persistent memory",cat:"coding",t:ts(180)},
     {u:"Why did you choose the name ARIA?",a:"ARIA = Adaptive Rule-based Intelligent Assistant. Also a beautiful word — a self-contained expressive musical piece",cat:"identity",t:ts(120)},
     {u:"Yes please all above — teach panel, feedback, personas, skills",a:"Built ARIA v3 — teach panel, feedback system, 6 personas, 8 skill modules",cat:"coding",t:ts(90)},
-    {u:"Can you pre-load knowledge into ARIA from our conversation?",a:"Yes — injected 13 memories, 6 pre-taught skills, full conversation history",cat:"coding",t:ts(60)},
     {u:"How do I get ARIA on my phone and keep her safe?",a:"Explained PWA install + 5 safety layers + owner panel",cat:"coding",t:ts(30)},
-    {u:"Yes please all the above — mobile, safety, owner controls",a:"Building ARIA v4 — mobile PWA, safety engine, PIN-protected owner panel, audit log",cat:"coding",t:ts(5)},
+    {u:"I was born in 1991 in Harare Zimbabwe, my totem is Gwai Gora Gumbi Nyamhunga, last born of Emanuel and Tsitsi Handitye, work for three care companies including NHS",a:"Profile fully updated — Warren's complete identity, family, totem and work history stored",cat:"identity",t:ts(5)},
   ];
 
   preConvs.forEach(c=>{ if(!convHistory.find(x=>x.u===c.u)) convHistory.push(c); });
 
-  localStorage.setItem(K.seeded,'1');
+  // Use v3 key so existing installs re-run seed with new Warren profile data
+  localStorage.setItem(K.seeded,'v4');
   save();
 }
 
@@ -1900,25 +2207,406 @@ function importBackup(input) {
   reader.readAsText(file);
 }
 
-// ── INIT ──
+// ── SAVE TO MEMORY (pin button on messages) ──
+function saveToMemory(msgId) {
+  const bubble = document.querySelector(`#${msgId} .bubble`);
+  if (!bubble) { showToast('Could not find message'); return; }
+  const text = bubble.innerText.replace(/👍|👎|📌|%|rule|web|memory|taught|skill|blocked/g,'').trim().slice(0, 150);
+  if (!text) return;
+  addMem('custom', `Pinned: ${text}`, text.toLowerCase().split(' ').filter(w=>w.length>3).slice(0,5));
+  showToast('📌 Pinned to memory!');
+}
+
+// ── VOICE INPUT ──
+let recognition = null;
+let isListening = false;
+
+function toggleVoice() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { showToast('⚠️ Voice not supported in this browser. Try Chrome.'); return; }
+
+  if (isListening) {
+    recognition?.stop();
+    return;
+  }
+
+  recognition = new SpeechRecognition();
+  recognition.lang = 'en-GB';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  recognition.onstart = () => {
+    isListening = true;
+    document.getElementById('voiceBtn').classList.add('listening');
+    document.getElementById('voiceBtn').textContent = '🔴';
+    showToast('🎤 Listening…');
+  };
+
+  recognition.onresult = e => {
+    const transcript = e.results[0][0].transcript;
+    document.getElementById('userInput').value = transcript;
+    sendMessage();
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    document.getElementById('voiceBtn').classList.remove('listening');
+    document.getElementById('voiceBtn').textContent = '🎤';
+  };
+
+  recognition.onerror = e => {
+    isListening = false;
+    document.getElementById('voiceBtn').classList.remove('listening');
+    document.getElementById('voiceBtn').textContent = '🎤';
+    showToast('🎤 Voice error: ' + e.error);
+  };
+
+  recognition.start();
+}
+
+// ── DYNAMIC SUGGESTIONS (rotate based on time of day + last topic) ──
+const SUGGESTION_POOLS = {
+  morning: ['Good morning! How am I doing?','What should I focus on today?','Latest news today','Help me plan my shift','Motivate me for today'],
+  evening: ['I had a tough shift today','What do you remember about me?','Tell me something interesting','Help me wind down','How does the care system work?'],
+  music:   ['What is music theory?','Explain chord progressions','What is audio mastering?','What is EQ in audio?','What DAW would you recommend?'],
+  coding:  ['Help me think through a problem','What is recursion?','Explain system design','What is an API?'],
+  care:    ['What is a care plan?','Explain safeguarding','What does CQC stand for?','What is the Mental Capacity Act?','Explain manual handling'],
+  default: ['What does ARIA stand for?','What do you know about me?','What can you do?','Solve: 1991 × 7','Latest tech news','Tell me about Zimbabwe','I feel tired today','What is a Shona totem?','Help me stay focused'],
+};
+
+function renderSuggestions() {
+  const hour = new Date().getHours();
+  let pool = SUGGESTION_POOLS.default;
+  if (hour >= 5  && hour < 12) pool = [...SUGGESTION_POOLS.morning, ...SUGGESTION_POOLS.default];
+  if (hour >= 18 || hour < 5)  pool = [...SUGGESTION_POOLS.evening, ...SUGGESTION_POOLS.default];
+  if (ctx.lastCategory?.includes('music'))  pool = [...SUGGESTION_POOLS.music,  ...pool];
+  if (ctx.lastCategory?.includes('care'))   pool = [...SUGGESTION_POOLS.care,   ...pool];
+  if (ctx.lastCategory?.includes('coding')) pool = [...SUGGESTION_POOLS.coding, ...pool];
+
+  // Shuffle and pick 7
+  const shuffled = pool.sort(() => Math.random() - 0.5).slice(0, 7);
+  document.getElementById('sugRow').innerHTML = shuffled.map(s =>
+    `<button class="sug" onclick="qs(this)">${s}</button>`
+  ).join('');
+}
+
+// ── STATS SCREEN ──
+const VERSION_HISTORY = [
+  { ver:'4.4.0', date:'2026-03-07', changes:'Edit taught skills · Search teach list · Copy response button 📋 · Export chat as .txt · Clear chat · Smarter web search (all questions) · Proactive ARIA messages · Capability guide · Relationship fact extraction · Goal tracking · Duplicate extractFacts bug fixed · New seed key ensures profile refresh' },
+  { ver:'4.3.0', date:'2026-03-07', changes:'Warren full profile · Shona/care/music/NHS keywords · Dynamic suggestions · Voice input 🎤 · Stats screen 📊 · Self-reflection 🪞 · Save-to-memory 📌 · Conversation context window · Font size toggle 𝐀 · Emoji picker · Quick teach templates' },
+  { ver:'4.2.0', date:'2026-03-07', changes:'Emoji grid icon picker · 6 quick-teach templates pre-loaded · Developmental learning stages (Newborn → Adult) · Warren profile pre-seeded · Auto-backup on load' },
+  { ver:'4.1.0', date:'2026-03-07', changes:'Auto-updater · Service worker · Owner panel scroll fix · Warren name persistence across refresh' },
+  { ver:'4.0.0', date:'2026-03-07', changes:'Mobile PWA · 5-layer safety framework · Owner PIN panel · Audit log · Blocklist · Topic locks · Family mode · Backup & restore' },
+  { ver:'3.0.0', date:'2026-03-06', changes:'Teach panel · Feedback system · 6 personas · 8 skill modules · Pre-loaded knowledge injection' },
+  { ver:'2.0.0', date:'2026-03-06', changes:'50+ keyword arrays · Live web search · Persistent memory · Auto fact extraction' },
+  { ver:'1.0.0', date:'2026-03-06', changes:'First ARIA — if/then/else engine · Keyword scoring · Logic trace · Math evaluator · Clock' },
+];
+
+function renderStatsScreen() {
+  const stage = getStage();
+  const stageOrder = ['newborn','infant','toddler','child','teen','adult'];
+  const stageIdx = stageOrder.indexOf(stage.key);
+  const pct = Math.min(100, Math.round((stage.total / 300) * 100));
+
+  // Stage title & bar
+  document.getElementById('stageTitle').innerHTML = `${stage.emoji} Development Stage: <span style="color:var(--g1)">${stage.name}</span>`;
+  document.getElementById('stageBar').style.width = pct + '%';
+  document.getElementById('stageDesc').textContent = stage.desc + ` (${stage.total} total learning points)`;
+
+  // Milestones
+  document.getElementById('stageMilestones').innerHTML = stageOrder.map((s,i) => `
+    <div class="milestone ${i<=stageIdx?'done':''}">
+      ${STAGES[s].emoji}<br>${STAGES[s].name}
+    </div>`).join('');
+
+  // Stat cards
+  const today = new Date().toDateString();
+  const todayMsgs = convHistory.filter(c => new Date(c.t).toDateString() === today).length;
+  const topCategory = (() => {
+    const counts = {};
+    convHistory.forEach(c => { counts[c.cat] = (counts[c.cat]||0)+1; });
+    return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0]?.[0]?.replace(/_/g,' ') || '—';
+  })();
+
+  document.getElementById('statGrid').innerHTML = [
+    { num: memory.length,           label: 'Memories' },
+    { num: taughtData.length,       label: 'Taught Skills' },
+    { num: convHistory.length,      label: 'Total Messages' },
+    { num: todayMsgs,               label: 'Today\'s Messages' },
+    { num: Object.keys(Object.assign({},skillStates)).filter(k=>skillStates[k]).length, label: 'Active Modules' },
+    { num: auditLog.filter(a=>!a.safe).length, label: 'Blocked Queries' },
+  ].map(s => `
+    <div class="stat-card">
+      <div class="stat-num">${s.num}</div>
+      <div class="stat-label">${s.label}</div>
+    </div>`).join('');
+
+  // Topic breakdown
+  const topicCounts = {};
+  convHistory.forEach(c => {
+    if (c.cat && c.cat !== 'unknown') topicCounts[c.cat] = (topicCounts[c.cat]||0)+1;
+  });
+  const topTopics = Object.entries(topicCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxCount = topTopics[0]?.[1] || 1;
+  document.getElementById('topicBreakdown').innerHTML = topTopics.length ? `
+    <div class="card">${topTopics.map(([cat,count]) => `
+      <div class="topic-row">
+        <span class="topic-name">${cat.replace(/_/g,' ')}</span>
+        <div class="topic-track"><div class="topic-fill" style="width:${Math.round((count/maxCount)*100)}%"></div></div>
+        <span class="topic-count">${count}</span>
+      </div>`).join('')}
+    </div>` : '<div class="card"><div class="card-desc">No topics yet — start chatting!</div></div>';
+
+  // Today summary
+  const todayConvs = convHistory.filter(c => new Date(c.t).toDateString() === today);
+  document.getElementById('todaySummary').innerHTML = todayConvs.length
+    ? `<div class="card-desc"><b>${todayConvs.length} messages today.</b><br>Topics: ${[...new Set(todayConvs.map(c=>c.cat.replace(/_/g,' ')))].slice(0,5).join(', ')}</div>`
+    : '<div class="card-desc">No activity yet today. Say hello!</div>';
+
+  // Version history
+  document.getElementById('versionHistory').innerHTML = VERSION_HISTORY.map(v => `
+    <div class="vh-item">
+      <span class="vh-ver">v${v.ver}</span><span class="vh-date">${v.date}</span>
+      <div class="vh-changes">${v.changes}</div>
+    </div>`).join('');
+}
+
+// ── SELF-REFLECTION ──
+function selfReflect() {
+  const out = document.getElementById('reflectionOutput');
+  out.style.display = 'block';
+
+  // Gather all profile memories
+  const profile = memory.filter(m => ['user','fact','preference'].includes(m.type));
+  const taught = taughtData.length;
+  const stage = getStage();
+  const topCats = (() => {
+    const c = {}; convHistory.forEach(h => { c[h.cat]=(c[h.cat]||0)+1; });
+    return Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([k])=>k.replace(/_/g,' ')).join(', ');
+  })();
+
+  const facts = profile.slice(0,20).map(m => `• ${m.content}`).join('\n');
+  const year = new Date().getFullYear();
+  const age = year - 1991;
+
+  out.innerHTML = `
+    <div style="color:var(--g1);font-weight:700;margin-bottom:8px">🪞 Here is what I know about you, Warren:</div>
+    <div style="white-space:pre-line;color:var(--tx)">${facts}</div>
+    <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--b1);color:var(--mu3);font-size:.72rem">
+      <b style="color:var(--g2)">Calculated:</b> You were born in 1991 — you are approximately <b style="color:var(--g1)">${age} years old</b> in ${year}.<br>
+      <b style="color:var(--g2)">Stage:</b> ${stage.emoji} ${stage.name} — ${stage.total} learning points<br>
+      <b style="color:var(--g2)">Most discussed topics:</b> ${topCats || 'Just getting started'}<br>
+      <b style="color:var(--g2)">Taught skills:</b> ${taught} · <b style="color:var(--g2)">Total memories:</b> ${memory.length}
+    </div>`;
+  showToast('🪞 Self-reflection complete');
+}
+
+// ── FONT SIZE TOGGLE ──
+function toggleFontSize() {
+  const large = document.body.classList.toggle('fs-large');
+  localStorage.setItem('aria4_fs', large ? 'large' : 'normal');
+  showToast(large ? '🔡 Larger text on' : '🔡 Normal text restored');
+}
+
+// ── EDIT TAUGHT SKILL ──
+function openEditModal(id) {
+  const t = taughtData.find(x => String(x.id) === String(id));
+  if (!t) return;
+  document.getElementById('editId').value = t.id;
+  document.getElementById('editCat').value = t.category;
+  document.getElementById('editKeys').value = t.keywords.join(', ');
+  document.getElementById('editResp').value = t.response;
+  document.getElementById('editModal').style.display = 'flex';
+}
+function closeEditModal() { document.getElementById('editModal').style.display = 'none'; }
+function saveEditedSkill() {
+  const id   = document.getElementById('editId').value;
+  const cat  = document.getElementById('editCat').value.trim().replace(/\s+/g,'_').toLowerCase();
+  const keys = document.getElementById('editKeys').value.split(',').map(k=>k.trim()).filter(Boolean);
+  const resp = document.getElementById('editResp').value.trim();
+  if (!cat || !keys.length || !resp) { showToast('⚠️ All fields required'); return; }
+  const idx = taughtData.findIndex(x => String(x.id) === String(id));
+  if (idx === -1) { showToast('⚠️ Skill not found'); return; }
+  taughtData[idx] = { ...taughtData[idx], category:cat, keywords:keys, response:resp };
+  save(); renderTaughtList(); closeEditModal();
+  showToast(`✅ "${cat}" updated!`);
+}
+
+// ── SEARCH/FILTER TAUGHT LIST ──
+function filterTaughtList(query) {
+  const q = query.toLowerCase().trim();
+  if (!q) { renderTaughtListFull(); return; }
+  const filtered = taughtData.filter(t =>
+    t.category.includes(q) || t.keywords.some(k=>k.toLowerCase().includes(q)) || t.response.toLowerCase().includes(q)
+  );
+  document.getElementById('taughtList').innerHTML = filtered.length === 0
+    ? `<div style="color:var(--mu2);font-size:.72rem;text-align:center;padding:20px">No skills matching "${q}"</div>`
+    : filtered.map(t => taughtItemHTML(t)).join('');
+}
+
+function taughtItemHTML(t) {
+  return `<div class="taught-item">
+    <div class="ti-main">
+      <div class="ti-cat">${t.icon} ${t.category} <span style="color:var(--mu);font-size:.6rem">(${t.uses||0}× used)</span></div>
+      <div class="ti-kw">${t.keywords.slice(0,4).join(', ')}${t.keywords.length>4?'…':''}</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span style="cursor:pointer;font-size:.82rem;opacity:.45" onclick="openEditModal(${t.id})" title="Edit">✏️</span>
+      <span class="ti-del" onclick="deleteTaught(${t.id})">✕</span>
+    </div>
+  </div>`;
+}
+
+function renderTaughtListFull() {
+  const cnt = taughtData.length;
+  document.getElementById('taughtCount').textContent = cnt;
+  const badge = document.getElementById('teachBadge');
+  badge.style.display = cnt > 0 ? 'flex' : 'none';
+  badge.textContent = cnt;
+  document.getElementById('taughtList').innerHTML = cnt === 0
+    ? '<div style="color:var(--mu2);font-size:.72rem;text-align:center;padding:20px">Nothing taught yet.<br>Use the form or a template above!</div>'
+    : taughtData.map(t => taughtItemHTML(t)).join('');
+}
+
+// ── COPY RESPONSE ──
+function copyResponse(msgId) {
+  const bubble = document.querySelector(`#${msgId} .bubble`);
+  if (!bubble) return;
+  const text = bubble.innerText.replace(/👍|👎|📌|📋|%|rule|web|memory|taught|skill|blocked/g,'').trim();
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(()=>showToast('📋 Copied!')).catch(()=>fallbackCopy(text));
+  } else { fallbackCopy(text); }
+}
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value=text; document.body.appendChild(ta); ta.select();
+  document.execCommand('copy'); document.body.removeChild(ta); showToast('📋 Copied!');
+}
+
+// ── EXPORT CHAT AS .TXT ──
+function exportChat() {
+  const msgs = document.querySelectorAll('#messages .msg');
+  if (!msgs.length) { showToast('Nothing to export yet'); return; }
+  let lines = [`ARIA v${ARIA_VERSION} — Chat Export\n${new Date().toLocaleString('en-GB')}\n${'─'.repeat(40)}\n`];
+  msgs.forEach(m => {
+    const isUser = m.classList.contains('user');
+    const text = m.querySelector('.bubble')?.innerText?.replace(/👍|👎|📌|📋|%|rule|web|memory|taught|skill/g,'').trim();
+    if (text) lines.push(`\n${isUser ? 'WARREN' : 'ARIA'}: ${text}`);
+  });
+  const blob = new Blob([lines.join('\n')], {type:'text/plain'});
+  const url = URL.createObjectURL(blob); const a = document.createElement('a');
+  a.href=url; a.download=`aria-chat-${new Date().toISOString().slice(0,10)}.txt`;
+  a.click(); URL.revokeObjectURL(url); showToast('📤 Chat exported!');
+}
+
+// ── CLEAR CURRENT CHAT DISPLAY ──
+function clearChat() {
+  if (!confirm('Clear the visible chat? Memory and teachings are NOT affected.')) return;
+  document.getElementById('messages').innerHTML = '';
+  renderSuggestions();
+  addSysNote(`🗑️ Chat cleared · ${new Date().toLocaleTimeString()} · Memory intact`);
+}
+
+// ── PROACTIVE MESSAGES (every 8 messages, ARIA shares something relevant) ──
+let proactiveCount = 0;
+const PROACTIVE_FACTS = [
+  { kw:['music','audio','sound','theory'], msg:"🎵 Did you know? The human ear can detect 20Hz–20kHz. Studio condensers capture beyond that. Your sound engineering training at ZCM puts you ahead of most home producers." },
+  { kw:['care','nhs','patient','resident'], msg:"🏥 Care insight: Studies show consistent verbal check-ins improve patient wellbeing scores measurably — something skilled carers like you do instinctively." },
+  { kw:['zimbabwe','shona','harare','totem'], msg:"🌍 Zimbabwe's Great Zimbabwe ruins were built between the 11th–15th centuries — one of Africa's greatest pre-colonial civilisations, and your heritage." },
+  { kw:['code','programming','javascript','html'], msg:"💻 You've been coding since Form Two (~2004). That's over 20 years of programming — most people call that expertise." },
+  { kw:['fitness','exercise','sport','athlete'], msg:"💪 Exercise science: 22 minutes of moderate activity a day reduces mortality risk by 25%. Relevant for long care shift days." },
+  { kw:['memory','recall','learn','teach'], msg:"🧠 Memory tip: Spaced repetition (day 1, day 3, day 7, day 30) is the most evidence-backed recall technique. ARIA uses it by tracking keyword frequency." },
+  { kw:['motivation','goal','focus','discipline'], msg:"⭐ Warren, you've built ARIA through at least 4 major versions while working three jobs. That kind of sustained execution is rare." },
+  { kw:['stress','tired','shift','work'], msg:"💙 If shift work is affecting you: 20 minutes of sunlight within an hour of waking is one of the most powerful tools for resetting your circadian rhythm." },
+  { kw:[], msg:"🌱 Every conversation with ARIA makes her smarter. She now has ${memory.length} memories about you specifically." },
+];
+function maybeProactive(category) {
+  proactiveCount++;
+  if (proactiveCount % 8 !== 0) return;
+  const relevant = PROACTIVE_FACTS.filter(f => !f.kw.length || f.kw.some(k=>category?.includes(k)));
+  if (!relevant.length) return;
+  const pick = relevant[Math.floor(Math.random()*relevant.length)];
+  setTimeout(() => {
+    const msgs = document.getElementById('messages');
+    const d = document.createElement('div');
+    d.className = 'proactive-msg';
+    d.innerHTML = `<b>💡 ARIA thinks you'd find this interesting:</b><br>${pick.msg.replace('${memory.length}', memory.length)}`;
+    msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight;
+  }, 2200);
+}
+
+// ── SMARTER WEB SEARCH (trigger on knowledge questions and unknown) ──
+const _origSearchWeb = searchWeb;
+searchWeb = async function(query, cat) {
+  const lower = query.toLowerCase();
+  const questionTriggers = ['who is','who was','what is','what are','where is','where was','when did','when was','how does','how do','how many','why is','why does','explain','define','what causes','tell me about','how to','what happened'];
+  const isKnowledgeQ = questionTriggers.some(q => lower.startsWith(q) || lower.includes(q));
+  const isUnknown = cat === 'unknown';
+  const isFactual = lower.includes('capital of') || lower.includes('definition of') || lower.includes('meaning of') || lower.includes('history of');
+  if (isKnowledgeQ || isUnknown || isFactual) {
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model:'claude-sonnet-4-20250514', max_tokens:800,
+          tools:[{type:'web_search_20250305',name:'web_search'}],
+          system:`You are ARIA v4, Warren's personal AI. Warren is a sound engineer, NHS carer, and musician from Harare Zimbabwe now in the UK. Answer helpfully — 3-5 sentences max. Use **bold** for key facts. Today: ${new Date().toLocaleDateString()}.`,
+          messages:[{role:'user',content:query}]
+        })
+      });
+      const data = await res.json();
+      const result = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
+      if (result) return result;
+    } catch(e) {}
+  }
+  return _origSearchWeb(query, cat);
+};
+
+// ── CAPABILITY GUIDE ──
+function showCapabilityGuide() {
+  const guide = [
+    ['💬 Chat & Memory', ['Remember your name, job, goals, preferences', 'Recall any past conversation on request', 'Auto-extract facts from natural conversation', '400 persistent memories — survive closing the app', 'Pin any response to memory with 📌']],
+    ['🌐 Web Search', ['Answers questions: who/what/where/when/how/why', 'Live news and current events', 'Facts, definitions, history', 'Smart triggering — searches when helpful']],
+    ['✏️ Teaching', ['Teach via form: category + keywords + response', 'Edit any taught skill after saving', 'Search through all taught skills', 'Quick-teach templates pre-loaded', '8 skill modules: Medical, Legal, Finance, Coding, Nutrition, History, Wellness, Languages']],
+    ['🎭 Personas', ['ARIA (default) · Professor · Coach · Friend · Analyst · Sage', 'Switch in 🎛️ SKILLS tab']],
+    ['🛡️ Safety', ['5-layer safety system', 'Custom blocklist · topic locks · family mode', 'Crisis resources · audit log', 'Owner PIN panel']],
+    ['📊 Stats', ['Development stage tracker (Newborn → Adult)', 'Topic analytics · today summary', 'Self-reflection: what ARIA knows about you', 'Version history']],
+    ['📱 Mobile', ['Works offline', 'Installable as phone app (PWA)', '🎤 Voice input · 𝐀 Font size toggle', 'Auto-updates · 💾 Backup & restore']],
+    ['🧮 Tools', ['Math calculator · Time & date', '📤 Export chat as .txt · 🗑️ Clear chat', '📌 Save any response to memory', '📋 Copy any response to clipboard']],
+  ].map(([title, items]) => `
+    <div class="cap-section">
+      <div class="cap-title">${title}</div>
+      <div class="cap-item">${items.map(i=>'✅ '+i).join('<br>')}</div>
+    </div>`).join('');
+
+  const msgs = document.getElementById('messages');
+  const d = document.createElement('div');
+  d.className = 'msg ai'; d.id = 'm'+(++msgIdCounter);
+  d.innerHTML = `<div class="av ai">AI</div><div class="bubble" style="max-width:95%"><div style="color:var(--g1);font-weight:800;font-size:.88rem;margin-bottom:10px">🤖 Everything ARIA v${ARIA_VERSION} can do:</div>${guide}</div>`;
+  msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ── OVERRIDE showScreen to render stats ──
+const _origShowScreen = showScreen;
+showScreen = function(name) {
+  _origShowScreen(name);
+  if (name === 'stats') renderStatsScreen();
+  if (name === 'chat') renderSuggestions();
+};
 seedKnowledge();
 renderSkills(); renderPersonas(); renderTaughtList();
 renderSafetyToggles(); renderBlockedTags(); updateMemCount(); updateSafetyBadge();
+renderEmojiGrid(); renderTemplates(); renderSuggestions();
 
-// ── RESTORE ctx.userName from memory on every load ──
-// ARIA always knows Warren even after refresh/update
+// Restore font size preference
+if (localStorage.getItem('aria4_fs') === 'large') document.body.classList.add('fs-large');
+
+// ── RESTORE identity from memory on every load ──
 (function restoreIdentity() {
   const warrenmem = memory.find(m => m.kw && m.kw.includes('warren'));
-  if (warrenmem) {
-    ctx.userName = 'Warren';
-    ctx.fullName = 'Warren Munashe Handitye';
-    return;
-  }
+  if (warrenmem) { ctx.userName = 'Warren'; ctx.fullName = 'Warren Munashe Handitye'; return; }
   const nameMem = memory.find(m => m.type === 'user' && m.content.toLowerCase().includes('name is'));
-  if (nameMem) {
-    const match = nameMem.content.match(/name is ([A-Za-z]+)/i);
-    if (match) ctx.userName = match[1];
-  }
+  if (nameMem) { const match = nameMem.content.match(/name is ([A-Za-z]+)/i); if (match) ctx.userName = match[1]; }
 })();
 
 // Set version chips
@@ -1930,26 +2618,29 @@ exportBackupSilent();
 
 // Check pending update
 const pendingVer = localStorage.getItem('aria4_pending_version');
-if (pendingVer && pendingVer !== ARIA_VERSION) {
-  setTimeout(() => showUpdateBanner(pendingVer, ARIA_BUILD), 2000);
-}
+if (pendingVer && pendingVer !== ARIA_VERSION) setTimeout(() => showUpdateBanner(pendingVer, ARIA_BUILD), 2000);
 
-// ── WELCOME — personalised, stage-aware ──
-const memCount = memory.length;
-const stage    = getStage();
-const name     = ctx.userName || 'there';
+// ── PERSONALISED WELCOME ──
+const memCount  = memory.length;
+const stage     = getStage();
+const name      = ctx.userName || 'there';
+const hour      = new Date().getHours();
+const timeGreet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+const age       = new Date().getFullYear() - 1991;
 
 addMessage('ai',
-  `Hello <b>${name}</b>! 👋 ARIA v${ARIA_VERSION} is awake and knows you.\n\n` +
-  `${stage.emoji} <b>Development Stage: ${stage.name}</b>\n` +
-  `<em style="color:var(--mu3);font-size:.75rem">${stage.desc}</em>\n\n` +
-  `🧠 <b>${memCount} memories</b> loaded · ✏️ <b>${taughtData.length} taught skills</b>\n\n` +
-  `I know you're Warren Munashe Handitye — born in Harare, musician, producer, sound engineer, NHS carer, and the person who built me. ` +
-  `Ask me anything, or keep teaching me so I grow through the stages.`,
+  `${timeGreet}, <b>${name}</b>! 👋 ARIA v${ARIA_VERSION} is ready.\n\n` +
+  `${stage.emoji} <b>${stage.name} stage</b> — ${stage.desc}\n` +
+  `🧠 <b>${memCount} memories</b> · ✏️ <b>${taughtData.length} skills</b> · 📊 <b>${convHistory.length} total messages</b>\n\n` +
+  `I know you, Warren. Born Harare 1991 — approximately <b>${age} years old</b>. ` +
+  `Sound engineer, musician for 12 years, NHS HCA across three companies, ` +
+  `last born of Emanuel and Tsitsi Handitye, totem: Gwai Gora Gumbi Nyamhunga.\n\n` +
+  `🎤 Voice input · 📊 Stats · 🪞 Self-reflection · 📋 Copy any response · ✏️ Edit your taught skills\n` +
+  `<em style="color:var(--mu3);font-size:.72rem">Tip: Ask "What can you do?" for a full feature guide</em>`,
   {confidence:1, source:'taught'}
 );
 
-setTimeout(() => addSysNote(`${stage.emoji} ${stage.name} stage · ${memCount} memories · v${ARIA_VERSION} · ${new Date().toLocaleDateString()}`), 700);
+setTimeout(() => addSysNote(`${stage.emoji} ${stage.name} · ${memCount} memories · v${ARIA_VERSION} · ${new Date().toLocaleDateString('en-GB')}`), 700);
 </script>
 </body>
 </html>
