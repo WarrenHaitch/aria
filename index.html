@@ -11,16 +11,76 @@
 
 <!-- PWA Manifest inline -->
 <script>
+// ── VERSION STAMP ── bump this string every time you upload a new ARIA file
+const ARIA_VERSION = '4.1.0';
+const ARIA_BUILD   = '2026-03-07';
+
 const manifestData = {
-  name:"ARIA v4 — Safe AI Assistant",short_name:"ARIA",
-  start_url:".",display:"standalone",
-  background_color:"#060810",theme_color:"#00ffb3",
+  name:"ARIA v4 — Safe AI Assistant", short_name:"ARIA",
+  start_url:".", display:"standalone",
+  background_color:"#060810", theme_color:"#00ffb3",
   icons:[{src:"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23060810'/><text y='.9em' font-size='80' x='10'>🤖</text></svg>",sizes:"any",type:"image/svg+xml"}]
 };
 const blob = new Blob([JSON.stringify(manifestData)],{type:'application/json'});
 const link = document.createElement('link');
 link.rel='manifest'; link.href=URL.createObjectURL(blob);
 document.head.appendChild(link);
+
+// ── SERVICE WORKER (offline + update detection) ──
+const SW_CODE = `
+const CACHE = 'aria-v${ARIA_VERSION}';
+const URLS  = ['/'];           // cache the root page
+
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE).then(c => c.addAll(URLS)).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+  // Notify all open tabs that a new version is live
+  self.clients.matchAll({type:'window'}).then(clients =>
+    clients.forEach(c => c.postMessage({type:'NEW_VERSION', version:'${ARIA_VERSION}', build:'${ARIA_BUILD}'}))
+  );
+});
+
+self.addEventListener('fetch', e => {
+  // Network-first for the HTML (so updates always land), cache-fallback for offline
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).then(res => {
+        const clone = res.clone();
+        caches.open(CACHE).then(c => c.put(e.request, clone));
+        return res;
+      }).catch(() => caches.match(e.request))
+    );
+  }
+});
+`;
+
+if ('serviceWorker' in navigator) {
+  const swBlob = new Blob([SW_CODE], {type:'application/javascript'});
+  const swUrl  = URL.createObjectURL(swBlob);
+
+  navigator.serviceWorker.register(swUrl, {scope:'/'})
+    .then(reg => {
+      // Poll for updates every 60 seconds while app is open
+      setInterval(() => reg.update(), 60000);
+    })
+    .catch(() => {}); // Fail silently if SW not supported
+
+  // Listen for update messages from Service Worker
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data?.type === 'NEW_VERSION') {
+      showUpdateBanner(e.data.version, e.data.build);
+    }
+  });
+}
 </script>
 
 <style>
@@ -103,6 +163,9 @@ body::after{content:'';position:fixed;inset:0;
 /* ── SCREENS ── */
 .screen{display:none;flex-direction:column;height:100%;overflow:hidden}
 .screen.active{display:flex}
+/* owner screen specifically allows children to scroll */
+#screen-owner{overflow:hidden;display:none;flex-direction:column}
+#screen-owner.active{display:flex}
 
 /* ── CHAT SCREEN ── */
 .messages{
@@ -320,26 +383,32 @@ select.tf-in{cursor:pointer}
 .mtime{font-family:'JetBrains Mono',monospace;font-size:.53rem;color:var(--mu);margin-top:3px}
 
 /* owner panel */
-.owner-locked{display:flex;flex-direction:column;align-items:center;
-  justify-content:center;padding:40px 20px;text-align:center;gap:12px}
-.lock-icon{font-size:2.8rem}
-.lock-title{font-weight:800;font-size:1.1rem}
-.lock-desc{font-size:.76rem;color:var(--mu3);line-height:1.6;max-width:280px}
-.pin-row{display:flex;gap:10px;justify-content:center;margin:8px 0}
+.owner-locked{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:flex-start;padding:40px 20px 30px;text-align:center;gap:12px;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;height:100%;
+}
+.lock-icon{font-size:2.8rem;flex-shrink:0}
+.lock-title{font-weight:800;font-size:1.1rem;flex-shrink:0}
+.lock-desc{font-size:.76rem;color:var(--mu3);line-height:1.6;max-width:280px;flex-shrink:0}
+.pin-row{display:flex;gap:10px;justify-content:center;margin:8px 0;flex-shrink:0}
 .pin-dot{width:14px;height:14px;border-radius:50%;background:var(--b2);
   border:2px solid var(--b3);transition:all .3s}
 .pin-dot.filled{background:var(--g1);border-color:var(--g1)}
-.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:280px}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:280px;flex-shrink:0}
 .np-btn{background:var(--s2);border:1px solid var(--b2);border-radius:14px;
   height:60px;font-size:1.3rem;font-weight:700;cursor:pointer;
   display:flex;align-items:center;justify-content:center;transition:all .2s;color:var(--tx)}
 .np-btn:active{background:var(--s3);border-color:var(--g1);color:var(--g1);transform:scale(.94)}
 .np-btn.del{font-size:1rem;color:var(--danger)}
 .pin-error{color:var(--danger);font-size:.72rem;font-family:'JetBrains Mono',monospace;
-  animation:shake .4s ease;height:18px}
+  animation:shake .4s ease;height:18px;flex-shrink:0}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
 .pin-success{color:var(--g1);font-size:.72rem;font-family:'JetBrains Mono',monospace}
-.owner-content{display:none;flex-direction:column;gap:10px;padding:14px}
+.owner-content{
+  display:none;flex-direction:column;gap:10px;padding:14px 14px 30px;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;height:100%;
+}
 .owner-content.unlocked{display:flex}
 .danger-btn{background:rgba(255,61,90,.1);border:1px solid var(--danger);
   color:var(--danger);border-radius:11px;padding:12px;width:100%;
@@ -385,12 +454,47 @@ select.tf-in{cursor:pointer}
 .harm-banner .hb-resources{margin-top:8px;font-size:.7rem;color:var(--mu3)}
 .harm-banner .hb-link{color:var(--g2);text-decoration:underline}
 
-/* scrollbar */
-::-webkit-scrollbar{width:3px;height:3px}
-::-webkit-scrollbar-thumb{background:var(--b2);border-radius:3px}
+/* ── UPDATE BANNER ── */
+.update-banner{
+  position:fixed;top:0;left:0;right:0;z-index:9000;
+  background:linear-gradient(135deg,#0a2a1a,#061810);
+  border-bottom:2px solid var(--g1);
+  padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  transform:translateY(-100%);transition:transform .4s cubic-bezier(.34,1.56,.64,1);
+  flex-shrink:0;
+}
+.update-banner.show{transform:translateY(0)}
+.ub-text{font-size:.78rem;line-height:1.5}
+.ub-text strong{color:var(--g1)}
+.ub-text span{color:var(--mu3);font-size:.67rem;font-family:'JetBrains Mono',monospace}
+.ub-btns{display:flex;gap:8px;flex-shrink:0}
+.ub-update{background:var(--g1);color:#000;border:none;border-radius:9px;
+  padding:8px 14px;font-weight:800;font-size:.78rem;cursor:pointer;white-space:nowrap}
+.ub-dismiss{background:transparent;color:var(--mu2);border:1px solid var(--b2);
+  border-radius:9px;padding:8px 10px;font-size:.78rem;cursor:pointer}
+
+/* ── BACKUP RESTORE ── */
+.backup-zone{border:2px dashed var(--b2);border-radius:12px;padding:16px;
+  text-align:center;font-size:.75rem;color:var(--mu3);line-height:1.7;margin-bottom:8px}
+
+/* version chip in header */
+.ver-chip{font-family:'JetBrains Mono',monospace;font-size:.5rem;
+  color:var(--mu);padding:1px 5px;border:1px solid var(--b1);border-radius:6px;margin-left:4px}
 </style>
 </head>
 <body>
+
+<!-- UPDATE BANNER -->
+<div class="update-banner" id="updateBanner">
+  <div class="ub-text">
+    <strong>⬆️ ARIA Update Available!</strong><br>
+    <span id="updateDetail">A new version is ready</span>
+  </div>
+  <div class="ub-btns">
+    <button class="ub-update" onclick="applyUpdate()">UPDATE NOW</button>
+    <button class="ub-dismiss" onclick="dismissUpdate()">Later</button>
+  </div>
+</div>
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
@@ -400,6 +504,7 @@ select.tf-in{cursor:pointer}
   <div class="logo-group">
     <div class="logo">ARIA</div>
     <span class="version-badge">v4</span>
+    <span class="ver-chip" id="verChip">4.1.0</span>
   </div>
   <div id="safetyBadge" class="safety-badge safe" onclick="showScreen('owner')">
     <div class="sdot safe" id="safetyDot"></div>
@@ -558,6 +663,30 @@ select.tf-in{cursor:pointer}
       <div class="card">
         <div class="card-title">🎓 Mode Settings</div>
         <div id="modeToggles"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">💾 Backup & Restore Memory</div>
+        <div class="card-desc" style="margin-bottom:10px">Export everything — memories, teachings, settings — to a file. Restore it anytime, even after wiping or switching devices. Never lose your ARIA.</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="success-btn" onclick="exportBackup()">⬇️ Export Full Backup</button>
+          <div class="backup-zone" id="dropZone">
+            Tap to restore from backup file<br>
+            <input type="file" id="restoreFile" accept=".json" style="display:none" onchange="importBackup(this)" />
+            <button onclick="document.getElementById('restoreFile').click()" style="background:var(--s2);border:1px solid var(--b2);color:var(--mu3);border-radius:8px;padding:7px 14px;font-size:.75rem;margin-top:8px;cursor:pointer">Choose Backup File</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔄 Auto-Update</div>
+        <div class="card-desc" style="margin-bottom:10px">When you upload a new ARIA file to your host, she detects it and shows an update banner. Your memory and teachings are always preserved across updates.</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--mu3)">
+          Current version: <span style="color:var(--g1)" id="ownerVer">4.1.0</span><br>
+          Build: <span style="color:var(--mu2)">2026-03-07</span><br>
+          Last update check: <span id="lastUpdateCheck" style="color:var(--mu2)">—</span>
+        </div>
+        <button class="success-btn" style="margin-top:10px" onclick="checkForUpdate()">Check for Update Now</button>
       </div>
 
       <div class="card">
@@ -1477,25 +1606,172 @@ function seedKnowledge(){
   save();
 }
 
+// ── AUTO-UPDATER ──
+function showUpdateBanner(version, build) {
+  const banner = document.getElementById('updateBanner');
+  const detail = document.getElementById('updateDetail');
+  detail.textContent = `Version ${version} · Built ${build}`;
+  banner.classList.add('show');
+  localStorage.setItem('aria4_pending_version', version);
+}
+
+function applyUpdate() {
+  // Back up memory before reload so nothing is lost
+  exportBackupSilent();
+  showToast('💾 Memory backed up — applying update…');
+  setTimeout(() => {
+    // Clear SW cache so fresh file loads, then reload
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        Promise.all(regs.map(r => r.unregister())).then(() => {
+          caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => {
+            window.location.reload(true);
+          });
+        });
+      });
+    } else {
+      window.location.reload(true);
+    }
+  }, 1000);
+}
+
+function dismissUpdate() {
+  document.getElementById('updateBanner').classList.remove('show');
+  showToast('Reminder: Update is waiting whenever you\'re ready.');
+}
+
+function checkForUpdate() {
+  const el = document.getElementById('lastUpdateCheck');
+  if (el) el.textContent = new Date().toLocaleTimeString();
+  showToast('🔄 Checking for updates…');
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistration().then(reg => {
+      if (reg) {
+        reg.update().then(() => showToast('✅ Update check complete!'));
+      } else {
+        showToast('ℹ️ Service worker not active — host the file to enable auto-updates.');
+      }
+    });
+  } else {
+    showToast('ℹ️ Auto-update requires a hosted URL (Netlify/GitHub Pages).');
+  }
+}
+
+// ── BACKUP & RESTORE ──
+function buildBackupPayload() {
+  return {
+    version: ARIA_VERSION,
+    build:   ARIA_BUILD,
+    exported: new Date().toISOString(),
+    label:   'ARIA Full Backup',
+    data: {
+      memory:       memory,
+      convHistory:  convHistory,
+      taughtData:   taughtData,
+      skillStates:  skillStates,
+      ratings:      ratings,
+      blocklist:    blocklist,
+      safetySettings: safetySettings,
+      auditLog:     auditLog,
+      topicLocks:   topicLocks,
+      modeSettings: modeSettings,
+      activePersona: activePersona,
+      // Never export PIN — security
+    }
+  };
+}
+
+function exportBackup() {
+  const payload = buildBackupPayload();
+  const json = JSON.stringify(payload, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const date = new Date().toISOString().slice(0,10);
+  a.href = url; a.download = `aria-backup-${date}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  showToast(`✅ Backup saved: aria-backup-${date}.json`);
+  addMem('fact', `Full backup exported on ${new Date().toLocaleDateString()}`, ['backup','export']);
+  save();
+}
+
+function exportBackupSilent() {
+  try {
+    const payload = buildBackupPayload();
+    localStorage.setItem('aria4_last_backup', JSON.stringify(payload));
+  } catch(e) {}
+}
+
+function importBackup(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const payload = JSON.parse(e.target.result);
+      if (!payload.data || !payload.label) { showToast('⚠️ Invalid backup file'); return; }
+      const d = payload.data;
+
+      if (!confirm(`Restore ARIA backup from ${payload.exported?.slice(0,10)}?\n\nThis will MERGE with your current data (memories + teachings added, not overwritten).\n\nContinue?`)) return;
+
+      // MERGE — don't overwrite, add new entries only
+      const existingMemIds = new Set(memory.map(m => m.id));
+      (d.memory||[]).forEach(m => { if (!existingMemIds.has(m.id)) memory.unshift(m); });
+
+      const existingTeachIds = new Set(taughtData.map(t => t.id));
+      (d.taughtData||[]).forEach(t => { if (!existingTeachIds.has(t.id)) taughtData.unshift(t); });
+
+      if (d.skillStates)    Object.assign(skillStates, d.skillStates);
+      if (d.safetySettings) Object.assign(safetySettings, d.safetySettings);
+      if (d.modeSettings)   Object.assign(modeSettings, d.modeSettings);
+      if (d.blocklist)      blocklist = [...new Set([...blocklist, ...d.blocklist])];
+      if (d.activePersona)  activePersona = d.activePersona;
+
+      save();
+      updateMemCount(); renderTaughtList(); renderSkills();
+      renderPersonas(); renderSafetyToggles(); renderBlockedTags();
+      showToast(`✅ Backup restored! ${(d.memory||[]).length} memories, ${(d.taughtData||[]).length} skills merged.`);
+      addSysNote(`💾 Backup restored from ${payload.exported?.slice(0,10)} — v${payload.version}`);
+      showScreen('chat');
+    } catch(err) {
+      showToast('⚠️ Could not read backup file. Is it a valid ARIA backup?');
+    }
+  };
+  reader.readAsText(file);
+}
+
 // ── INIT ──
 seedKnowledge();
 renderSkills(); renderPersonas(); renderTaughtList();
 renderSafetyToggles(); renderBlockedTags(); updateMemCount(); updateSafetyBadge();
 
-const memCount=memory.length;
-const lastConv=convHistory[convHistory.length-1];
+// Set version chips
+document.getElementById('verChip').textContent = ARIA_VERSION;
+if (document.getElementById('ownerVer')) document.getElementById('ownerVer').textContent = ARIA_VERSION;
+
+// Auto-backup to localStorage on every load (silent safety net)
+exportBackupSilent();
+
+// Check if a pending update was detected last session
+const pendingVer = localStorage.getItem('aria4_pending_version');
+if (pendingVer && pendingVer !== ARIA_VERSION) {
+  setTimeout(() => showUpdateBanner(pendingVer, ARIA_BUILD), 2000);
+}
+
+const memCount = memory.length;
+const lastConv = convHistory[convHistory.length-1];
 addMessage('ai',
-  `🚀 <b>ARIA v4 — Mobile & Safe, Pre-loaded & Ready!</b>\n\n` +
-  `📱 <b>Install as app:</b> Tap Share → "Add to Home Screen"\n` +
+  `🚀 <b>ARIA v${ARIA_VERSION} — Mobile, Safe & Auto-Updating!</b>\n\n` +
+  `📱 <b>Install:</b> Tap Share → "Add to Home Screen"\n` +
   `🛡️ <b>Safety:</b> 5 layers active — blocklist, harm detection, audit log\n` +
-  `🔐 <b>Owner PIN:</b> Default is <em>1234</em> — change it in the Owner tab\n` +
-  `🧠 <b>${memCount} memories</b> pre-loaded from our Claude conversation\n` +
-  `✏️ <b>6 skills</b> pre-taught — ask me anything about ARIA\n\n` +
+  `🔐 <b>Owner PIN:</b> Default <em>1234</em> — change it in Owner tab\n` +
+  `💾 <b>Auto-backup:</b> Your data is backed up every time you open ARIA\n` +
+  `🔄 <b>Auto-update:</b> When you upload a new version, ARIA notifies you\n` +
+  `🧠 <b>${memCount} memories</b> pre-loaded from our Claude conversation\n\n` +
   `Try: <em>"How were you built?"</em> · <em>"How do I install you?"</em> · <em>"How does safety work?"</em>`,
-  {confidence:1,source:'taught'}
+  {confidence:1, source:'taught'}
 );
 
-if(lastConv) setTimeout(()=>addSysNote(`📚 Seeded from Claude session — ${new Date(lastConv.t).toLocaleString()}`),700);
+if (lastConv) setTimeout(() => addSysNote(`📚 Seeded from Claude session · v${ARIA_VERSION} · ${new Date().toLocaleDateString()}`), 700);
 </script>
 </body>
 </html>
