@@ -2,20 +2,21 @@
   "name": "ARIA v4",
   "short_name": "ARIA",
   "description": "Your intelligent AI companion — always learning, always growing.",
-  "start_url": "/",
+  "start_url": "/aria/",
+  "scope": "/aria/",
   "display": "standalone",
   "background_color": "#0a0c12",
   "theme_color": "#0a0c12",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "/aria/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-512.png",
+      "src": "/aria/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
