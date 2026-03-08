@@ -424,11 +424,17 @@
 
         <!-- API KEY -->
         <div class="owner-card">
-          <div class="owner-card-title">🔐 API & Security</div>
-          <div class="owner-btn-row">
-            <button class="owner-btn" onclick="resetApiKey()">🔄 Change API Key</button>
-            <button class="owner-btn" onclick="changePin()">🔐 Change Owner PIN</button>
+          <div class="owner-card-title">🔐 API &amp; Security</div>
+          <div class="owner-info-row">
+            <span class="owner-lbl">Current Key</span>
+            <span id="api-key-display" style="font-family:Space Mono,monospace;font-size:12px">Checking...</span>
           </div>
+          <div class="owner-btn-row" style="margin-top:10px">
+            <button class="owner-btn" onclick="resetApiKey()">🔄 Change Key</button>
+            <button class="owner-btn" onclick="testApiKey()">🧪 Test Key</button>
+            <button class="owner-btn" onclick="changePin()">🔐 Change PIN</button>
+          </div>
+          <div id="key-test-result" style="font-size:12px;margin-top:8px;display:none;padding:6px 0;line-height:1.5"></div>
         </div>
 
         <!-- TEAM MANAGEMENT -->
@@ -555,6 +561,7 @@ window.addEventListener('DOMContentLoaded', () => {
   updateMemPill();
   updateBadge();
   renderTeamList();
+  setTimeout(updateKeyDisplay, 100);
 
   // Register service worker
   if ('serviceWorker' in navigator) {
@@ -599,21 +606,80 @@ function applyUpdate() {
 
 // ── API KEY ───────────────────────────────────────────────
 function saveApiKey() {
-  const val = document.getElementById('api-key-input').value.trim();
-  if (!val.startsWith('sk-')) return alert('Please enter a valid Anthropic API key (starts with sk-)');
+  const raw = document.getElementById('api-key-input').value;
+  const val = raw.trim().replace(/\s+/g, '');  // strip ALL whitespace/newlines
+  if (!val) return alert('Please enter your Anthropic API key.');
+  if (!val.startsWith('sk-')) return alert('Invalid key — Anthropic keys start with "sk-".\n\nGet yours at: console.anthropic.com → API Keys');
+  if (val.length < 20) return alert('That key looks too short. Please copy the full key.');
   apiKey = val;
   localStorage.setItem(API_KEY_KEY, apiKey);
   document.getElementById('api-modal').style.display = 'none';
+  updateKeyDisplay();
   // If no PIN set, prompt setup
   if (!ownerPin) setTimeout(() => document.getElementById('set-pin-modal').style.display = 'flex', 400);
 }
 
 function resetApiKey() {
-  if (!confirm('Change API key?')) return;
+  if (!confirm('Change API key? You will need to enter a new one.')) return;
   localStorage.removeItem(API_KEY_KEY);
   apiKey = '';
   document.getElementById('api-key-input').value = '';
+  updateKeyDisplay();
   document.getElementById('api-modal').style.display = 'flex';
+}
+
+function testApiKey() {
+  const result = document.getElementById('key-test-result');
+  if (!apiKey) {
+    result.style.display = 'block';
+    result.style.color = 'var(--red)';
+    result.textContent = '❌ No API key set. Tap Change Key.';
+    return;
+  }
+  result.style.display = 'block';
+  result.style.color = 'var(--yellow)';
+  result.textContent = '⏳ Testing key...';
+  fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 10,
+      messages: [{ role: 'user', content: 'Hi' }]
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) {
+      result.style.color = 'var(--red)';
+      result.textContent = '❌ Key error: ' + data.error.message;
+    } else {
+      result.style.color = 'var(--teal)';
+      result.textContent = '✅ Key working! ARIA is connected to Claude.';
+    }
+  })
+  .catch(err => {
+    result.style.color = 'var(--red)';
+    result.textContent = '❌ Network error: ' + err.message;
+  });
+}
+
+function updateKeyDisplay() {
+  const el = document.getElementById('api-key-display');
+  if (!el) return;
+  if (apiKey) {
+    const masked = apiKey.slice(0,8) + '••••••••••••' + apiKey.slice(-4);
+    el.textContent = masked;
+    el.style.color = 'var(--teal)';
+  } else {
+    el.textContent = 'Not set';
+    el.style.color = 'var(--red)';
+  }
 }
 
 // ── PIN SYSTEM ────────────────────────────────────────────
