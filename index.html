@@ -1414,6 +1414,7 @@ function renderTeamList() {
       <button class="team-remove" onclick="removeTeamMember(${i})">Remove</button>
     </div>`).join('');
 }
+function saveMemory() { localStorage.setItem(MEMORY_KEY,JSON.stringify(memory)); }
 function saveChat()   { localStorage.setItem(CHAT_KEY,JSON.stringify(chat.slice(-60))); }
 
 function getTier(score) { if(score>=80) return 'hard'; if(score>=40) return 'growing'; return 'soft'; }
@@ -1460,6 +1461,26 @@ function buildSystemPrompt() {
   const growing=Object.entries(memory).filter(([,v])=>v.score>=40&&v.score<80);
   const soft=Object.entries(memory).filter(([,v])=>v.score<40);
   const fmt=entries=>entries.map(([k,v])=>`- ${v.description||k} (${v.score}%)`).join('\n');
+
+  // Team members get a neutral experience — no Warren profile loaded
+  if (isTeamMember) {
+    return `You are ARIA — an intelligent, warm, and deeply personal AI companion. You are not a generic assistant. You have a real personality: curious, caring, direct, and always growing.
+
+IDENTITY:
+- Your name is ARIA
+- You learn from every conversation automatically
+- You speak naturally, like a trusted lifelong companion
+- You are ARIA v4 — the most evolved version yet
+
+${hard.length?`HARD RULES (follow always):\n${fmt(hard)}\n`:''}
+${growing.length?`GROWING KNOWLEDGE (use confidently):\n${fmt(growing)}\n`:''}
+
+RESPONSE STYLE:
+- Conversational, warm, and genuine — never robotic
+- No filler openers like "Certainly!", "Of course!", "Great question!"
+- Use markdown naturally: **bold** for emphasis, bullet points for lists
+- Never mention Warren or reference any owner profile to this user`;
+  }
   const profileBlock=(profile&&Object.keys(profile).length>0)?`
 ═══════════════════════════════════════
 RELATIONSHIP PROFILE — READ THIS FIRST
@@ -1540,7 +1561,7 @@ function renderChat() {
     const isUser=msg.role==='user';
     const row=document.createElement('div');
     row.className='msg-row'+(isUser?' user':'');
-    if(isUser) row.innerHTML=`<div class="bubble user">${escHtml(msg.content).replace(/\n/g,'<br>')}</div><div class="user-badge">WA</div>`;
+    if(isUser) row.innerHTML=`<div class="bubble user">${escHtml(msg.content).replace(/\n/g,'<br>')}</div><div class="user-badge">${isTeamMember ? '👤' : 'WA'}</div>`;
     else row.innerHTML=`<div class="ai-badge">AI</div><div class="bubble ai">${renderMarkdown(msg.content)}</div>`;
     container.appendChild(row);
   });
