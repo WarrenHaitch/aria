@@ -446,7 +446,7 @@
 <div id="app">
 
   <!-- ══ API KEY MODAL ══ -->
-  <div id="api-modal" class="modal-overlay">
+  <div id="api-modal" class="modal-overlay" style="display:none">
     <div class="modal-box">
       <div class="modal-title">🧠 Activate ARIA v4</div>
       <div class="modal-sub">Enter your Anthropic API key to power ARIA. Stored only on this device — never shared.</div>
@@ -860,11 +860,24 @@ window.addEventListener('DOMContentLoaded', () => {
   profile = { ...DEFAULT_PROFILE, ...savedProfile, savedAt: savedProfile.savedAt || Date.now() };
   localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
 
-  if (apiKey) document.getElementById('api-modal').style.display = 'none';
-  if (!ownerPin) ownerUnlocked = true;
-
+  // Check team mode FIRST — before any modal logic
   const params = new URLSearchParams(window.location.search);
-  if (params.get('team') === '1') setTeamMode();
+  const isTeamMode = params.get('team') === '1';
+
+  if (isTeamMode) {
+    // Run team validation immediately — this will redirect or set up team UI
+    setTeamMode();
+    // If we're still here, team mode is valid — suppress ALL owner modals
+    document.getElementById('api-modal').style.display = 'none';
+    const pinModal = document.getElementById('set-pin-modal');
+    if (pinModal) pinModal.style.display = 'none';
+    const pinUnlock = document.getElementById('pin-modal');
+    if (pinUnlock) pinUnlock.style.display = 'none';
+  } else {
+    // Normal owner boot — show api modal only if no key saved
+    if (!apiKey) document.getElementById('api-modal').style.display = 'flex';
+    if (!ownerPin) ownerUnlocked = true;
+  }
 
   renderChat();
   renderSkills();
