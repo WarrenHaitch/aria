@@ -843,17 +843,22 @@ window.addEventListener('DOMContentLoaded', () => {
   team     = safeParse(localStorage.getItem(TEAM_KEY), []);
   username = localStorage.getItem(USER_KEY) || '';
 
-  // Seed default memories if memory is empty or missing key entries
-  if (!memory['owner_identity'] || !memory['mwari']) {
-    memory = Object.assign({}, SEED_MEMORIES, memory); // existing memories take priority
-    saveMemory();
-  }
+  // Always merge seed memories — seed fills gaps, existing memories take priority
+  // This runs every boot to ensure core knowledge is always present
+  let changed = false;
+  Object.entries(SEED_MEMORIES).forEach(([key, val]) => {
+    // Only seed if missing OR if existing score is lower (seed has better data)
+    if (!memory[key] || (memory[key].score < val.score && val.source === 'profile')) {
+      memory[key] = val;
+      changed = true;
+    }
+  });
+  if (changed) saveMemory();
 
-  // Pre-fill profile with defaults if no profile saved yet
-  if (!profile || !Object.keys(profile).length) {
-    profile = { ...DEFAULT_PROFILE, savedAt: Date.now() };
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-  }
+  // Always ensure profile has Warren's data — merge defaults with any saved additions
+  const savedProfile = safeParse(localStorage.getItem(PROFILE_KEY), {});
+  profile = { ...DEFAULT_PROFILE, ...savedProfile, savedAt: savedProfile.savedAt || Date.now() };
+  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
 
   if (apiKey) document.getElementById('api-modal').style.display = 'none';
   if (!ownerPin) ownerUnlocked = true;
