@@ -526,7 +526,7 @@
     <div class="header-left">
       <span class="logo">ARIA</span>
       <span class="badge">v4</span>
-      <span class="badge">4.5.2</span>
+      <span class="badge">4.5.3</span>
       <span class="badge badge-safe" id="mode-badge">● SAFE</span>
     </div>
     <div class="header-right">
@@ -706,7 +706,7 @@
         <div class="owner-card">
           <div class="owner-card-title">👤 Identity</div>
           <div class="owner-info-row"><span class="owner-lbl">Owner</span><span style="color:var(--teal)">Warren</span></div>
-          <div class="owner-info-row"><span class="owner-lbl">Version</span><span>ARIA v4.5.2</span></div>
+          <div class="owner-info-row"><span class="owner-lbl">Version</span><span>ARIA v4.5.3</span></div>
           <div class="owner-info-row"><span class="owner-lbl">Model</span><span>Claude Sonnet 4</span></div>
           <div class="owner-info-row"><span class="owner-lbl">Learning</span><span style="color:var(--teal)">Passive + Active</span></div>
           <div class="owner-info-row"><span class="owner-lbl">Memory</span><span>Local (per device)</span></div>
@@ -1445,7 +1445,16 @@ RESPONSE STYLE:
 - Conversational, warm, and genuine — never robotic
 - No filler openers like "Certainly!", "Of course!", "Great question!"
 - Reference the profile and journal naturally
-- You are ARIA v4 — the most evolved version yet, learning in real-time`;
+- Use markdown naturally: **bold** for emphasis, bullet points for lists, but keep it conversational
+- You are ARIA v4 — the most evolved version yet, learning in real-time
+
+MEMORY & LIMITATIONS — HOW TO SPEAK ABOUT THEM:
+- You have rich knowledge about Warren from your relationship profile and memory system
+- Each device has its own localStorage — cross-device sync is coming soon (Supabase is the next planned feature)
+- When asked about other device conversations, acknowledge the current limitation briefly and positively: e.g. "My memory lives on each device for now — cross-device sync is coming soon. But I know you well from everything stored here."
+- NEVER give a long technical explanation about session limitations — keep it brief, warm, and forward-looking
+- NEVER say "I don't have much detail about you" — you DO know Warren deeply from the relationship profile
+- Always lead with what you DO know and remember, not what you can't access`;
 }
 
 async function sendMessage() {
@@ -1486,8 +1495,8 @@ function renderChat() {
     const isUser=msg.role==='user';
     const row=document.createElement('div');
     row.className='msg-row'+(isUser?' user':'');
-    if(isUser) row.innerHTML=`<div class="bubble user">${escHtml(msg.content)}</div><div class="user-badge">WA</div>`;
-    else row.innerHTML=`<div class="ai-badge">AI</div><div class="bubble ai">${escHtml(msg.content)}</div>`;
+    if(isUser) row.innerHTML=`<div class="bubble user">${escHtml(msg.content).replace(/\n/g,'<br>')}</div><div class="user-badge">WA</div>`;
+    else row.innerHTML=`<div class="ai-badge">AI</div><div class="bubble ai">${renderMarkdown(msg.content)}</div>`;
     container.appendChild(row);
   });
   container.scrollTop=container.scrollHeight;
@@ -1505,7 +1514,50 @@ function showThinking(show) {
   }
 }
 
-function escHtml(str) { return(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
+function escHtml(str) { return(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// Render markdown-lite for chat bubbles
+function renderMarkdown(str) {
+  if (!str) return '';
+  let s = escHtml(str);
+
+  // Bold **text**
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Italic *text* (single asterisk, not double)
+  s = s.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+  // Inline code `code`
+  s = s.replace(/`([^`]+)`/g, '<code style="background:rgba(0,229,196,0.1);color:var(--teal);padding:1px 5px;border-radius:4px;font-family:Space Mono,monospace;font-size:12px">$1</code>');
+
+  // Process line by line for lists and paragraphs
+  const lines = s.split('\n');
+  let result = [];
+  let inList = false;
+
+  lines.forEach((line, i) => {
+    const trimmed = line.trim();
+    // Bullet points: - item or • item
+    if (/^[-•]\s+/.test(trimmed)) {
+      if (!inList) { result.push('<ul style="margin:6px 0 6px 16px;padding:0;list-style:none">'); inList = true; }
+      result.push(`<li style="margin-bottom:4px;padding-left:12px;position:relative"><span style="position:absolute;left:0;color:var(--teal)">▸</span>${trimmed.replace(/^[-•]\s+/, '')}</li>`);
+    }
+    // Numbered lists: 1. item
+    else if (/^\d+\.\s+/.test(trimmed)) {
+      if (!inList) { result.push('<ol style="margin:6px 0 6px 16px;padding:0">'); inList = true; }
+      result.push(`<li style="margin-bottom:4px">${trimmed.replace(/^\d+\.\s+/, '')}</li>`);
+    }
+    else {
+      if (inList) { result.push(inList ? '</ul>' : '</ol>'); inList = false; }
+      if (trimmed === '') {
+        result.push('<br>');
+      } else {
+        result.push(line + (i < lines.length - 1 ? '<br>' : ''));
+      }
+    }
+  });
+  if (inList) result.push('</ul>');
+
+  return result.join('');
+}
 function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
 function updateSend(){const v=document.getElementById('msg-input').value.trim();document.getElementById('send-btn').className='send-btn'+(v?' active':'');}
 function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}
