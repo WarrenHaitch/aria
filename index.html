@@ -790,6 +790,8 @@ let thinking = false;
 let currentFilter = 'all';
 let editingKey    = null;
 let pinBuffer     = '';
+let isTeamMember  = false; // set true when valid team code detected
+const TEAM_API_KEY = ''; // Warren fills this in with his API key for team use
 let pinTarget     = null;
 let ownerUnlocked = false;
 let username      = '';
@@ -1217,6 +1219,7 @@ function setTeamMode() {
   }
 
   // Valid — let them in
+  isTeamMember = true;
   const ownerBtn = document.getElementById('owner-nav-btn');
   if (ownerBtn) ownerBtn.style.display = 'none';
   document.getElementById('mode-badge').textContent = '● BETA';
@@ -1503,15 +1506,15 @@ async function sendMessage() {
   const input=document.getElementById('msg-input');
   const text=input.value.trim();
   if(!text||thinking) return;
-  if(!apiKey){document.getElementById('api-modal').style.display='flex';return;}
+  if(!apiKey && !isTeamMember){document.getElementById('api-modal').style.display='flex';return;}
+  const activeKey = isTeamMember ? TEAM_API_KEY : apiKey;
   chat.push({role:'user',content:text,ts:Date.now()}); saveChat();
   input.value=''; input.style.height='auto'; updateSend(); renderChat(); showThinking(true);
   const apiMessages=chat.slice(-20).map(m=>({role:m.role,content:m.content}));
   try {
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:buildSystemPrompt(),tools:[{type:'web_search_20250305',name:'web_search'}],messages:apiMessages})
+      headers:{'Content-Type':'application/json','x-api-key':activeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
     });
     const data=await res.json();
     if(data.error) throw new Error(data.error.message);
