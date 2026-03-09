@@ -872,7 +872,11 @@ window.addEventListener('DOMContentLoaded', () => {
     if (apiKey || TEAM_API_KEY) {
       document.getElementById('api-modal').style.display = 'none';
     } else {
+      // Show modal but with team-friendly message
       document.getElementById('api-modal').style.display = 'flex';
+      document.querySelector('#api-modal .modal-title').textContent = '🧠 Activate ARIA';
+      document.querySelector('#api-modal .modal-sub').textContent = 'Enter the API key Warren shared with you to start chatting.';
+      document.querySelector('#api-modal .modal-note').textContent = 'Contact Warren if you need your key.';
     }
     const pinModal = document.getElementById('set-pin-modal');
     if (pinModal) pinModal.style.display = 'none';
@@ -1319,7 +1323,7 @@ function saveApiKey() {
   localStorage.setItem(API_KEY_KEY, apiKey);
   document.getElementById('api-modal').style.display = 'none';
   updateKeyDisplay();
-  if (!ownerPin) setTimeout(() => document.getElementById('set-pin-modal').style.display = 'flex', 400);
+  if (!ownerPin && !isTeamMember) setTimeout(() => document.getElementById('set-pin-modal').style.display = 'flex', 400);
 }
 
 function resetApiKey() {
@@ -1540,7 +1544,7 @@ async function sendMessage() {
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':activeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    });
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:buildSystemPrompt(),tools:[{type:'web_search_20250305',name:'web_search'}],messages:apiMessages})
     const data=await res.json();
     if(data.error) throw new Error(data.error.message);
     const reply=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('')||"I couldn't respond. Please try again.";
