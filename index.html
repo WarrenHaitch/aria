@@ -1545,6 +1545,7 @@ async function sendMessage() {
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':activeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:buildSystemPrompt(),tools:[{type:'web_search_20250305',name:'web_search'}],messages:apiMessages})
+    });
     const data=await res.json();
     if(data.error) throw new Error(data.error.message);
     const reply=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('')||"I couldn't respond. Please try again.";
