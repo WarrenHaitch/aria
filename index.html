@@ -867,10 +867,13 @@ window.addEventListener('DOMContentLoaded', () => {
   const isTeamMode = params.get('team') === '1';
 
   if (isTeamMode) {
-    // Run team validation immediately — this will redirect or set up team UI
     setTeamMode();
-    // If we're still here, team mode is valid — suppress ALL owner modals
-    document.getElementById('api-modal').style.display = 'none';
+    // Only suppress api modal if we have a key saved or TEAM_API_KEY is set
+    if (apiKey || TEAM_API_KEY) {
+      document.getElementById('api-modal').style.display = 'none';
+    } else {
+      document.getElementById('api-modal').style.display = 'flex';
+    }
     const pinModal = document.getElementById('set-pin-modal');
     if (pinModal) pinModal.style.display = 'none';
     const pinUnlock = document.getElementById('pin-modal');
@@ -1528,7 +1531,8 @@ async function sendMessage() {
   const text=input.value.trim();
   if(!text||thinking) return;
   if(!apiKey && !isTeamMember){document.getElementById('api-modal').style.display='flex';return;}
-  const activeKey = isTeamMember ? TEAM_API_KEY : apiKey;
+  if(!apiKey && isTeamMember && !TEAM_API_KEY){document.getElementById('api-modal').style.display='flex';return;}
+  const activeKey = (isTeamMember && TEAM_API_KEY) ? TEAM_API_KEY : apiKey;
   chat.push({role:'user',content:text,ts:Date.now()}); saveChat();
   input.value=''; input.style.height='auto'; updateSend(); renderChat(); showThinking(true);
   const apiMessages=chat.slice(-20).map(m=>({role:m.role,content:m.content}));
@@ -1705,10 +1709,12 @@ function loadProfileFields() {
 async function writeSessionJournal() {
   const sessionMsgs=chat.slice(-20);
   if(sessionMsgs.length<4) return;
+  const journalKey = (isTeamMember && TEAM_API_KEY) ? TEAM_API_KEY : apiKey;
+  if(!journalKey) return;
   try{
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      headers:{'Content-Type':'application/json','x-api-key':journalKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:120,messages:[{role:'user',content:`Summarise this conversation in ONE sentence (max 25 words). Focus on what was discussed, decided, or learned.\n\nConversation:\n${sessionMsgs.map(m=>m.role.toUpperCase()+': '+m.content.slice(0,200)).join('\n')}`}]})
     });
     const data=await res.json();
