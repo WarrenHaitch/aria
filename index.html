@@ -2673,14 +2673,20 @@ async function syncToSupabase() {
   result.style.color = 'var(--yellow)';
   result.textContent = 'Connecting to Supabase...';
 
-  // Data to sync
+  // Data to sync — everything ARIA needs to be fully restored on a new device
   const syncPayload = [
-    { key: 'aria_neuro_v5',        value: localStorage.getItem(NEURO_KEY) || '{}' },
-    { key: 'aria_memory_v4',       value: localStorage.getItem(MEMORY_KEY) || '{}' },
-    { key: 'aria_relationship_v5', value: localStorage.getItem(RELATION_KEY) || '{}' },
-    { key: 'aria_profile_v4',      value: localStorage.getItem(PROFILE_KEY) || '{}' },
-    { key: 'aria_neuro_snapshots', value: localStorage.getItem(SNAPSHOTS_KEY) || '[]' },
-    { key: 'aria_documents_v5',    value: localStorage.getItem(DOCS_KEY) || '[]' }
+    { key: 'aria_neuro_v5',          value: localStorage.getItem(NEURO_KEY) || '{}' },
+    { key: 'aria_memory_v4',         value: localStorage.getItem(MEMORY_KEY) || '{}' },
+    { key: 'aria_relationship_v5',   value: localStorage.getItem(RELATION_KEY) || '{}' },
+    { key: 'aria_profile_v4',        value: localStorage.getItem(PROFILE_KEY) || '{}' },
+    { key: 'aria_neuro_snapshots',   value: localStorage.getItem(SNAPSHOTS_KEY) || '[]' },
+    { key: 'aria_documents_v5',      value: localStorage.getItem(DOCS_KEY) || '[]' },
+    { key: 'aria_journal_v4',        value: localStorage.getItem(JOURNAL_KEY) || '[]' },
+    { key: 'aria_team_v4',           value: localStorage.getItem(TEAM_KEY) || '[]' },
+    { key: 'aria_neuro_pathways_v5', value: localStorage.getItem(PATHWAYS_KEY) || '[]' },
+    { key: 'aria_predictive_v5',     value: localStorage.getItem(PREDICTIVE_KEY) || '{}' },
+    { key: 'aria_self_eval_v5',      value: localStorage.getItem(SELF_EVAL_KEY) || '{}' },
+    { key: 'aria_conv_patterns_v5',  value: localStorage.getItem(PATTERNS_KEY) || '{}' },
   ];
 
   let successCount = 0;
@@ -2752,12 +2758,18 @@ async function pullFromSupabase() {
     if (!rows.length) return alert('No data found in Supabase to pull.');
 
     const keyMap = {
-      'aria_neuro_v5':        NEURO_KEY,
-      'aria_memory_v4':       MEMORY_KEY,
-      'aria_relationship_v5': RELATION_KEY,
-      'aria_profile_v4':      PROFILE_KEY,
-      'aria_neuro_snapshots': SNAPSHOTS_KEY,
-      'aria_documents_v5':    DOCS_KEY
+      'aria_neuro_v5':          NEURO_KEY,
+      'aria_memory_v4':         MEMORY_KEY,
+      'aria_relationship_v5':   RELATION_KEY,
+      'aria_profile_v4':        PROFILE_KEY,
+      'aria_neuro_snapshots':   SNAPSHOTS_KEY,
+      'aria_documents_v5':      DOCS_KEY,
+      'aria_journal_v4':        JOURNAL_KEY,
+      'aria_team_v4':           TEAM_KEY,
+      'aria_neuro_pathways_v5': PATHWAYS_KEY,
+      'aria_predictive_v5':     PREDICTIVE_KEY,
+      'aria_self_eval_v5':      SELF_EVAL_KEY,
+      'aria_conv_patterns_v5':  PATTERNS_KEY,
     };
 
     rows.forEach(row => {
