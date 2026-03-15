@@ -257,34 +257,50 @@
     }
     /* ── BUBBLE REDESIGN — glassmorphism so canvas shows through ── */
     .bubble.ai {
-      background: rgba(13,16,32,0.82);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      border: 1px solid rgba(0,229,196,0.18);
+      background: rgba(10,12,20,0.55);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border: 1px solid rgba(0,229,196,0.15);
       border-radius: 14px 14px 14px 2px;
-      box-shadow: 0 2px 16px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 20px rgba(0,0,0,0.25);
     }
     .bubble.user {
-      background: rgba(26,42,80,0.85);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      border: 1px solid rgba(124,92,252,0.25);
+      background: rgba(20,30,60,0.60);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border: 1px solid rgba(124,92,252,0.20);
       border-radius: 14px 14px 2px 14px;
-      box-shadow: 0 2px 16px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 20px rgba(0,0,0,0.25);
+    }
+    .thinking-bubble {
+      background: rgba(10,12,20,0.55) !important;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border: 1px solid rgba(0,229,196,0.12) !important;
     }
     .ai-badge {
-      background: rgba(0,229,196,0.12);
-      border: 1px solid rgba(0,229,196,0.25);
+      background: rgba(0,229,196,0.10);
+      border: 1px solid rgba(0,229,196,0.20);
       color: var(--teal);
       font-size: 9px;
       letter-spacing: 1px;
     }
     .user-badge {
-      background: rgba(124,92,252,0.12);
-      border: 1px solid rgba(124,92,252,0.25);
+      background: rgba(124,92,252,0.10);
+      border: 1px solid rgba(124,92,252,0.20);
       color: var(--purple);
       font-size: 9px;
       letter-spacing: 1px;
+    }
+    /* ── BRAIN ICON CANVAS ── */
+    #brain-canvas {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      display: block;
     }
     .context-badge {
       display: inline-flex; align-items: center; gap: 5px;
@@ -395,7 +411,7 @@
       <div class="context-badge ctx-mixed" id="context-badge">💬 CHAT</div>
       <div class="icon-btn" id="search-toggle-btn" onclick="openSearch()" title="Search chat">🔍</div>
       <div class="icon-btn" id="user-badge-display">A</div>
-      <div class="icon-btn">🧠</div>
+      <canvas id="brain-canvas" title="ARIA Neural Activity"></canvas>
     </div>
   </div>
 
@@ -1125,6 +1141,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // ── Start neural canvas ──
   setTimeout(() => neuroCanvas.init(), 200);
+  setTimeout(() => brainCanvas.init(), 250);
 
   // ── Init voice input ──
   setTimeout(() => initVoiceInput(), 300);
@@ -1483,6 +1500,7 @@ function learnFromExchange(userMsg, ariaMsg) {
   if (type && applyWeight) {
     showLearnBanner((isOwner ? '' : '👤 ') + (msgs[type] || `💡 Absorbed: ${concepts.slice(0,2).join(', ')}`));
     neuroCanvas.fire(type === 'teaching' ? 2.5 : type === 'praise' ? 1.5 : 1);
+    brainCanvas.fire(type === 'teaching' ? 2 : 1);
   } else {
     showLearnBanner(`💡 Absorbed: ${concepts.slice(0,2).join(', ')}`);
   }
@@ -1942,6 +1960,7 @@ async function sendMessage(){
 
     // ── Fire neural canvas ──
     neuroCanvas.fire(Math.min(3, 1 + reply.length / 800));
+    brainCanvas.fire(1.5);
 
   }catch(err){
     chat.push({role:'assistant',content:`⚠️ ${err.message}`,ts:Date.now()});saveChat();
@@ -2875,7 +2894,7 @@ function updatePredictiveModel(userMsg, ariaReply) {
   // Track topics
   const words = userMsg.toLowerCase().split(/\s+/).filter(w => w.length > 4 && !STOP.has(w));
   model.lastTopics = words.slice(0, 5);
-  model.sessionTopics = [...new Set([...model.sessionTopics, ...words])].slice(0, 30);
+  model.sessionTopics = [...new Set([...(model.sessionTopics || []), ...words])].slice(0, 30);
 
   localStorage.setItem(PREDICTIVE_KEY, JSON.stringify(model));
 }
@@ -3655,6 +3674,158 @@ const neuroCanvas = (() => {
 })();
 
 // Initialise canvas — called from main DOMContentLoaded above
+
+// ═══════════════════════════════════════════════════════════
+//  🧠 BRAIN ICON CANVAS — miniature neural animation in header
+// ═══════════════════════════════════════════════════════════
+
+const brainCanvas = (() => {
+  let canvas, ctx, W, H, animId;
+  let nodes = [], pulses = [], lastFire = 0;
+
+  const TEAL   = [0,229,196];
+  const PURPLE = [124,92,252];
+  const GOLD   = [255,209,102];
+  const rgba   = ([r,g,b], a) => `rgba(${r},${g},${b},${a})`;
+
+  class BNode {
+    constructor(x, y, col) {
+      this.x = x; this.y = y; this.col = col;
+      this.r = 1.2 + Math.random() * 1.2;
+      this.baseR = this.r;
+      this.glow = 0;
+      this.vx = (Math.random()-0.5)*0.15;
+      this.vy = (Math.random()-0.5)*0.15;
+      this.connections = [];
+    }
+    update() {
+      this.x += this.vx; this.y += this.vy;
+      if(this.x<2||this.x>W-2) this.vx*=-1;
+      if(this.y<2||this.y>H-2) this.vy*=-1;
+      this.glow *= 0.90;
+      this.r = this.baseR + this.glow * 2.5;
+    }
+    fire(i=1){ this.glow = Math.min(1, this.glow + i*0.9); }
+    draw() {
+      const g = this.glow;
+      if(g > 0.05) {
+        const halo = ctx.createRadialGradient(this.x,this.y,0,this.x,this.y,this.r*4);
+        halo.addColorStop(0, rgba(this.col, g*0.5));
+        halo.addColorStop(1, rgba(this.col, 0));
+        ctx.beginPath(); ctx.arc(this.x,this.y,this.r*4,0,Math.PI*2);
+        ctx.fillStyle=halo; ctx.fill();
+      }
+      ctx.beginPath(); ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+      ctx.fillStyle = rgba(this.col, 0.3 + g*0.6);
+      ctx.fill();
+    }
+  }
+
+  class BPulse {
+    constructor(from, to, col) {
+      this.from=from; this.to=to; this.t=0;
+      this.speed=0.018+Math.random()*0.015;
+      this.col=col; this.done=false;
+    }
+    update() {
+      this.t+=this.speed;
+      if(this.t>=1){ this.done=true; this.to.fire(0.7); }
+    }
+    draw() {
+      const x=this.from.x+(this.to.x-this.from.x)*this.t;
+      const y=this.from.y+(this.to.y-this.from.y)*this.t;
+      const a=0.9-this.t*0.3;
+      const halo=ctx.createRadialGradient(x,y,0,x,y,3);
+      halo.addColorStop(0,rgba(this.col,a));
+      halo.addColorStop(1,rgba(this.col,0));
+      ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2);
+      ctx.fillStyle=halo; ctx.fill();
+      ctx.beginPath(); ctx.arc(x,y,1.2,0,Math.PI*2);
+      ctx.fillStyle=rgba(this.col,a); ctx.fill();
+    }
+  }
+
+  function build() {
+    nodes=[];
+    const cols = [TEAL,TEAL,PURPLE,GOLD,TEAL,PURPLE,TEAL,GOLD];
+    // Place nodes in rough brain shape — two hemispheres
+    const positions = [
+      [0.20,0.35],[0.20,0.65],
+      [0.42,0.22],[0.42,0.50],[0.42,0.78],
+      [0.65,0.35],[0.65,0.65],
+      [0.85,0.50]
+    ];
+    positions.forEach((pos,i)=>{
+      nodes.push(new BNode(
+        pos[0]*W + (Math.random()-0.5)*3,
+        pos[1]*H + (Math.random()-0.5)*3,
+        cols[i]
+      ));
+    });
+    // Connect nearby nodes
+    nodes.forEach((a,i)=>{
+      nodes.forEach((b,j)=>{
+        if(i>=j)return;
+        const d=Math.hypot(a.x-b.x,a.y-b.y);
+        if(d<W*0.45){ a.connections.push(j); b.connections.push(i); }
+      });
+    });
+  }
+
+  function drawEdges() {
+    nodes.forEach((a,i)=>{
+      a.connections.forEach(j=>{
+        if(j<=i)return;
+        const b=nodes[j];
+        const d=Math.hypot(a.x-b.x,a.y-b.y);
+        const act=Math.max(a.glow,b.glow);
+        const alpha=0.06+act*0.35;
+        ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+        ctx.strokeStyle=rgba(TEAL,alpha);
+        ctx.lineWidth=0.5+act*0.8; ctx.stroke();
+      });
+    });
+  }
+
+  function autoFire(now) {
+    if(now-lastFire < 280) return;
+    lastFire=now;
+    const src=nodes[Math.floor(Math.random()*nodes.length)];
+    if(!src||!src.connections.length)return;
+    src.fire(0.8);
+    src.connections.slice(0,2).forEach(ci=>{
+      const col=Math.random()<0.3?GOLD:Math.random()<0.4?PURPLE:TEAL;
+      pulses.push(new BPulse(src,nodes[ci],col));
+    });
+  }
+
+  function loop(now) {
+    animId=requestAnimationFrame(loop);
+    ctx.clearRect(0,0,W,H);
+    drawEdges();
+    nodes.forEach(n=>{n.update();n.draw();});
+    pulses=pulses.filter(p=>!p.done);
+    pulses.forEach(p=>{p.update();p.draw();});
+    autoFire(now);
+  }
+
+  return {
+    init() {
+      canvas=document.getElementById('brain-canvas');
+      if(!canvas)return;
+      W=canvas.width=34; H=canvas.height=34;
+      ctx=canvas.getContext('2d');
+      build();
+      loop(0);
+    },
+    fire(intensity=1) {
+      if(!nodes.length)return;
+      nodes.forEach((n,i)=>{
+        setTimeout(()=>{ n.fire(intensity); },i*30);
+      });
+    }
+  };
+})();
 </script>
 </body>
 </html>
