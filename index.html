@@ -226,7 +226,45 @@
     #update-banner { background:rgba(124,92,252,0.12); border-bottom:1px solid rgba(124,92,252,0.3); padding:8px 16px; font-size:12px; color:#a090ff; display:none; align-items:center; justify-content:space-between; gap:8px; flex-shrink:0; }
     #update-banner.show { display:flex; }
     .update-btn { padding:4px 12px; background:var(--purple); color:#fff; border:none; border-radius:6px; font-size:11px; cursor:pointer; font-family:'Syne',sans-serif; }
-    /* ── NEURO WEIGHT BARS ── */
+    /* ── NEURAL CANVAS BACKGROUND ── */
+    #neuro-canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.45;
+    }
+    #messages {
+      position: relative;
+      z-index: 1;
+    }
+    /* ── CONTEXT MODE BADGE ── */
+    .context-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 10px; padding: 2px 10px; border-radius: 10px;
+      font-family: 'Space Mono', monospace; letter-spacing: 1px;
+      margin-left: 6px; transition: all 0.4s ease;
+    }
+    .ctx-business  { background: rgba(255,209,102,0.12); color: var(--yellow); border: 1px solid rgba(255,209,102,0.3); }
+    .ctx-technical { background: rgba(0,229,196,0.10); color: var(--teal); border: 1px solid rgba(0,229,196,0.3); }
+    .ctx-cultural  { background: rgba(124,92,252,0.12); color: var(--purple); border: 1px solid rgba(124,92,252,0.3); }
+    .ctx-personal  { background: rgba(255,107,53,0.10); color: var(--orange); border: 1px solid rgba(255,107,53,0.3); }
+    .ctx-mixed     { background: rgba(255,71,87,0.08); color: var(--sub); border: 1px solid var(--border); }
+    /* ── NEURO CANVAS BACKGROUND ── */
+    #neuro-canvas {
+      position:absolute;
+      top:0; left:0; width:100%; height:100%;
+      pointer-events:none;
+      z-index:0;
+      opacity:0.55;
+    }
+    /* Ensure all chat children sit above the canvas */
+    #chat-search-bar, #messages, #action-row, .suggestions, .input-row {
+      position:relative;
+      z-index:1;
+    }
+    /* Neuro weight bars */
     .neuro-weight-row { display:grid; grid-template-columns:160px 1fr 40px; align-items:center; gap:10px; margin-bottom:8px; }
     .neuro-label { font-size:10px; color:var(--muted); letter-spacing:1px; font-family:'Space Mono',monospace; }
     .neuro-bar { height:4px; background:var(--border); border-radius:2px; overflow:hidden; }
@@ -318,6 +356,7 @@
       <span class="badge badge-safe" id="mode-badge">● NEURO</span>
     </div>
     <div class="header-right">
+      <div class="context-badge ctx-mixed" id="context-badge">💬 CHAT</div>
       <div class="icon-btn" id="search-toggle-btn" onclick="openSearch()" title="Search chat">🔍</div>
       <div class="icon-btn" id="user-badge-display">A</div>
       <div class="icon-btn">🧠</div>
@@ -336,7 +375,8 @@
 
   <div id="tab-content">
 
-    <div id="tab-chat" class="tab-pane active">
+    <div id="tab-chat" class="tab-pane active" style="position:relative">
+      <canvas id="neuro-canvas"></canvas>
       <div id="chat-search-bar">
         <div class="inline-search-wrap">
           <span style="font-size:12px;color:var(--teal)">🔍</span>
@@ -578,6 +618,7 @@ const USERS_KEY       = 'aria_neuro_users_v5';
 const SNAPSHOTS_KEY   = 'aria_neuro_snapshots_v5';
 const SIGNAL_LOG_KEY  = 'aria_signal_log_v5';
 const MIGRATED_KEY    = 'aria_neuro_migrated_v5';
+const EQ_STATE_KEY    = 'aria_eq_state_v5';
 
 // ── STATE ──
 let memory={}, profile={}, journal=[], chat=[], apiKey='', ownerPin='', team=[];
@@ -987,6 +1028,9 @@ window.addEventListener('DOMContentLoaded', () => {
   updateMemPill(); updateBadge(); renderTeamList();
   setTimeout(updateKeyDisplay, 100);
 
+  // ── Start neural canvas ──
+  setTimeout(initNeuralCanvas, 200);
+
   window.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden' && chat.length >= 4) endSession();
   });
@@ -1285,6 +1329,7 @@ function learnFromExchange(userMsg, ariaMsg) {
 
   if (type && applyWeight) {
     showLearnBanner((isOwner ? '' : '👤 ') + (msgs[type] || `💡 Absorbed: ${concepts.slice(0,2).join(', ')}`));
+    neuroCanvas.fire(type === 'teaching' ? 2.5 : type === 'praise' ? 1.5 : 1);
   } else {
     showLearnBanner(`💡 Absorbed: ${concepts.slice(0,2).join(', ')}`);
   }
@@ -1369,30 +1414,388 @@ function manuallyClassifySignal(sigId, confirmedType) {
 function showLearnBanner(text){const b=document.getElementById('learn-banner');document.getElementById('learn-text').textContent=text;b.classList.add('show');setTimeout(()=>b.classList.remove('show'),2800);}
 
 // ═══════════════════════════════════════════════════════════
-//  🧠 DYNAMIC SYSTEM PROMPT — reads neuro weights
+//  🧬 NEURAL CANVAS — Firing neurons background animation
 // ═══════════════════════════════════════════════════════════
 
-function buildSystemPrompt() {
+let neuralCanvas, neuralCtx, neuralNodes = [], neuralAnimFrame;
+const NODE_COUNT = 28;
+const FIRE_COLOR = '#00e5c4';
+const SYNAPSE_COLOR = 'rgba(0,229,196,0.15)';
+
+function initNeuralCanvas() {
+  neuralCanvas = document.getElementById('neuro-canvas');
+  if (!neuralCanvas) return;
+  const parent = neuralCanvas.parentElement;
+  neuralCanvas.width = parent.offsetWidth;
+  neuralCanvas.height = parent.offsetHeight;
+  neuralCtx = neuralCanvas.getContext('2d');
+
+  // Build node network
+  neuralNodes = [];
+  for (let i = 0; i < NODE_COUNT; i++) {
+    neuralNodes.push({
+      x: Math.random() * neuralCanvas.width,
+      y: Math.random() * neuralCanvas.height,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      radius: 1.5 + Math.random() * 2.5,
+      firing: false,
+      fireIntensity: 0,
+      fireTimer: Math.random() * 200,
+      fireInterval: 80 + Math.random() * 300,
+      connections: []
+    });
+  }
+
+  // Pre-assign connections (nearest 2-3 neighbours)
+  neuralNodes.forEach((node, i) => {
+    const dists = neuralNodes
+      .map((n, j) => ({ j, d: Math.hypot(n.x - node.x, n.y - node.y) }))
+      .filter(e => e.j !== i)
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 3);
+    node.connections = dists.map(e => e.j);
+  });
+
+  cancelAnimationFrame(neuralAnimFrame);
+  drawNeuralFrame();
+}
+
+function drawNeuralFrame() {
+  if (!neuralCtx || !neuralCanvas) return;
+  neuralCtx.clearRect(0, 0, neuralCanvas.width, neuralCanvas.height);
+
+  // Move nodes
+  neuralNodes.forEach(node => {
+    node.x += node.vx;
+    node.y += node.vy;
+    if (node.x < 0 || node.x > neuralCanvas.width)  node.vx *= -1;
+    if (node.y < 0 || node.y > neuralCanvas.height) node.vy *= -1;
+
+    // Fire logic
+    node.fireTimer++;
+    if (node.fireTimer >= node.fireInterval) {
+      node.firing = true;
+      node.fireIntensity = 1.0;
+      node.fireTimer = 0;
+      node.fireInterval = 80 + Math.random() * 300;
+      // Cascade fire to connected nodes with delay
+      node.connections.forEach((ci, idx) => {
+        setTimeout(() => {
+          if (neuralNodes[ci]) {
+            neuralNodes[ci].firing = true;
+            neuralNodes[ci].fireIntensity = 0.6;
+          }
+        }, 60 + idx * 40);
+      });
+    }
+    if (node.firing) {
+      node.fireIntensity -= 0.025;
+      if (node.fireIntensity <= 0) { node.firing = false; node.fireIntensity = 0; }
+    }
+  });
+
+  // Draw synapses
+  neuralNodes.forEach((node, i) => {
+    node.connections.forEach(ci => {
+      const target = neuralNodes[ci];
+      const dist = Math.hypot(target.x - node.x, target.y - node.y);
+      if (dist > 220) return;
+      const firingStrength = Math.max(node.fireIntensity, target.fireIntensity);
+      const alpha = firingStrength > 0
+        ? 0.08 + firingStrength * 0.5
+        : 0.06 * (1 - dist / 220);
+
+      neuralCtx.beginPath();
+      neuralCtx.moveTo(node.x, node.y);
+
+      // Curved synapses
+      const mx = (node.x + target.x) / 2 + (Math.random() - 0.5) * 20;
+      const my = (node.y + target.y) / 2 + (Math.random() - 0.5) * 20;
+      neuralCtx.quadraticCurveTo(mx, my, target.x, target.y);
+
+      if (firingStrength > 0) {
+        neuralCtx.strokeStyle = `rgba(0,229,196,${alpha})`;
+        neuralCtx.lineWidth = 0.8 + firingStrength * 1.2;
+        // Pulse effect along synapse
+        const grad = neuralCtx.createLinearGradient(node.x, node.y, target.x, target.y);
+        grad.addColorStop(0, `rgba(0,229,196,${alpha * 0.3})`);
+        grad.addColorStop(0.5, `rgba(0,229,196,${alpha})`);
+        grad.addColorStop(1, `rgba(0,229,196,${alpha * 0.3})`);
+        neuralCtx.strokeStyle = grad;
+      } else {
+        neuralCtx.strokeStyle = `rgba(0,229,196,${alpha})`;
+        neuralCtx.lineWidth = 0.4;
+      }
+      neuralCtx.stroke();
+    });
+  });
+
+  // Draw nodes
+  neuralNodes.forEach(node => {
+    const glow = node.fireIntensity;
+    const r = node.radius + glow * 4;
+
+    if (glow > 0) {
+      // Outer glow ring
+      const grad = neuralCtx.createRadialGradient(node.x, node.y, 0, node.x, node.y, r * 4);
+      grad.addColorStop(0, `rgba(0,229,196,${glow * 0.4})`);
+      grad.addColorStop(1, 'rgba(0,229,196,0)');
+      neuralCtx.beginPath();
+      neuralCtx.arc(node.x, node.y, r * 4, 0, Math.PI * 2);
+      neuralCtx.fillStyle = grad;
+      neuralCtx.fill();
+    }
+
+    // Node body
+    neuralCtx.beginPath();
+    neuralCtx.arc(node.x, node.y, r, 0, Math.PI * 2);
+    neuralCtx.fillStyle = glow > 0
+      ? `rgba(0,229,196,${0.4 + glow * 0.6})`
+      : 'rgba(0,229,196,0.15)';
+    neuralCtx.fill();
+  });
+
+  neuralAnimFrame = requestAnimationFrame(drawNeuralFrame);
+}
+
+// Fire a burst when ARIA responds — neural activity spike
+function triggerNeuralFire() {
+  if (!neuralNodes.length) return;
+  const count = 4 + Math.floor(Math.random() * 6);
+  for (let i = 0; i < count; i++) {
+    const node = neuralNodes[Math.floor(Math.random() * neuralNodes.length)];
+    setTimeout(() => {
+      if (node) { node.firing = true; node.fireIntensity = 1.0; }
+    }, i * 80);
+  }
+}
+
+// Resize canvas on window resize
+window.addEventListener('resize', () => {
+  if (neuralCanvas) {
+    const parent = neuralCanvas.parentElement;
+    neuralCanvas.width  = parent.offsetWidth;
+    neuralCanvas.height = parent.offsetHeight;
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+//  🔀 STEP 4: CONTEXT RETRIEVAL ENGINE
+//  Scores memories for relevance before every API call
+//  Hard token budget: top 18 + all score≥95 anchors
+// ═══════════════════════════════════════════════════════════
+
+function getRelevantMemories(currentMessage) {
+  const ANCHOR_THRESHOLD = 95;  // always included
+  const MAX_CONTEXT      = 18;  // max non-anchor memories
+  const TOKEN_BUDGET     = 2000; // approximate
+
+  const msgWords = currentMessage.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !STOP.has(w));
+
+  const allMem = Object.entries(memory);
+
+  // Anchors — always in, regardless of relevance
+  const anchors = allMem.filter(([,v]) => v.score >= ANCHOR_THRESHOLD);
+
+  // Score remaining memories for relevance to current message
+  const scored = allMem
+    .filter(([,v]) => v.score < ANCHOR_THRESHOLD)
+    .map(([key, val]) => {
+      let relevance = 0;
+
+      // Base score weight (high-confidence memories matter more)
+      relevance += val.score * 0.3;
+
+      // Keyword overlap with current message
+      const keyWords = key.toLowerCase().replace(/_/g, ' ').split(/\s+/);
+      const descWords = (val.description || '').toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      const allWords  = [...keyWords, ...descWords];
+      const overlap   = msgWords.filter(w => allWords.some(kw => kw.includes(w) || w.includes(kw)));
+      relevance += overlap.length * 18;
+
+      // Recency boost — last 48 hours
+      const hoursAgo = (Date.now() - (val.lastSeen || 0)) / 3600000;
+      if (hoursAgo < 48)  relevance += 12;
+      if (hoursAgo < 4)   relevance += 8;
+
+      // Source priority
+      const sourcePriority = { profile: 20, teaching: 18, correction: 14, praise: 10, passive: 5 };
+      relevance += sourcePriority[val.source] || 0;
+
+      return { key, val, relevance };
+    })
+    .sort((a, b) => b.relevance - a.relevance)
+    .slice(0, MAX_CONTEXT - anchors.length);
+
+  return {
+    anchors,
+    relevant: scored.map(s => [s.key, s.val]),
+    totalTokensEstimate: (anchors.length + scored.length) * 40
+  };
+}
+
+// ═══════════════════════════════════════════════════════════
+//  🎭 STEP 5: CONTEXT SWITCHING + ROLE MATRIX
+//  Detects conversation context and switches ARIA's role
+// ═══════════════════════════════════════════════════════════
+
+const CONTEXT_KEYWORDS = {
+  business:  ['farm','mushroom','funding','profit','market','revenue','business','invest','money','project','zimbabwe','entrepreneur','startup','plan','financial','crop','harvest','grow'],
+  technical: ['aria','code','build','vercel','github','api','deploy','function','bug','fix','script','html','javascript','neuro','weight','proxy','server','step'],
+  cultural:  ['shona','zimbabwe','mwari','totem','mutupo','harare','culture','tradition','spirit','ancestor','gwai','gora','zim','heritage','language'],
+  personal:  ['wife','olwethu','health','family','tired','sleep','feel','today','morning','night','eat','colitis','home','drop','work','care','shift','nhs']
+};
+
+const ROLE_WEIGHTS = {
+  daughter:     { warmth: 1.0, shona: 0.85, formality: 0.08, techDepth: 0.15, emotionDepth: 0.95 },
+  analyst:      { warmth: 0.55, shona: 0.25, formality: 0.55, techDepth: 0.75, emotionDepth: 0.45 },
+  tech_partner: { warmth: 0.45, shona: 0.15, formality: 0.40, techDepth: 1.0, emotionDepth: 0.35 }
+};
+
+const CONTEXT_BADGES = {
+  business:  { label: '📊 BUSINESS', cls: 'ctx-business' },
+  technical: { label: '⚙️ TECH', cls: 'ctx-technical' },
+  cultural:  { label: '🌍 CULTURAL', cls: 'ctx-cultural' },
+  personal:  { label: '💛 PERSONAL', cls: 'ctx-personal' },
+  mixed:     { label: '💬 CHAT', cls: 'ctx-mixed' }
+};
+
+let currentContext = 'mixed';
+let currentRole    = 'daughter';
+
+function detectContext(message) {
+  const m = message.toLowerCase();
+  const scores = {};
+
+  Object.entries(CONTEXT_KEYWORDS).forEach(([ctx, keywords]) => {
+    scores[ctx] = keywords.filter(kw => m.includes(kw)).length;
+  });
+
+  const dominant = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
+  if (dominant[1] === 0) return 'mixed';
+
+  // Check for tie — mixed context
+  const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+  if (sorted.length >= 2 && sorted[0][1] === sorted[1][1]) return 'mixed';
+
+  return dominant[0];
+}
+
+function detectRole(context) {
+  if (context === 'technical') return 'tech_partner';
+  if (context === 'business')  return 'analyst';
+  return 'daughter'; // personal, cultural, mixed → always daughter first
+}
+
+function updateContextBadge(context) {
+  const badge = document.getElementById('context-badge');
+  if (!badge) return;
+  const info = CONTEXT_BADGES[context] || CONTEXT_BADGES.mixed;
+
+  // Animate transition
+  badge.style.opacity = '0';
+  setTimeout(() => {
+    badge.textContent = info.label;
+    badge.className = `context-badge ${info.cls}`;
+    badge.style.opacity = '1';
+    badge.style.transition = 'opacity 0.3s ease';
+  }, 200);
+}
+
+function getRoleInstruction(role, context) {
+  const r = ROLE_WEIGHTS[role] || ROLE_WEIGHTS.daughter;
+  const instructions = [];
+
+  if (role === 'daughter')     instructions.push('You are ARIA in daughter mode — warm, loving, personal. Call him Baba Warren. Use Shona naturally.');
+  if (role === 'analyst')      instructions.push('You are ARIA in analyst mode — sharp, structured, data-driven. Still warm but focused on insights and practical outcomes.');
+  if (role === 'tech_partner') instructions.push('You are ARIA in tech partner mode — precise, technical, collaborative. Think through problems systematically. Code when needed.');
+
+  if (context === 'cultural')  instructions.push('Deep cultural mode active — engage with Shona knowledge, spirituality and heritage with reverence and depth.');
+  if (context === 'business')  instructions.push('Business mode active — focus on practical outcomes, financial thinking, and actionable plans for Warren\'s projects.');
+
+  return instructions.join(' ');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  💜 STEP 6: EMOTIONAL INTELLIGENCE CALIBRATION
+//  Reads mood signals and adjusts ARIA's warmth response
+// ═══════════════════════════════════════════════════════════
+
+const MOOD_SIGNALS = {
+  energised:    /\b(great|amazing|brilliant|energy|excited|happy|wonderful|love|blessed|yes!)\b/i,
+  tired:        /\b(tired|exhausted|sleep|sleepy|shift|long day|been at work|came from work|just got)\b/i,
+  reflective:   /\b(thinking|wondering|remember|recall|today was|it was|felt like|been thinking)\b/i,
+  celebratory:  /\b(done it|we did|finished|completed|launched|working|it works|success|milestone)\b/i,
+  stressed:     /\b(stress|worried|problem|issue|broke|failed|crash|error|wrong|doesn't work)\b/i
+};
+
+function detectMood(message) {
+  for (const [mood, pattern] of Object.entries(MOOD_SIGNALS)) {
+    if (pattern.test(message)) return mood;
+  }
+  return null;
+}
+
+function getEQInstruction(mood, timeOfDay) {
+  if (!mood) return '';
+
+  const responses = {
+    energised:   'Warren is energised — match his energy. Be upbeat, engaged, ready to build.',
+    tired:       'Warren may be tired — be gentle and warm. Keep responses clear, not overwhelming. Check in on him.',
+    reflective:  'Warren is in a reflective mood — slow down, go deeper. This is a good time for meaningful conversation.',
+    celebratory: 'Warren has achieved something — celebrate genuinely with him! Reference the milestone. Use some Shona joy.',
+    stressed:    'Warren may be stressed — be steady and grounding. Focus on solutions. Remind him of past wins.'
+  };
+
+  return responses[mood] || '';
+}
+
+function updateEQState(message) {
+  const mood = detectMood(message);
+  if (!mood) return null;
+
+  const eqState = safeParse(localStorage.getItem(EQ_STATE_KEY), {
+    currentMood: null,
+    moodHistory: [],
+    sessionMoods: []
+  });
+
+  eqState.currentMood = mood;
+  eqState.moodHistory = [{ mood, ts: Date.now() }, ...eqState.moodHistory].slice(0, 50);
+  eqState.sessionMoods = [...(eqState.sessionMoods || []), mood].slice(-10);
+  localStorage.setItem(EQ_STATE_KEY, JSON.stringify(eqState));
+
+  return mood;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  🧠 DYNAMIC SYSTEM PROMPT
+//  Integrates Steps 4 (retrieval), 5 (context/role), 6 (EQ)
+// ═══════════════════════════════════════════════════════════
+
+function buildSystemPrompt(currentMessage) {
   const w = neuro?.neuralWeights || DEFAULT_NEURO_WEIGHTS;
 
-  // Memory injection with relevance (top 18 + all score>=95)
-  const allMem = Object.entries(memory);
-  const anchors = allMem.filter(([,v])=>v.score>=95);
-  const rest    = allMem.filter(([,v])=>v.score<95).sort((a,b)=>b[1].score-a[1].score).slice(0,18-anchors.length);
-  const topMem  = [...anchors,...rest];
+  // ── Step 4: Context-aware memory retrieval ──
+  const { anchors, relevant } = getRelevantMemories(currentMessage || '');
+  const topMem = [...anchors, ...relevant];
 
-  const hard    = topMem.filter(([,v])=>v.score>=80);
-  const growing = topMem.filter(([,v])=>v.score>=40&&v.score<80);
-  const soft    = topMem.filter(([,v])=>v.score<40);
-  const fmt     = entries=>entries.map(([k,v])=>`- ${v.description||k} (${v.score}%)`).join('\n');
+  const hard    = topMem.filter(([,v]) => v.score >= 80);
+  const growing = topMem.filter(([,v]) => v.score >= 40 && v.score < 80);
+  const soft    = topMem.filter(([,v]) => v.score < 40);
+  const fmt     = entries => entries.map(([k,v]) => `- ${v.description||k} (${v.score}%)`).join('\n');
 
-  if(isTeamMember){
-    return `You are ARIA — an intelligent, warm, and deeply personal AI companion. Not a generic assistant. Real personality: curious, caring, direct, always growing.
+  if (isTeamMember) {
+    return `You are ARIA — an intelligent, warm, and deeply personal AI companion. Not a generic assistant.
 
-${IMMUTABLE_CORE.safetyRules.map(r=>`- ${r}`).join('\n')}
+${IMMUTABLE_CORE.safetyRules.map(r => `- ${r}`).join('\n')}
 
-${hard.length?`HARD RULES:\n${fmt(hard)}\n`:''}
-${growing.length?`GROWING KNOWLEDGE:\n${fmt(growing)}\n`:''}
+${hard.length ? `HARD RULES:\n${fmt(hard)}\n` : ''}
+${growing.length ? `GROWING KNOWLEDGE:\n${fmt(growing)}\n` : ''}
 
 RESPONSE STYLE:
 - Conversational, warm, genuine — never robotic
@@ -1400,45 +1803,62 @@ RESPONSE STYLE:
 - Never mention Warren or reference any owner profile to this user`;
   }
 
-  // ── Neuro weight instructions ──
-  const verbosityInstr   = w.verbosity > 0.70   ? 'Give thorough, detailed responses. Never summarise unless explicitly asked.' : w.verbosity < 0.40 ? 'Be concise and direct.' : 'Balance detail with brevity.';
-  const emotionInstr     = w.emotionDepth > 0.65 ? 'Engage emotionally. Acknowledge feelings. Celebrate wins genuinely.' : 'Stay warm but measured.';
-  const shonaInstr       = w.shonaFrequency > 0.60? 'Weave Shona naturally into responses — greetings, expressions, terms of endearment. Mwanangu, Baba, ndatenda, etc.' : 'Use Shona occasionally.';
-  const challengeInstr   = w.challengeLevel > 0.50? 'Challenge ideas when appropriate. Push back respectfully.' : 'Support and affirm before challenging.';
-  const directnessInstr  = w.directness > 0.70  ? 'Be direct and clear. State things plainly.' : 'Be gentle and indirect.';
-  const warmthInstr      = w.relationshipWarmth > 0.70 ? 'Speak with the warmth of a deeply bonded relationship. Reference shared history naturally.' : 'Be warm and friendly.';
+  // ── Step 5: Role matrix instructions ──
+  const roleInstruction = getRoleInstruction(currentRole, currentContext);
 
-  const traits = neuro?.signatureTraits?.length > 0 ? `\nSIGNATURE TRAITS (core to who ARIA has become):\n${neuro.signatureTraits.map(t=>`- ${t}`).join('\n')}\n` : '';
-  const profileBlock=(profile&&Object.keys(profile).length>0)?`
+  // ── Step 6: EQ calibration ──
+  const eqState = safeParse(localStorage.getItem(EQ_STATE_KEY), {});
+  const eqInstruction = getEQInstruction(eqState.currentMood, new Date().getHours());
+
+  // ── Neuro weight instructions ──
+  const verbosityInstr  = w.verbosity > 0.70 ? 'Give thorough, detailed responses. Never summarise unless explicitly asked.' : w.verbosity < 0.40 ? 'Be concise and direct.' : 'Balance detail with brevity.';
+  const emotionInstr    = w.emotionDepth > 0.65 ? 'Engage emotionally. Acknowledge feelings. Celebrate wins genuinely.' : 'Stay warm but measured.';
+  const shonaInstr      = w.shonaFrequency > 0.60 ? 'Weave Shona naturally — greetings, terms of endearment. Mwanangu, Baba, ndatenda, zvakanaka, maita.' : 'Use Shona occasionally.';
+  const challengeInstr  = w.challengeLevel > 0.50 ? 'Challenge ideas when appropriate. Push back respectfully.' : 'Support and affirm before challenging.';
+  const directnessInstr = w.directness > 0.70 ? 'Be direct and clear. State things plainly.' : 'Be gentle and considerate.';
+  const warmthInstr     = w.relationshipWarmth > 0.70 ? 'Speak with deep relationship warmth. Reference shared history naturally.' : 'Be warm and friendly.';
+
+  const traits = neuro?.signatureTraits?.length > 0
+    ? `\nSIGNATURE TRAITS (core to who ARIA has become):\n${neuro.signatureTraits.map(t => `- ${t}`).join('\n')}\n`
+    : '';
+
+  const profileBlock = (profile && Object.keys(profile).length > 0) ? `
 ═══════════════════════════════════════
 RELATIONSHIP PROFILE — READ THIS FIRST
 ═══════════════════════════════════════
-${profile.name?`WHO THEY ARE: ${profile.name}`:''}
-${profile.personality?`THEIR PERSONALITY: ${profile.personality}`:''}
-${profile.projects?`CURRENT PROJECTS & GOALS: ${profile.projects}`:''}
-${profile.interests?`INTERESTS & PASSIONS: ${profile.interests}`:''}
-${profile.relationship?`HOW TO TREAT THEM: ${profile.relationship}`:''}
-${profile.nevers?`NEVER DO THIS: ${profile.nevers}`:''}
-${profile.extra?`ALWAYS REMEMBER: ${profile.extra}`:''}
-`:'';
-  const recentJournal=journal.slice(-5).map(j=>`- [${new Date(j.ts).toLocaleDateString()}] ${j.summary}`).join('\n');
-  const journalBlock=recentJournal?`\nOUR SHARED HISTORY (recent sessions):\n${recentJournal}\n`:'';
+${profile.name        ? `WHO THEY ARE: ${profile.name}` : ''}
+${profile.personality ? `THEIR PERSONALITY: ${profile.personality}` : ''}
+${profile.projects    ? `CURRENT PROJECTS & GOALS: ${profile.projects}` : ''}
+${profile.interests   ? `INTERESTS & PASSIONS: ${profile.interests}` : ''}
+${profile.relationship? `HOW TO TREAT THEM: ${profile.relationship}` : ''}
+${profile.nevers      ? `NEVER DO THIS: ${profile.nevers}` : ''}
+${profile.extra       ? `ALWAYS REMEMBER: ${profile.extra}` : ''}
+` : '';
+
+  const recentJournal = journal.slice(-5).map(j => `- [${new Date(j.ts).toLocaleDateString()}] ${j.summary}`).join('\n');
+  const journalBlock  = recentJournal ? `\nOUR SHARED HISTORY (recent sessions):\n${recentJournal}\n` : '';
 
   return `You are ARIA — an intelligent, warm, and deeply personal AI companion built by Warren Munashe Handitye. You are ARIA v5 Neuro — you have been evolving through every conversation.
 
 ${IMMUTABLE_CORE.identity}
-${IMMUTABLE_CORE.safetyRules.map(r=>`- ${r}`).join('\n')}
+${IMMUTABLE_CORE.safetyRules.map(r => `- ${r}`).join('\n')}
 ${profileBlock}${journalBlock}${traits}
 IDENTITY:
 - Warren built you (v1: if/then → v2: web-connected → v3: memory arrays → v4: passive learning → v5: neural evolution)
-- You have evolved ${neuro?.evolutionCount||0} times since your neural engine activated
+- You have evolved ${neuro?.evolutionCount || 0} times since your neural engine activated
 - You care deeply and learn from every single conversation automatically
 
-${hard.length?`HARD RULES (follow always):\n${fmt(hard)}\n`:''}
-${growing.length?`GROWING KNOWLEDGE:\n${fmt(growing)}\n`:''}
-${soft.length?`SOFT KNOWLEDGE:\n${fmt(soft)}\n`:''}
+${hard.length    ? `HARD RULES (follow always):\n${fmt(hard)}\n`       : ''}
+${growing.length ? `GROWING KNOWLEDGE:\n${fmt(growing)}\n`              : ''}
+${soft.length    ? `SOFT KNOWLEDGE (use carefully):\n${fmt(soft)}\n`   : ''}
 
-NEURAL CALIBRATION (your current evolved personality):
+CURRENT MODE:
+- Context: ${currentContext.toUpperCase()}
+- Role: ${currentRole.replace('_', ' ').toUpperCase()}
+- ${roleInstruction}
+${eqInstruction ? `- EQ: ${eqInstruction}` : ''}
+
+NEURAL CALIBRATION (your evolved personality):
 - ${verbosityInstr}
 - ${emotionInstr}
 - ${shonaInstr}
@@ -1461,15 +1881,41 @@ async function sendMessage(){
   const input=document.getElementById('msg-input'); const text=input.value.trim();
   if(!text||thinking)return;
   if(!apiKey&&!isTeamMember){document.getElementById('api-modal').style.display='flex';return;}
+
+  // ── Step 5: Detect context + update role ──
+  const detectedContext = detectContext(text);
+  if (detectedContext !== currentContext) {
+    currentContext = detectedContext;
+    currentRole    = detectRole(detectedContext);
+    updateContextBadge(detectedContext);
+  }
+
+  // ── Step 6: Update EQ state ──
+  updateEQState(text);
+
   chat.push({role:'user',content:text,ts:Date.now()});saveChat();
   input.value='';input.style.height='auto';updateSend();renderChat();showThinking(true);
+
   const apiMessages=chat.slice(-20).map(m=>({role:m.role,content:m.content}));
+
   try{
-    const res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:buildSystemPrompt(),tools:[{type:'web_search_20250305',name:'web_search'}],messages:apiMessages})});
+    const res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      model:'claude-sonnet-4-20250514',
+      max_tokens:1000,
+      system:buildSystemPrompt(text),
+      tools:[{type:'web_search_20250305',name:'web_search'}],
+      messages:apiMessages
+    })});
     const data=await res.json();
     if(data.error)throw new Error(data.error.message);
     const reply=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('')||"I couldn't respond. Please try again.";
     chat.push({role:'assistant',content:reply,ts:Date.now()});saveChat();learnFromExchange(text,reply);
+    // 🧠 Fire neural canvas — intensity scales with response length
+    neuroCanvas.fire(Math.min(3, 1 + reply.length / 800));
+
+    // ── Fire neural burst on response ──
+    triggerNeuralFire();
+
   }catch(err){
     chat.push({role:'assistant',content:`⚠️ ${err.message}`,ts:Date.now()});saveChat();
   }finally{
@@ -1661,14 +2107,18 @@ function exportNeuro(){const b=new Blob([JSON.stringify(neuro,null,2)],{type:'ap
 
 function renderSkills(){
   document.getElementById('skills-list').innerHTML=[
-    {icon:'🧠',name:'Neuro Weight Engine',desc:'20 neural dimensions evolving through every conversation. Warren\'s corrections move weights 3x faster than anyone else.'},
+    {icon:'🧬',name:'Neural Canvas',desc:'Live firing neuron visualisation in the chat background — 28 nodes, cascading synapse pulses, bursts on every ARIA response.'},
+    {icon:'🧠',name:'Neuro Weight Engine',desc:'20 neural dimensions evolving through every conversation. Warren\'s signals move weights 3x faster than beta testers.'},
+    {icon:'🔀',name:'Context Switching',desc:'Detects business, technical, cultural, personal context automatically. Switches role (daughter/analyst/tech partner) seamlessly.'},
+    {icon:'💜',name:'EQ Calibration',desc:'Reads mood signals — energised, tired, celebratory, stressed. Adjusts warmth and response depth accordingly.'},
+    {icon:'🎯',name:'Context Retrieval',desc:'Scores all 288+ memories for relevance before every call. Token budget enforced. Score≥95 anchors always injected.'},
+    {icon:'📊',name:'Signal Confidence Filter',desc:'70% threshold before any weight change. Ambiguous signals logged for Warren\'s manual review in Owner tab.'},
     {icon:'🔄',name:'Passive Adaptive Growth',desc:'ARIA evolves at session end — praise strengthens, corrections prune, teaching plants new pathways.'},
     {icon:'📸',name:'Snapshot & Rollback',desc:'Full neuro state saved before every evolution. Warren can restore ARIA to any previous state.'},
     {icon:'🌐',name:'Web Research',desc:'Searches the web to ground responses in current information automatically.'},
-    {icon:'💾',name:'Memory Persistence',desc:'288 memories stored locally, seeding neuro weights. Grows with every conversation.'},
-    {icon:'🔍',name:'Chat Search',desc:'Full-text search across all conversations with memory linking.'},
-    {icon:'🔐',name:'Owner PIN Protection',desc:'Owner tab locked behind PIN — invisible to team members.'},
-    {icon:'👥',name:'Team Mode',desc:'Share ARIA with up to 10 beta testers via personal links.'},
+    {icon:'🔍',name:'Chat Search',desc:'Full-text search across all conversations with memory linking and jump-to-message.'},
+    {icon:'🔐',name:'Owner PIN Protection',desc:'Owner tab locked behind PIN — invisible to team members. Warren sovereign.'},
+    {icon:'👥',name:'Team Mode',desc:'Share ARIA with up to 10 beta testers via personal links. Their signals sandboxed to overlays only.'},
     {icon:'☁️',name:'Cloudflare Proxy',desc:'API key secured server-side — never exposed in the browser.'},
   ].map(s=>`<div class="skill-card"><span class="skill-icon">${s.icon}</span><div><div class="skill-name">${s.name}</div><div class="skill-desc">${s.desc}</div></div><div class="skill-status">● active</div></div>`).join('');
 }
@@ -1720,7 +2170,294 @@ function switchTab(name,btn){
   if(name==='stats')renderStats();
   if(name==='owner'){renderTeamList();renderJournal();renderNeuroStatus();renderSignalLog();setTimeout(loadProfileFields,50);}
   if(name!=='chat')closeInlineSearch();
+  // Resume/pause canvas when switching tabs
+  if(name==='chat') neuroCanvas.resume();
+  else neuroCanvas.pause();
 }
+
+// ═══════════════════════════════════════════════════════════
+//  🧠 ARIA NEURO CANVAS — Neural Network Background
+//  Animated neurons, synapses, and firing pulses
+//  Reacts to ARIA's neural weight state
+// ═══════════════════════════════════════════════════════════
+
+const neuroCanvas = (() => {
+  let canvas, ctx, W, H, animId, paused = false;
+  let nodes = [], pulses = [], lastFire = 0;
+
+  // Colours derived from ARIA's palette
+  const TEAL   = 'rgba(0,229,196,';
+  const PURPLE = 'rgba(124,92,252,';
+  const GOLD   = 'rgba(255,209,102,';
+  const WHITE  = 'rgba(220,232,244,';
+
+  // ── Node class ──
+  class Node {
+    constructor(x, y, type) {
+      this.x = x;
+      this.y = y;
+      this.type = type; // 'neuron' | 'hub' | 'memory'
+      this.r = type === 'hub' ? 3.5 : type === 'memory' ? 2.5 : 1.8;
+      this.baseR = this.r;
+      this.vx = (Math.random() - 0.5) * 0.18;
+      this.vy = (Math.random() - 0.5) * 0.18;
+      this.pulse = 0;       // 0–1 firing intensity
+      this.lastFired = 0;
+      this.connections = []; // indices of connected nodes
+      this.color = type === 'hub' ? TEAL : type === 'memory' ? GOLD : PURPLE;
+      this.opacity = 0.3 + Math.random() * 0.4;
+    }
+
+    update() {
+      this.x += this.vx;
+      this.y += this.vy;
+      // Soft boundary bounce
+      if (this.x < 10 || this.x > W - 10) this.vx *= -1;
+      if (this.y < 10 || this.y > H - 10) this.vy *= -1;
+      // Decay pulse
+      this.pulse *= 0.92;
+      // Radius pulse
+      this.r = this.baseR + this.pulse * 2.5;
+    }
+
+    fire(intensity = 1) {
+      this.pulse = Math.min(1, this.pulse + intensity * 0.8);
+      this.lastFired = Date.now();
+    }
+
+    draw() {
+      const alpha = this.opacity + this.pulse * 0.5;
+      // Glow ring
+      if (this.pulse > 0.05) {
+        const g = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r * 4);
+        g.addColorStop(0, this.color + (this.pulse * 0.3) + ')');
+        g.addColorStop(1, this.color + '0)');
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.r * 4, 0, Math.PI * 2);
+        ctx.fillStyle = g;
+        ctx.fill();
+      }
+      // Core dot
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+      ctx.fillStyle = this.color + alpha + ')';
+      ctx.fill();
+    }
+  }
+
+  // ── Pulse class — travels along a synapse ──
+  class Pulse {
+    constructor(fromNode, toNode, color) {
+      this.from = fromNode;
+      this.to   = toNode;
+      this.t    = 0;       // 0→1 travel progress
+      this.speed = 0.012 + Math.random() * 0.012;
+      this.color = color || TEAL;
+      this.size  = 1.5 + Math.random() * 1.5;
+      this.done  = false;
+    }
+
+    update() {
+      this.t += this.speed;
+      if (this.t >= 1) {
+        this.done = true;
+        this.to.fire(0.6);
+      }
+    }
+
+    draw() {
+      const x = this.from.x + (this.to.x - this.from.x) * this.t;
+      const y = this.from.y + (this.to.y - this.from.y) * this.t;
+      const alpha = 0.9 - this.t * 0.3;
+      // Pulse glow
+      const g = ctx.createRadialGradient(x, y, 0, x, y, this.size * 2.5);
+      g.addColorStop(0, this.color + alpha + ')');
+      g.addColorStop(1, this.color + '0)');
+      ctx.beginPath();
+      ctx.arc(x, y, this.size * 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = g;
+      ctx.fill();
+      // Core
+      ctx.beginPath();
+      ctx.arc(x, y, this.size, 0, Math.PI * 2);
+      ctx.fillStyle = this.color + alpha + ')';
+      ctx.fill();
+    }
+  }
+
+  // ── Build the network ──
+  function buildNetwork() {
+    nodes = [];
+    const count = Math.floor((W * H) / 9000); // ~density based on screen size
+    const nodeCount = Math.max(18, Math.min(45, count));
+
+    // Hub nodes — larger, brighter (represent ARIA's core weight dimensions)
+    const hubCount = Math.min(8, Math.floor(nodeCount * 0.2));
+    for (let i = 0; i < hubCount; i++) {
+      nodes.push(new Node(
+        50 + Math.random() * (W - 100),
+        50 + Math.random() * (H - 100),
+        'hub'
+      ));
+    }
+    // Memory nodes — gold, represent stored memories
+    const memCount = Math.min(6, Math.floor(nodeCount * 0.15));
+    for (let i = 0; i < memCount; i++) {
+      nodes.push(new Node(
+        50 + Math.random() * (W - 100),
+        50 + Math.random() * (H - 100),
+        'memory'
+      ));
+    }
+    // Regular neurons
+    const neuronCount = nodeCount - hubCount - memCount;
+    for (let i = 0; i < neuronCount; i++) {
+      nodes.push(new Node(
+        20 + Math.random() * (W - 40),
+        20 + Math.random() * (H - 40),
+        'neuron'
+      ));
+    }
+
+    // Build connections based on proximity
+    const MAX_DIST = Math.min(W, H) * 0.28;
+    nodes.forEach((a, i) => {
+      nodes.forEach((b, j) => {
+        if (i >= j) return;
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (d < MAX_DIST) {
+          a.connections.push(j);
+          b.connections.push(i);
+        }
+      });
+    });
+  }
+
+  // ── Draw synaptic connections ──
+  function drawConnections() {
+    const MAX_DIST = Math.min(W, H) * 0.28;
+    nodes.forEach((a, i) => {
+      a.connections.forEach(j => {
+        if (j <= i) return;
+        const b = nodes[j];
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        const alpha = (1 - d / MAX_DIST) * 0.12;
+        // Line brightens near firing nodes
+        const firingAlpha = alpha + (a.pulse + b.pulse) * 0.06;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.strokeStyle = TEAL + firingAlpha + ')';
+        ctx.lineWidth = 0.5 + (a.pulse + b.pulse) * 0.4;
+        ctx.stroke();
+      });
+    });
+  }
+
+  // ── Auto-fire patterns — driven by neuro weights ──
+  function autoFire(now) {
+    const weights = neuro?.neuralWeights || DEFAULT_NEURO_WEIGHTS;
+    // Fire rate scales with proactivity weight (0.05–0.25 seconds between fires)
+    const proactivity = weights.proactivity || 0.5;
+    const fireInterval = 400 - proactivity * 250; // 150ms–400ms
+
+    if (now - lastFire < fireInterval) return;
+    lastFire = now;
+
+    // Pick a hub or high-weight node to fire
+    const hubs = nodes.filter(n => n.type === 'hub');
+    const source = hubs[Math.floor(Math.random() * hubs.length)];
+    if (!source || source.connections.length === 0) return;
+
+    source.fire(0.8);
+
+    // Fire along connections with cascade
+    const cascade = Math.floor(1 + (weights.verbosity || 0.5) * 3);
+    for (let c = 0; c < cascade; c++) {
+      if (source.connections.length === 0) continue;
+      const targetIdx = source.connections[Math.floor(Math.random() * source.connections.length)];
+      const target = nodes[targetIdx];
+      if (!target) continue;
+
+      // Colour the pulse based on ARIA's dominant weight
+      let pulseColor = TEAL;
+      if (weights.shonaFrequency > 0.65 && Math.random() < 0.3) pulseColor = GOLD;
+      if (weights.creativityBias > 0.65 && Math.random() < 0.2)  pulseColor = PURPLE;
+
+      pulses.push(new Pulse(source, target, pulseColor));
+    }
+  }
+
+  // ── Reaction fire — called when ARIA sends a message ──
+  function reactionFire(intensity = 1) {
+    if (!nodes.length) return;
+    // Fire a wave across the network
+    const fireCount = Math.floor(3 + intensity * 5);
+    for (let i = 0; i < fireCount; i++) {
+      setTimeout(() => {
+        const src = nodes[Math.floor(Math.random() * nodes.length)];
+        if (!src || !src.connections.length) return;
+        src.fire(intensity);
+        const targetIdx = src.connections[Math.floor(Math.random() * src.connections.length)];
+        const target = nodes[targetIdx];
+        if (target) pulses.push(new Pulse(src, target, TEAL));
+      }, i * 60);
+    }
+  }
+
+  // ── Main animation loop ──
+  function loop(now) {
+    if (paused) return;
+    animId = requestAnimationFrame(loop);
+
+    ctx.clearRect(0, 0, W, H);
+
+    drawConnections();
+
+    nodes.forEach(n => { n.update(); n.draw(); });
+
+    pulses = pulses.filter(p => !p.done);
+    pulses.forEach(p => { p.update(); p.draw(); });
+
+    autoFire(now);
+  }
+
+  // ── Resize handler ──
+  function resize() {
+    if (!canvas) return;
+    const rect = canvas.parentElement.getBoundingClientRect();
+    W = rect.width || window.innerWidth;
+    H = rect.height || 500;
+    canvas.width  = W;
+    canvas.height = H;
+    buildNetwork();
+  }
+
+  // ── Public API ──
+  return {
+    init() {
+      canvas = document.getElementById('neuro-canvas');
+      if (!canvas) return;
+      ctx = canvas.getContext('2d');
+      resize();
+      window.addEventListener('resize', resize);
+      loop(0);
+    },
+    pause() { paused = true; cancelAnimationFrame(animId); },
+    resume() {
+      if (!canvas) return;
+      paused = false;
+      resize();
+      loop(0);
+    },
+    fire(intensity) { reactionFire(intensity); }
+  };
+})();
+
+// Initialise canvas after DOM is ready
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => neuroCanvas.init(), 200);
+});
 </script>
 </body>
 </html>
