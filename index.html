@@ -233,7 +233,7 @@
       width: 100%; height: 100%;
       pointer-events: none;
       z-index: 0;
-      opacity: 0.45;
+      opacity: 0.7;
     }
     #messages {
       position: relative;
@@ -1414,170 +1414,345 @@ function manuallyClassifySignal(sigId, confirmedType) {
 function showLearnBanner(text){const b=document.getElementById('learn-banner');document.getElementById('learn-text').textContent=text;b.classList.add('show');setTimeout(()=>b.classList.remove('show'),2800);}
 
 // ═══════════════════════════════════════════════════════════
-//  🧬 NEURAL CANVAS — Firing neurons background animation
+//  🧬 NEURAL CANVAS — Circuit board + neuron hybrid
+//  PCB traces + organic dendrites + traveling pulse dots
 // ═══════════════════════════════════════════════════════════
 
-let neuralCanvas, neuralCtx, neuralNodes = [], neuralAnimFrame;
-const NODE_COUNT = 28;
-const FIRE_COLOR = '#00e5c4';
-const SYNAPSE_COLOR = 'rgba(0,229,196,0.15)';
+let neuralCanvas, neuralCtx, neuralNodes = [], neuralEdges = [], pulses = [], neuralAnimFrame;
+const NODE_COUNT = 32;
 
 function initNeuralCanvas() {
   neuralCanvas = document.getElementById('neuro-canvas');
   if (!neuralCanvas) return;
   const parent = neuralCanvas.parentElement;
-  neuralCanvas.width = parent.offsetWidth;
-  neuralCanvas.height = parent.offsetHeight;
+  neuralCanvas.width  = parent.offsetWidth  || 400;
+  neuralCanvas.height = parent.offsetHeight || 600;
   neuralCtx = neuralCanvas.getContext('2d');
 
-  // Build node network
-  neuralNodes = [];
-  for (let i = 0; i < NODE_COUNT; i++) {
-    neuralNodes.push({
-      x: Math.random() * neuralCanvas.width,
-      y: Math.random() * neuralCanvas.height,
-      vx: (Math.random() - 0.5) * 0.3,
-      vy: (Math.random() - 0.5) * 0.3,
-      radius: 1.5 + Math.random() * 2.5,
-      firing: false,
-      fireIntensity: 0,
-      fireTimer: Math.random() * 200,
-      fireInterval: 80 + Math.random() * 300,
-      connections: []
-    });
-  }
-
-  // Pre-assign connections (nearest 2-3 neighbours)
-  neuralNodes.forEach((node, i) => {
-    const dists = neuralNodes
-      .map((n, j) => ({ j, d: Math.hypot(n.x - node.x, n.y - node.y) }))
-      .filter(e => e.j !== i)
-      .sort((a, b) => a.d - b.d)
-      .slice(0, 3);
-    node.connections = dists.map(e => e.j);
-  });
-
+  buildNetwork();
   cancelAnimationFrame(neuralAnimFrame);
   drawNeuralFrame();
 }
 
+function buildNetwork() {
+  const W = neuralCanvas.width;
+  const H = neuralCanvas.height;
+  neuralNodes = [];
+  neuralEdges = [];
+  pulses = [];
+
+  // Place nodes — mix of grid-snapped (circuit) and organic positions
+  for (let i = 0; i < NODE_COUNT; i++) {
+    const gridSnap = Math.random() > 0.4;
+    const gridSize = 60;
+    let x = Math.random() * W;
+    let y = Math.random() * H;
+    if (gridSnap) {
+      x = Math.round(x / gridSize) * gridSize + (Math.random() - 0.5) * 12;
+      y = Math.round(y / gridSize) * gridSize + (Math.random() - 0.5) * 12;
+    }
+    neuralNodes.push({
+      x: Math.max(10, Math.min(W - 10, x)),
+      y: Math.max(10, Math.min(H - 10, y)),
+      vx: (Math.random() - 0.5) * 0.12,
+      vy: (Math.random() - 0.5) * 0.12,
+      radius:   2 + Math.random() * 3,
+      type:     Math.random() > 0.5 ? 'circuit' : 'neuron', // circuit = square pad, neuron = round
+      firing:   false,
+      glow:     0,
+      fireTimer:    Math.random() * 300,
+      fireInterval: 120 + Math.random() * 400,
+      connections: []
+    });
+  }
+
+  // Build edges — mix of right-angle (PCB) and straight connections
+  neuralNodes.forEach((node, i) => {
+    const dists = neuralNodes
+      .map((n, j) => ({ j, d: Math.hypot(n.x - node.x, n.y - node.y) }))
+      .filter(e => e.j !== i && e.d < 200)
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 3);
+
+    dists.forEach(({ j }) => {
+      // Avoid duplicate edges
+      const exists = neuralEdges.some(e =>
+        (e.from === i && e.to === j) || (e.from === j && e.to === i)
+      );
+      if (!exists) {
+        const bothCircuit = neuralNodes[i].type === 'circuit' && neuralNodes[j].type === 'circuit';
+        neuralEdges.push({
+          from: i, to: j,
+          style: bothCircuit && Math.random() > 0.4 ? 'pcb' : 'organic',
+          activity: 0
+        });
+        node.connections.push(j);
+        neuralNodes[j].connections.push(i);
+      }
+    });
+  });
+}
+
 function drawNeuralFrame() {
   if (!neuralCtx || !neuralCanvas) return;
-  neuralCtx.clearRect(0, 0, neuralCanvas.width, neuralCanvas.height);
+  const W = neuralCanvas.width;
+  const H = neuralCanvas.height;
 
-  // Move nodes
+  neuralCtx.clearRect(0, 0, W, H);
+
+  // ── Move nodes slowly ──
   neuralNodes.forEach(node => {
     node.x += node.vx;
     node.y += node.vy;
-    if (node.x < 0 || node.x > neuralCanvas.width)  node.vx *= -1;
-    if (node.y < 0 || node.y > neuralCanvas.height) node.vy *= -1;
+    if (node.x < 5 || node.x > W - 5) node.vx *= -1;
+    if (node.y < 5 || node.y > H - 5) node.vy *= -1;
 
-    // Fire logic
+    // Spontaneous firing
     node.fireTimer++;
     if (node.fireTimer >= node.fireInterval) {
-      node.firing = true;
-      node.fireIntensity = 1.0;
+      fireNode(node, neuralNodes.indexOf(node));
       node.fireTimer = 0;
-      node.fireInterval = 80 + Math.random() * 300;
-      // Cascade fire to connected nodes with delay
-      node.connections.forEach((ci, idx) => {
-        setTimeout(() => {
-          if (neuralNodes[ci]) {
-            neuralNodes[ci].firing = true;
-            neuralNodes[ci].fireIntensity = 0.6;
-          }
-        }, 60 + idx * 40);
-      });
+      node.fireInterval = 120 + Math.random() * 400;
     }
-    if (node.firing) {
-      node.fireIntensity -= 0.025;
-      if (node.fireIntensity <= 0) { node.firing = false; node.fireIntensity = 0; }
+
+    // Decay glow
+    if (node.glow > 0) node.glow = Math.max(0, node.glow - 0.018);
+    node.firing = node.glow > 0;
+  });
+
+  // ── Update pulse activity on edges ──
+  neuralEdges.forEach(edge => {
+    if (edge.activity > 0) edge.activity = Math.max(0, edge.activity - 0.015);
+  });
+
+  // ── Draw edges ──
+  neuralEdges.forEach(edge => {
+    const a = neuralNodes[edge.from];
+    const b = neuralNodes[edge.to];
+    const act = Math.max(edge.activity, Math.max(a.glow, b.glow) * 0.6);
+
+    if (edge.style === 'pcb') {
+      drawPCBTrace(a, b, act);
+    } else {
+      drawOrganicSynapse(a, b, act);
     }
   });
 
-  // Draw synapses
-  neuralNodes.forEach((node, i) => {
-    node.connections.forEach(ci => {
-      const target = neuralNodes[ci];
-      const dist = Math.hypot(target.x - node.x, target.y - node.y);
-      if (dist > 220) return;
-      const firingStrength = Math.max(node.fireIntensity, target.fireIntensity);
-      const alpha = firingStrength > 0
-        ? 0.08 + firingStrength * 0.5
-        : 0.06 * (1 - dist / 220);
+  // ── Animate traveling pulses ──
+  pulses = pulses.filter(p => p.t < 1);
+  pulses.forEach(p => {
+    p.t += p.speed;
+    const a = neuralNodes[p.from];
+    const b = neuralNodes[p.to];
+    if (!a || !b) return;
 
-      neuralCtx.beginPath();
-      neuralCtx.moveTo(node.x, node.y);
-
-      // Curved synapses
-      const mx = (node.x + target.x) / 2 + (Math.random() - 0.5) * 20;
-      const my = (node.y + target.y) / 2 + (Math.random() - 0.5) * 20;
-      neuralCtx.quadraticCurveTo(mx, my, target.x, target.y);
-
-      if (firingStrength > 0) {
-        neuralCtx.strokeStyle = `rgba(0,229,196,${alpha})`;
-        neuralCtx.lineWidth = 0.8 + firingStrength * 1.2;
-        // Pulse effect along synapse
-        const grad = neuralCtx.createLinearGradient(node.x, node.y, target.x, target.y);
-        grad.addColorStop(0, `rgba(0,229,196,${alpha * 0.3})`);
-        grad.addColorStop(0.5, `rgba(0,229,196,${alpha})`);
-        grad.addColorStop(1, `rgba(0,229,196,${alpha * 0.3})`);
-        neuralCtx.strokeStyle = grad;
+    let px, py;
+    if (p.style === 'pcb') {
+      // Travel along right-angle path
+      const midX = a.x + (b.x - a.x) * 0.5;
+      if (p.t < 0.5) {
+        px = a.x + (midX - a.x) * (p.t * 2);
+        py = a.y;
       } else {
-        neuralCtx.strokeStyle = `rgba(0,229,196,${alpha})`;
-        neuralCtx.lineWidth = 0.4;
+        px = midX + (b.x - midX) * ((p.t - 0.5) * 2);
+        py = a.y + (b.y - a.y) * ((p.t - 0.5) * 2);
       }
-      neuralCtx.stroke();
-    });
+    } else {
+      px = a.x + (b.x - a.x) * p.t;
+      py = a.y + (b.y - a.y) * p.t;
+    }
+
+    const alpha = Math.sin(p.t * Math.PI) * 0.9;
+
+    // Pulse dot
+    neuralCtx.beginPath();
+    neuralCtx.arc(px, py, 2.5, 0, Math.PI * 2);
+    neuralCtx.fillStyle = `rgba(0,229,196,${alpha})`;
+    neuralCtx.fill();
+
+    // Pulse glow
+    const pg = neuralCtx.createRadialGradient(px, py, 0, px, py, 8);
+    pg.addColorStop(0, `rgba(0,229,196,${alpha * 0.5})`);
+    pg.addColorStop(1, 'rgba(0,229,196,0)');
+    neuralCtx.beginPath();
+    neuralCtx.arc(px, py, 8, 0, Math.PI * 2);
+    neuralCtx.fillStyle = pg;
+    neuralCtx.fill();
   });
 
-  // Draw nodes
+  // ── Draw nodes ──
   neuralNodes.forEach(node => {
-    const glow = node.fireIntensity;
-    const r = node.radius + glow * 4;
+    const g = node.glow;
+    const r = node.radius;
 
-    if (glow > 0) {
-      // Outer glow ring
-      const grad = neuralCtx.createRadialGradient(node.x, node.y, 0, node.x, node.y, r * 4);
-      grad.addColorStop(0, `rgba(0,229,196,${glow * 0.4})`);
+    if (g > 0) {
+      // Outer glow
+      const grad = neuralCtx.createRadialGradient(node.x, node.y, 0, node.x, node.y, r * 5);
+      grad.addColorStop(0, `rgba(0,229,196,${g * 0.5})`);
+      grad.addColorStop(0.5, `rgba(0,229,196,${g * 0.15})`);
       grad.addColorStop(1, 'rgba(0,229,196,0)');
       neuralCtx.beginPath();
-      neuralCtx.arc(node.x, node.y, r * 4, 0, Math.PI * 2);
+      neuralCtx.arc(node.x, node.y, r * 5, 0, Math.PI * 2);
       neuralCtx.fillStyle = grad;
       neuralCtx.fill();
     }
 
-    // Node body
-    neuralCtx.beginPath();
-    neuralCtx.arc(node.x, node.y, r, 0, Math.PI * 2);
-    neuralCtx.fillStyle = glow > 0
-      ? `rgba(0,229,196,${0.4 + glow * 0.6})`
-      : 'rgba(0,229,196,0.15)';
-    neuralCtx.fill();
+    if (node.type === 'circuit') {
+      // Square circuit pad
+      const s = (r + g * 3) * 1.6;
+      neuralCtx.fillStyle = g > 0
+        ? `rgba(0,229,196,${0.5 + g * 0.5})`
+        : 'rgba(0,229,196,0.18)';
+      neuralCtx.fillRect(node.x - s/2, node.y - s/2, s, s);
+
+      // Circuit pad ring
+      neuralCtx.strokeStyle = g > 0
+        ? `rgba(0,229,196,${0.6 + g * 0.4})`
+        : 'rgba(0,229,196,0.25)';
+      neuralCtx.lineWidth = 0.8;
+      neuralCtx.strokeRect(node.x - s/2 - 2, node.y - s/2 - 2, s + 4, s + 4);
+
+      // Crosshair on bright nodes
+      if (g > 0.3) {
+        neuralCtx.strokeStyle = `rgba(0,229,196,${g * 0.8})`;
+        neuralCtx.lineWidth = 0.6;
+        neuralCtx.beginPath();
+        neuralCtx.moveTo(node.x - s, node.y); neuralCtx.lineTo(node.x + s, node.y);
+        neuralCtx.moveTo(node.x, node.y - s); neuralCtx.lineTo(node.x, node.y + s);
+        neuralCtx.stroke();
+      }
+    } else {
+      // Round neuron body
+      neuralCtx.beginPath();
+      neuralCtx.arc(node.x, node.y, r + g * 3, 0, Math.PI * 2);
+      neuralCtx.fillStyle = g > 0
+        ? `rgba(0,229,196,${0.45 + g * 0.55})`
+        : 'rgba(0,229,196,0.14)';
+      neuralCtx.fill();
+
+      // Dendrite ring
+      neuralCtx.beginPath();
+      neuralCtx.arc(node.x, node.y, r + g * 3 + 3, 0, Math.PI * 2);
+      neuralCtx.strokeStyle = g > 0
+        ? `rgba(0,229,196,${g * 0.5})`
+        : 'rgba(0,229,196,0.12)';
+      neuralCtx.lineWidth = 0.7;
+      neuralCtx.stroke();
+    }
   });
 
   neuralAnimFrame = requestAnimationFrame(drawNeuralFrame);
 }
 
-// Fire a burst when ARIA responds — neural activity spike
-function triggerNeuralFire() {
-  if (!neuralNodes.length) return;
-  const count = 4 + Math.floor(Math.random() * 6);
-  for (let i = 0; i < count; i++) {
-    const node = neuralNodes[Math.floor(Math.random() * neuralNodes.length)];
-    setTimeout(() => {
-      if (node) { node.firing = true; node.fireIntensity = 1.0; }
-    }, i * 80);
+function drawPCBTrace(a, b, activity) {
+  // Right-angle PCB trace — horizontal then vertical
+  const midX = a.x + (b.x - a.x) * 0.5;
+  const alpha = activity > 0 ? 0.12 + activity * 0.55 : 0.07;
+  const lw    = activity > 0 ? 0.8 + activity * 0.8 : 0.5;
+
+  neuralCtx.beginPath();
+  neuralCtx.moveTo(a.x, a.y);
+  neuralCtx.lineTo(midX, a.y);    // horizontal segment
+  neuralCtx.lineTo(midX, b.y);    // vertical segment
+  neuralCtx.lineTo(b.x, b.y);     // horizontal to target
+
+  neuralCtx.strokeStyle = activity > 0
+    ? `rgba(0,229,196,${alpha})`
+    : `rgba(0,229,196,${alpha})`;
+  neuralCtx.lineWidth = lw;
+  neuralCtx.setLineDash([]);
+  neuralCtx.stroke();
+
+  // Junction dot at corner
+  if (activity > 0.2) {
+    neuralCtx.beginPath();
+    neuralCtx.arc(midX, a.y, 1.5, 0, Math.PI * 2);
+    neuralCtx.fillStyle = `rgba(0,229,196,${activity * 0.7})`;
+    neuralCtx.fill();
+    neuralCtx.beginPath();
+    neuralCtx.arc(midX, b.y, 1.5, 0, Math.PI * 2);
+    neuralCtx.fill();
   }
 }
 
-// Resize canvas on window resize
-window.addEventListener('resize', () => {
-  if (neuralCanvas) {
-    const parent = neuralCanvas.parentElement;
-    neuralCanvas.width  = parent.offsetWidth;
-    neuralCanvas.height = parent.offsetHeight;
+function drawOrganicSynapse(a, b, activity) {
+  const alpha = activity > 0 ? 0.10 + activity * 0.5 : 0.06;
+  const lw    = activity > 0 ? 0.7 + activity * 1.0 : 0.4;
+
+  // Slight curve
+  const cx = (a.x + b.x) / 2 + (b.y - a.y) * 0.15;
+  const cy = (a.y + b.y) / 2 - (b.x - a.x) * 0.15;
+
+  neuralCtx.beginPath();
+  neuralCtx.moveTo(a.x, a.y);
+  neuralCtx.quadraticCurveTo(cx, cy, b.x, b.y);
+
+  if (activity > 0) {
+    const grad = neuralCtx.createLinearGradient(a.x, a.y, b.x, b.y);
+    grad.addColorStop(0,   `rgba(0,229,196,${alpha * 0.4})`);
+    grad.addColorStop(0.5, `rgba(0,229,196,${alpha})`);
+    grad.addColorStop(1,   `rgba(0,229,196,${alpha * 0.4})`);
+    neuralCtx.strokeStyle = grad;
+  } else {
+    neuralCtx.strokeStyle = `rgba(0,229,196,${alpha})`;
   }
+  neuralCtx.lineWidth = lw;
+  neuralCtx.stroke();
+}
+
+function fireNode(node, nodeIdx) {
+  node.glow = 1.0;
+  node.firing = true;
+
+  // Activate connected edges and send traveling pulses
+  neuralEdges.forEach(edge => {
+    let targetIdx = -1;
+    if (edge.from === nodeIdx) targetIdx = edge.to;
+    if (edge.to   === nodeIdx) targetIdx = edge.from;
+    if (targetIdx === -1) return;
+
+    edge.activity = 1.0;
+
+    // Traveling pulse dot
+    pulses.push({
+      from: nodeIdx, to: targetIdx,
+      t: 0, speed: 0.012 + Math.random() * 0.008,
+      style: edge.style
+    });
+
+    // Cascade with delay
+    setTimeout(() => {
+      const target = neuralNodes[targetIdx];
+      if (target && target.glow < 0.3) {
+        target.glow = Math.min(1.0, target.glow + 0.55);
+      }
+    }, 120 + Math.random() * 100);
+  });
+}
+
+function triggerNeuralFire() {
+  if (!neuralNodes.length) return;
+  const count = 5 + Math.floor(Math.random() * 8);
+  const indices = [];
+  while (indices.length < count) {
+    const i = Math.floor(Math.random() * neuralNodes.length);
+    if (!indices.includes(i)) indices.push(i);
+  }
+  indices.forEach((i, idx) => {
+    setTimeout(() => {
+      const node = neuralNodes[i];
+      if (node) fireNode(node, i);
+    }, idx * 60);
+  });
+}
+
+window.addEventListener('resize', () => {
+  if (!neuralCanvas) return;
+  const parent = neuralCanvas.parentElement;
+  if (!parent) return;
+  neuralCanvas.width  = parent.offsetWidth;
+  neuralCanvas.height = parent.offsetHeight;
+  buildNetwork(); // rebuild on resize
 });
 
 // ═══════════════════════════════════════════════════════════
