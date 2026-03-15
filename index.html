@@ -1114,6 +1114,12 @@ window.addEventListener('DOMContentLoaded', () => {
   initRelationship();
 
   // ── Init new features ──
+  // Clear old corrupted feature data so it rebuilds with correct structure
+  const convPatterns = safeParse(localStorage.getItem(PATTERNS_KEY), null);
+  if (convPatterns && !convPatterns.topicClusters) localStorage.removeItem(PATTERNS_KEY);
+  const predModel = safeParse(localStorage.getItem(PREDICTIVE_KEY), null);
+  if (predModel && !Array.isArray(predModel.sessionTopics)) localStorage.removeItem(PREDICTIVE_KEY);
+
   initPathways();
   initPredictive();
   initSelfEval();
@@ -3006,6 +3012,7 @@ function updateConversationPatterns(userMsg, ariaReply) {
   }
 
   // Track topic clusters
+  if (!patterns.topicClusters) patterns.topicClusters = {};
   const topics = userMsg.toLowerCase().split(/\s+/)
     .filter(w => w.length > 4 && !STOP.has(w));
 
