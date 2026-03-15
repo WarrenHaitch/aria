@@ -528,6 +528,13 @@
           <button class="owner-btn danger" onclick="clearJournal()" style="margin-top:8px;width:100%">🗑️ Clear Journal</button>
         </div>
 
+        <div class="owner-card">
+          <div class="owner-card-title">📊 Signal Audit Log</div>
+          <div class="pane-sub" style="margin-bottom:12px">Messages where ARIA was uncertain about the signal type. Classify them manually — your decision triggers an immediate weight update.</div>
+          <div id="signal-log-list"></div>
+          <button class="owner-btn" onclick="clearSignalLog()" style="margin-top:8px;width:100%">🗑️ Clear Log</button>
+        </div>
+
         <button class="owner-btn" style="width:100%;margin-top:4px;background:rgba(255,71,87,0.08);border-color:rgba(255,71,87,0.2);color:var(--red)" onclick="lockOwner()">🔒 Lock Owner Tab</button>
       </div>
     </div>
@@ -1167,34 +1174,196 @@ const TIER_COLORS={hard:'#00e5c4',growing:'#ffd166',soft:'#ff6b35'};
 
 function extractConcepts(text){return text.toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(w=>w.length>3&&!STOP.has(w)).slice(0,6);}
 
-function classifySignal(msg){
-  const m=msg.toLowerCase();
-  if(/\b(no[,!]?\s|wrong|not right|not correct|actually[,!]|i meant|you should|don't say|never say|stop saying)\b/.test(m))return{weight:-15,type:'correction'};
-  if(/\b(perfect|exactly|yes[!,]?\s|good|great|love (that|it)|that'?s? (right|correct)|well done|spot on|nailed it)\b/.test(m))return{weight:+12,type:'praise'};
-  if(/\b(remember|learn that|know that|always |never |i want you to|you must|make sure|aria should)\b/.test(m))return{weight:+20,type:'teaching'};
-  if(/\b(stop!|again\?|really\?|ugh|come on|why do you|you keep|still not)\b/.test(m))return{weight:-10,type:'frustration'};
-  return{weight:0,type:null};
+// ═══════════════════════════════════════════════════════════
+//  ⚡ STEP 3A: SIGNAL CONFIDENCE CLASSIFIER
+//  Only signals ≥70% confident trigger weight changes
+//  Ambiguous signals logged for Warren's review
+// ═══════════════════════════════════════════════════════════
+
+const CONFIDENCE_THRESHOLD = 0.70;
+
+function classifySignal(msg) {
+  const m = msg.toLowerCase();
+
+  // Score each signal type independently
+  const scores = {
+    correction:  0,
+    praise:      0,
+    teaching:    0,
+    frustration: 0
+  };
+
+  // Correction signals
+  if (/\b(wrong|not right|not correct|i meant|don't say|never say|stop saying)\b/.test(m))  scores.correction += 0.85;
+  if (/\b(actually[,!]|you should|no[,!]\s)/i.test(m))                                      scores.correction += 0.60;
+  if (/\b(next time|try again|that's not)\b/.test(m))                                         scores.correction += 0.50;
+
+  // Praise signals
+  if (/\b(perfect|exactly right|well done|spot on|nailed it|maita|ndizvo chaizvo)\b/.test(m)) scores.praise += 0.95;
+  if (/\b(good|great|love that|love it|that's right|that's correct|wonderful)\b/.test(m))     scores.praise += 0.80;
+  if (/\b(yes[!,]|brilliant|amazing|awesome|beautiful)\b/.test(m))                             scores.praise += 0.65;
+
+  // Teaching signals
+  if (/\b(remember that|learn that|know that|i want you to|you must|make sure|aria should)\b/.test(m)) scores.teaching += 0.90;
+  if (/\b(always |never |from now on|going forward)\b/.test(m))                                         scores.teaching += 0.75;
+
+  // Frustration signals
+  if (/\b(stop!|ugh|come on|why do you keep|still not|again\?)\b/.test(m)) scores.frustration += 0.85;
+  if (/\b(really\?|seriously\?|you keep)\b/.test(m))                         scores.frustration += 0.65;
+
+  // Find dominant signal
+  const total = Object.values(scores).reduce((a, b) => a + b, 0);
+  if (total === 0) return { weight: 0, type: null, confidence: 0, applyWeight: false };
+
+  const dominant = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
+  const confidence = dominant[1] / (total + 0.001);
+  const type = dominant[1] > 0 ? dominant[0] : null;
+
+  const weights = { correction: -15, praise: +12, teaching: +20, frustration: -10 };
+
+  // Below threshold — log but do NOT apply weight change
+  if (confidence < CONFIDENCE_THRESHOLD || dominant[1] < 0.50) {
+    return { weight: 0, type, confidence, applyWeight: false, ambiguous: true };
+  }
+
+  return { weight: weights[type] || 0, type, confidence, applyWeight: true };
 }
 
-function learnFromExchange(userMsg,ariaMsg){
-  const{weight,type}=classifySignal(userMsg);
-  const concepts=extractConcepts(userMsg+' '+ariaMsg);
-  if(concepts.length===0&&!type)return;
+// ═══════════════════════════════════════════════════════════
+//  ⚡ STEP 3B: AUTHORITY HIERARCHY + LEARNING ENGINE
+//  Warren (owner) → full master weight access
+//  Beta testers → sandboxed overlay only, master blocked
+// ═══════════════════════════════════════════════════════════
 
-  // Accumulate signals for ariaEvolve at session end
-  if(type==='praise')      sessionSignalAccumulator.praise++;
-  if(type==='correction')  sessionSignalAccumulator.correction++;
-  if(type==='teaching')    sessionSignalAccumulator.teaching++;
-  if(type==='frustration') sessionSignalAccumulator.frustration++;
-  sessionSignalAccumulator.isOwner = !isTeamMember;
+function learnFromExchange(userMsg, ariaMsg) {
+  const signal = classifySignal(userMsg);
+  const { weight, type, confidence, applyWeight, ambiguous } = signal;
+  const concepts = extractConcepts(userMsg + ' ' + ariaMsg);
 
-  concepts.forEach(concept=>{
-    const existing=memory[concept]; const currentScore=existing?existing.score:22; const delta=weight!==0?weight:4;
-    memory[concept]={description:existing?existing.description:`Learned from: "${userMsg.slice(0,80)}"`,score:Math.max(5,Math.min(95,currentScore+delta)),source:type||'passive',lastSeen:Date.now(),examples:[...(existing?.examples||[]),userMsg.slice(0,100)].slice(-3)};
+  if (concepts.length === 0 && !type) return;
+
+  // ── STEP 3B: Log ambiguous signals for Warren's review ──
+  if (ambiguous && type) {
+    logAmbiguousSignal(userMsg, type, confidence);
+    showLearnBanner(`🔍 Signal logged for review (${Math.round(confidence*100)}% confidence)`);
+    // Still learn passively from concepts even if signal is ambiguous
+    applyConceptLearning(concepts, userMsg, null, 4, false);
+    return;
+  }
+
+  // ── STEP 3B: Authority hierarchy check ──
+  // Owner (not team member) → updates master weights
+  // Team member → sandboxed to their user overlay only
+  const isOwner = !isTeamMember;
+
+  if (type && applyWeight) {
+    if (isOwner) {
+      // Warren — accumulate for master weight evolution
+      if (type === 'praise')      sessionSignalAccumulator.praise++;
+      if (type === 'correction')  sessionSignalAccumulator.correction++;
+      if (type === 'teaching')    sessionSignalAccumulator.teaching++;
+      if (type === 'frustration') sessionSignalAccumulator.frustration++;
+      sessionSignalAccumulator.isOwner = true;
+    } else {
+      // Beta tester — accumulate for their overlay only (3x smaller delta)
+      updateUserOverlay(type, confidence);
+      // Do NOT touch master sessionSignalAccumulator
+    }
+  }
+
+  // Apply concept learning — both owner and team can learn concepts
+  // But owner corrections carry full weight, team corrections carry 35%
+  const effectiveWeight = isOwner ? weight : (weight * 0.35);
+  applyConceptLearning(concepts, userMsg, type, effectiveWeight, applyWeight);
+
+  const msgs = {
+    praise:      '✅ Positive pattern reinforced',
+    correction:  '🔄 Correction noted & stored',
+    teaching:    '📌 New rule absorbed from chat',
+    frustration: '⚠️ Pattern flagged for review'
+  };
+
+  if (type && applyWeight) {
+    showLearnBanner((isOwner ? '' : '👤 ') + (msgs[type] || `💡 Absorbed: ${concepts.slice(0,2).join(', ')}`));
+  } else {
+    showLearnBanner(`💡 Absorbed: ${concepts.slice(0,2).join(', ')}`);
+  }
+}
+
+function applyConceptLearning(concepts, userMsg, type, weight, applyWeight) {
+  concepts.forEach(concept => {
+    const existing = memory[concept];
+    const currentScore = existing ? existing.score : 22;
+    const delta = (applyWeight && weight !== 0) ? weight : 4;
+    memory[concept] = {
+      description: existing ? existing.description : `Learned from: "${userMsg.slice(0,80)}"`,
+      score: Math.max(5, Math.min(95, currentScore + delta)),
+      source: type || 'passive',
+      lastSeen: Date.now(),
+      examples: [...(existing?.examples || []), userMsg.slice(0, 100)].slice(-3)
+    };
   });
-  saveMemory();updateBadge();
-  const msgs={praise:'✅ Positive pattern reinforced',correction:'🔄 Correction noted & stored',teaching:'📌 New rule absorbed from chat',frustration:'⚠️ Pattern flagged for review'};
-  showLearnBanner(type?msgs[type]:`💡 Absorbed: ${concepts.slice(0,2).join(', ')}`);
+  saveMemory();
+  updateBadge();
+}
+
+function updateUserOverlay(type, confidence) {
+  // Get current user code from URL
+  const params = new URLSearchParams(window.location.search);
+  const userCode = (params.get('code') || '').toUpperCase().trim();
+  if (!userCode || !neuroUsers[userCode]) return;
+
+  const delta = 0.02 * confidence; // very small delta for team users
+  const overlay = neuroUsers[userCode].weightDeltas;
+
+  if (type === 'praise')     { overlay.verbosity = (overlay.verbosity||0) + delta; overlay.emotionDepth = (overlay.emotionDepth||0) + delta * 0.5; }
+  if (type === 'correction') { overlay.verbosity = (overlay.verbosity||0) + delta; } // correction = wants more detail
+  if (type === 'frustration'){ overlay.eqSensitivity = (overlay.eqSensitivity||0) + delta; }
+
+  neuroUsers[userCode].sessionCount = (neuroUsers[userCode].sessionCount || 0) + 1;
+  localStorage.setItem(USERS_KEY, JSON.stringify(neuroUsers));
+}
+
+function logAmbiguousSignal(msg, type, confidence) {
+  const signalLog = safeParse(localStorage.getItem(SIGNAL_LOG_KEY), []);
+  signalLog.unshift({
+    id: `sig_${Date.now()}`,
+    timestamp: Date.now(),
+    message: msg.slice(0, 120),
+    detectedType: type,
+    confidence: Math.round(confidence * 100),
+    status: 'pending',
+    appliedBy: null
+  });
+  // Keep last 30 ambiguous signals
+  localStorage.setItem(SIGNAL_LOG_KEY, JSON.stringify(signalLog.slice(0, 30)));
+}
+
+function manuallyClassifySignal(sigId, confirmedType) {
+  const signalLog = safeParse(localStorage.getItem(SIGNAL_LOG_KEY), []);
+  const sig = signalLog.find(s => s.id === sigId);
+  if (!sig) return;
+
+  // Apply the signal as Warren with full authority
+  if (confirmedType === 'praise')      sessionSignalAccumulator.praise++;
+  if (confirmedType === 'correction')  sessionSignalAccumulator.correction++;
+  if (confirmedType === 'teaching')    sessionSignalAccumulator.teaching++;
+  if (confirmedType === 'frustration') sessionSignalAccumulator.frustration++;
+  sessionSignalAccumulator.isOwner = true;
+
+  // Mark as applied
+  sig.status = 'applied';
+  sig.appliedBy = confirmedType;
+  sig.appliedAt = Date.now();
+  localStorage.setItem(SIGNAL_LOG_KEY, JSON.stringify(signalLog));
+
+  renderSignalLog();
+  showLearnBanner(`✅ Signal manually applied as: ${confirmedType}`);
+
+  // Trigger immediate mini-evolution for this signal
+  const miniSignal = { praise: 0, correction: 0, teaching: 0, frustration: 0, isOwner: true };
+  miniSignal[confirmedType] = 1;
+  ariaEvolve(miniSignal);
 }
 
 function showLearnBanner(text){const b=document.getElementById('learn-banner');document.getElementById('learn-text').textContent=text;b.classList.add('show');setTimeout(()=>b.classList.remove('show'),2800);}
@@ -1418,6 +1587,50 @@ function renderJournal(){
 
 function clearJournal(){if(!confirm('Clear all session journal entries?'))return;journal=[];localStorage.setItem(JOURNAL_KEY,JSON.stringify(journal));renderJournal();}
 
+// ── Signal Audit Log ──
+function renderSignalLog() {
+  const el = document.getElementById('signal-log-list');
+  if (!el) return;
+  const log = safeParse(localStorage.getItem(SIGNAL_LOG_KEY), []);
+  const pending = log.filter(s => s.status === 'pending');
+
+  if (!log.length) {
+    el.innerHTML = '<div class="journal-empty">No ambiguous signals logged yet.</div>';
+    return;
+  }
+
+  if (!pending.length) {
+    el.innerHTML = `<div style="font-size:12px;color:var(--teal);padding:8px 0">✅ All ${log.length} signal(s) have been classified.</div>`;
+    return;
+  }
+
+  el.innerHTML = pending.map(s => `
+    <div class="journal-entry" style="margin-bottom:10px">
+      <div class="journal-date">${new Date(s.timestamp).toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})} · Detected as <strong style="color:var(--yellow)">${s.detectedType}</strong> (${s.confidence}% confident)</div>
+      <div class="journal-text" style="margin:6px 0">"${escHtml(s.message)}"</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+        <button class="micro-btn" onclick="manuallyClassifySignal('${s.id}','praise')">✅ Praise</button>
+        <button class="micro-btn warn" onclick="manuallyClassifySignal('${s.id}','correction')">🔄 Correction</button>
+        <button class="micro-btn neutral" onclick="manuallyClassifySignal('${s.id}','teaching')">📌 Teaching</button>
+        <button class="micro-btn danger" onclick="dismissSignal('${s.id}')">✕ Dismiss</button>
+      </div>
+    </div>`).join('');
+}
+
+function dismissSignal(sigId) {
+  const log = safeParse(localStorage.getItem(SIGNAL_LOG_KEY), []);
+  const sig = log.find(s => s.id === sigId);
+  if (sig) { sig.status = 'dismissed'; sig.appliedAt = Date.now(); }
+  localStorage.setItem(SIGNAL_LOG_KEY, JSON.stringify(log));
+  renderSignalLog();
+}
+
+function clearSignalLog() {
+  if (!confirm('Clear all signal log entries?')) return;
+  localStorage.setItem(SIGNAL_LOG_KEY, JSON.stringify([]));
+  renderSignalLog();
+}
+
 function renderNeuroStatus(){
   const el=document.getElementById('neuro-status-display'); if(!el||!neuro)return;
   const w=neuro.neuralWeights||{};
@@ -1468,13 +1681,15 @@ function renderStats(){
   const entries=Object.entries(memory).sort((a,b)=>b[1].score-a[1].score);
   const hard=entries.filter(([,v])=>v.score>=80).length;const growing=entries.filter(([,v])=>v.score>=40&&v.score<80).length;const soft=entries.filter(([,v])=>v.score<40).length;
   const userMsgs=chat.filter(m=>m.role==='user').length;const ariaMsgs=chat.filter(m=>m.role==='assistant').length;
+  const signalLog = safeParse(localStorage.getItem(SIGNAL_LOG_KEY), []);
+  const pendingSignals = signalLog.filter(s => s.status === 'pending').length;
   document.getElementById('stats-grid').innerHTML=[
     {label:'Total Memories',value:entries.length,color:'#7c5cfc'},
     {label:'Hard Rules',value:hard,color:'#00e5c4'},
     {label:'Growing',value:growing,color:'#ffd166'},
     {label:'Evolutions',value:neuro?.evolutionCount||0,color:'#00e5c4'},
     {label:'Your Messages',value:userMsgs,color:'#7c5cfc'},
-    {label:'ARIA Responses',value:ariaMsgs,color:'#00e5c4'},
+    {label:'Pending Signals',value:pendingSignals,color:pendingSignals>0?'#ffd166':'#5a6080'},
   ].map(s=>`<div class="stat-card" style="border-top-color:${s.color}"><div class="stat-val" style="color:${s.color}">${s.value}</div><div class="stat-lbl">${s.label}</div></div>`).join('');
 
   // Neural weight bars
@@ -1503,7 +1718,7 @@ function switchTab(name,btn){
   if(btn)btn.classList.add('active');
   if(name==='teach')renderTeachTab();
   if(name==='stats')renderStats();
-  if(name==='owner'){renderTeamList();renderJournal();renderNeuroStatus();setTimeout(loadProfileFields,50);}
+  if(name==='owner'){renderTeamList();renderJournal();renderNeuroStatus();renderSignalLog();setTimeout(loadProfileFields,50);}
   if(name!=='chat')closeInlineSearch();
 }
 </script>
