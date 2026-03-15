@@ -1979,23 +1979,34 @@ function renderChat(){
   updateMemPill();
   container.querySelectorAll('.msg-row,.thinking-row').forEach(el=>el.remove());
   let lastAriaRow = null;
+  let lastUserRow = null;
   chat.forEach(msg=>{
     const isUser=msg.role==='user'; const row=document.createElement('div'); row.className='msg-row'+(isUser?' user':'');
-    if(isUser)row.innerHTML=`<div class="bubble user">${escHtml(msg.content).replace(/\n/g,'<br>')}</div><div class="user-badge">${isTeamMember?'👤':'WA'}</div>`;
+    if(isUser){ row.innerHTML=`<div class="bubble user">${escHtml(msg.content).replace(/\n/g,'<br>')}</div><div class="user-badge">${isTeamMember?'👤':'WA'}</div>`; lastUserRow=row; }
     else { row.innerHTML=`<div class="ai-badge">AI</div><div class="bubble ai">${renderMarkdown(msg.content)}</div>`; lastAriaRow=row; }
     container.appendChild(row);
   });
-  // Scroll to top of last ARIA message so you read from the beginning
-  if(lastAriaRow){
+  if(thinking){
+    // While ARIA is thinking — scroll to bottom so thinking bubble is visible
+    container.scrollTop = container.scrollHeight;
+  } else if(lastAriaRow){
+    // New ARIA reply arrived — scroll to TOP of her message so you read from beginning
     setTimeout(()=>lastAriaRow.scrollIntoView({behavior:'smooth',block:'start'}),60);
   } else {
-    container.scrollTop=container.scrollHeight;
+    container.scrollTop = container.scrollHeight;
   }
 }
 
 function showThinking(show){
   thinking=show; document.querySelectorAll('.thinking-row').forEach(el=>el.remove());
-  if(show){const row=document.createElement('div');row.className='msg-row thinking-row';row.innerHTML=`<div class="ai-badge">AI</div><div class="thinking-bubble"><span class="music-note">♩</span><span class="music-note">♪</span><span class="music-note">♫</span><span class="music-note">♬</span></div>`;document.getElementById('messages').appendChild(row);document.getElementById('messages').scrollTop=99999;}
+  if(show){
+    const row=document.createElement('div');
+    row.className='msg-row thinking-row';
+    row.innerHTML=`<div class="ai-badge">AI</div><div class="thinking-bubble"><span class="music-note">♩</span><span class="music-note">♪</span><span class="music-note">♫</span><span class="music-note">♬</span></div>`;
+    document.getElementById('messages').appendChild(row);
+    // Scroll thinking bubble into view immediately
+    setTimeout(()=>row.scrollIntoView({behavior:'smooth',block:'end'}),30);
+  }
 }
 
 function escHtml(str){return(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
