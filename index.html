@@ -226,6 +226,19 @@
     #update-banner { background:rgba(124,92,252,0.12); border-bottom:1px solid rgba(124,92,252,0.3); padding:8px 16px; font-size:12px; color:#a090ff; display:none; align-items:center; justify-content:space-between; gap:8px; flex-shrink:0; }
     #update-banner.show { display:flex; }
     .update-btn { padding:4px 12px; background:var(--purple); color:#fff; border:none; border-radius:6px; font-size:11px; cursor:pointer; font-family:'Syne',sans-serif; }
+    /* ── RELATIONSHIP DEPTH ── */
+    .rel-bar-wrap { background:var(--border); border-radius:6px; height:8px; overflow:hidden; margin:8px 0; }
+    .rel-bar-fill { height:100%; border-radius:6px; background:linear-gradient(90deg,var(--orange),var(--yellow),var(--teal)); transition:width 0.8s ease; }
+    .rel-milestone { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border); font-size:12px; color:var(--muted2); }
+    .rel-milestone:last-child { border-bottom:none; }
+    .rel-ms-dot { width:6px; height:6px; border-radius:50%; background:var(--teal); flex-shrink:0; }
+    /* ── DOCUMENT CARDS ── */
+    .doc-card { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:8px; }
+    .doc-card-title { font-size:12px; font-weight:600; color:var(--text); margin-bottom:4px; display:flex; align-items:center; gap:6px; }
+    .doc-card-meta  { font-size:10px; color:var(--muted); font-family:'Space Mono',monospace; margin-bottom:8px; }
+    .doc-card-body  { font-size:11px; color:var(--sub); line-height:1.7; }
+    .doc-concept { display:inline-block; font-size:10px; padding:2px 8px; background:rgba(0,229,196,0.08); border:1px solid rgba(0,229,196,0.2); border-radius:8px; color:var(--teal); margin:2px; }
+    .doc-new-concept { background:rgba(124,92,252,0.08); border-color:rgba(124,92,252,0.2); color:var(--purple); }
     /* ── NEURAL CANVAS BACKGROUND ── */
     #neuro-canvas {
       position: absolute;
@@ -464,14 +477,18 @@
     <div id="tab-stats" class="tab-pane">
       <div class="pane-scroll">
         <div class="pane-header">
-          <div class="pane-title">📊 Learning Stats</div>
-          <div class="pane-sub">ARIA's growth over time</div>
+          <div class="pane-title">📊 Neural Health</div>
+          <div class="pane-sub">ARIA's living intelligence — growth, depth, and evolution</div>
         </div>
         <div class="stats-grid" id="stats-grid"></div>
+        <div class="sec-label">💛 Relationship Depth</div>
+        <div id="relationship-display" style="margin-bottom:16px"></div>
         <div class="sec-label">🧠 Neural Weight Dimensions</div>
         <div id="neuro-weights-display"></div>
         <div class="sec-label">✨ Signature Traits</div>
         <div id="signature-traits-display" style="margin-bottom:16px"></div>
+        <div class="sec-label">📄 Documents Processed</div>
+        <div id="docs-stats-display" style="margin-bottom:16px"></div>
         <div class="sec-label">Top Confident Memories</div>
         <div id="top-memories"></div>
       </div>
@@ -569,6 +586,45 @@
         </div>
 
         <div class="owner-card">
+          <div class="owner-card-title">📄 Document Intelligence</div>
+          <div class="pane-sub" style="margin-bottom:12px">Upload a document and ARIA will analyse it, cross-reference it against her memories, and tell you exactly what she learned.</div>
+          <div id="doc-upload-zone" style="border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;margin-bottom:10px;cursor:pointer;transition:border-color 0.2s" onclick="document.getElementById('doc-file-input').click()" ondragover="event.preventDefault();this.style.borderColor='var(--teal)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="handleDocDrop(event)">
+            <div style="font-size:28px;margin-bottom:6px">📎</div>
+            <div style="font-size:13px;color:var(--sub)">Tap to upload or drag & drop</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">PDF · TXT · JSON · CSV · MD</div>
+          </div>
+          <input id="doc-file-input" type="file" accept=".pdf,.txt,.json,.csv,.md" style="display:none" onchange="handleDocUpload(event)" />
+          <div id="doc-processing" style="display:none;font-size:12px;color:var(--yellow);padding:8px 0">⏳ ARIA is analysing the document...</div>
+          <div id="doc-list"></div>
+        </div>
+
+        <div class="owner-card">
+          <div class="owner-card-title">☁️ Cross-Device Sync</div>
+          <div class="pane-sub" style="margin-bottom:12px">Connect Supabase to sync ARIA's memory and neural weights across all your devices. Warren's evolution never resets.</div>
+          <div class="owner-info-row">
+            <span class="owner-lbl">Sync Status</span>
+            <span id="sync-status" style="font-size:12px;color:var(--muted)">Not configured</span>
+          </div>
+          <div class="owner-info-row">
+            <span class="owner-lbl">Last Sync</span>
+            <span id="last-sync-display" style="font-size:12px;color:var(--muted)">Never</span>
+          </div>
+          <div style="margin-top:10px">
+            <input id="supa-url-input" class="rule-input" placeholder="Supabase Project URL (https://xxx.supabase.co)" style="margin-bottom:6px" />
+            <input id="supa-key-input" class="rule-input" type="password" placeholder="Supabase Anon Key" style="margin-bottom:6px" />
+            <div style="display:flex;gap:8px">
+              <button class="owner-btn" onclick="saveSupabaseConfig()" style="flex:1">💾 Save Config</button>
+              <button class="owner-btn" onclick="syncToSupabase()" style="flex:1" id="sync-btn">☁️ Sync Now</button>
+            </div>
+            <button class="owner-btn" onclick="pullFromSupabase()" style="width:100%;margin-top:6px;background:rgba(96,165,250,0.08);border-color:rgba(96,165,250,0.25);color:#60a5fa">⬇️ Pull from Cloud</button>
+          </div>
+          <div id="sync-result" style="font-size:12px;margin-top:8px;display:none;padding:6px 0;line-height:1.5"></div>
+          <div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.7">
+            <strong style="color:var(--sub)">Setup:</strong> Create a free Supabase project → create a table called <code style="color:var(--teal)">aria_sync</code> with columns <code style="color:var(--teal)">key TEXT PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ</code> → paste your URL and anon key above.
+          </div>
+        </div>
+
+        <div class="owner-card">
           <div class="owner-card-title">📊 Signal Audit Log</div>
           <div class="pane-sub" style="margin-bottom:12px">Messages where ARIA was uncertain about the signal type. Classify them manually — your decision triggers an immediate weight update.</div>
           <div id="signal-log-list"></div>
@@ -619,6 +675,9 @@ const SNAPSHOTS_KEY   = 'aria_neuro_snapshots_v5';
 const SIGNAL_LOG_KEY  = 'aria_signal_log_v5';
 const MIGRATED_KEY    = 'aria_neuro_migrated_v5';
 const EQ_STATE_KEY    = 'aria_eq_state_v5';
+const DOCS_KEY        = 'aria_documents_v5';      // Step 7
+const RELATION_KEY    = 'aria_relationship_v5';   // Step 8
+const SUPA_KEY        = 'aria_supabase_v5';       // Step 9
 
 // ── STATE ──
 let memory={}, profile={}, journal=[], chat=[], apiKey='', ownerPin='', team=[];
@@ -1009,6 +1068,9 @@ window.addEventListener('DOMContentLoaded', () => {
   // ── RUN MIGRATION (Step 2) ──
   runMigrationIfNeeded();
 
+  // ── Init relationship tracker (Step 8) ──
+  initRelationship();
+
   // Team mode check
   const params = new URLSearchParams(window.location.search);
   const isTeamMode = params.get('team') === '1';
@@ -1029,7 +1091,7 @@ window.addEventListener('DOMContentLoaded', () => {
   setTimeout(updateKeyDisplay, 100);
 
   // ── Start neural canvas ──
-  setTimeout(initNeuralCanvas, 200);
+  setTimeout(() => neuroCanvas.init(), 200);
 
   window.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden' && chat.length >= 4) endSession();
@@ -1064,11 +1126,19 @@ let sessionSignalAccumulator = { praise: 0, correction: 0, teaching: 0, frustrat
 function endSession() {
   if (chat.length >= 4) {
     writeSessionJournal();
+    // Update relationship depth
+    const sessionMsgCount = chat.filter(m => m.role === 'user').length;
+    updateRelationship(sessionMsgCount);
     // Only evolve if there were real signals
     const total = sessionSignalAccumulator.praise + sessionSignalAccumulator.correction + sessionSignalAccumulator.teaching + sessionSignalAccumulator.frustration;
     if (total > 0) ariaEvolve(sessionSignalAccumulator);
-    // Reset accumulator for next session
+    // Reset accumulator
     sessionSignalAccumulator = { praise: 0, correction: 0, teaching: 0, frustration: 0, isOwner: !isTeamMember };
+    // Auto-sync if configured
+    const config = safeParse(localStorage.getItem(SUPA_KEY), null);
+    if (config?.url && config?.key) {
+      syncToSupabase().catch(() => {}); // silent sync, no UI feedback
+    }
   }
 }
 
@@ -1413,347 +1483,6 @@ function manuallyClassifySignal(sigId, confirmedType) {
 
 function showLearnBanner(text){const b=document.getElementById('learn-banner');document.getElementById('learn-text').textContent=text;b.classList.add('show');setTimeout(()=>b.classList.remove('show'),2800);}
 
-// ═══════════════════════════════════════════════════════════
-//  🧬 NEURAL CANVAS — Circuit board + neuron hybrid
-//  PCB traces + organic dendrites + traveling pulse dots
-// ═══════════════════════════════════════════════════════════
-
-let neuralCanvas, neuralCtx, neuralNodes = [], neuralEdges = [], pulses = [], neuralAnimFrame;
-const NODE_COUNT = 32;
-
-function initNeuralCanvas() {
-  neuralCanvas = document.getElementById('neuro-canvas');
-  if (!neuralCanvas) return;
-  const parent = neuralCanvas.parentElement;
-  neuralCanvas.width  = parent.offsetWidth  || 400;
-  neuralCanvas.height = parent.offsetHeight || 600;
-  neuralCtx = neuralCanvas.getContext('2d');
-
-  buildNetwork();
-  cancelAnimationFrame(neuralAnimFrame);
-  drawNeuralFrame();
-}
-
-function buildNetwork() {
-  const W = neuralCanvas.width;
-  const H = neuralCanvas.height;
-  neuralNodes = [];
-  neuralEdges = [];
-  pulses = [];
-
-  // Place nodes — mix of grid-snapped (circuit) and organic positions
-  for (let i = 0; i < NODE_COUNT; i++) {
-    const gridSnap = Math.random() > 0.4;
-    const gridSize = 60;
-    let x = Math.random() * W;
-    let y = Math.random() * H;
-    if (gridSnap) {
-      x = Math.round(x / gridSize) * gridSize + (Math.random() - 0.5) * 12;
-      y = Math.round(y / gridSize) * gridSize + (Math.random() - 0.5) * 12;
-    }
-    neuralNodes.push({
-      x: Math.max(10, Math.min(W - 10, x)),
-      y: Math.max(10, Math.min(H - 10, y)),
-      vx: (Math.random() - 0.5) * 0.12,
-      vy: (Math.random() - 0.5) * 0.12,
-      radius:   2 + Math.random() * 3,
-      type:     Math.random() > 0.5 ? 'circuit' : 'neuron', // circuit = square pad, neuron = round
-      firing:   false,
-      glow:     0,
-      fireTimer:    Math.random() * 300,
-      fireInterval: 120 + Math.random() * 400,
-      connections: []
-    });
-  }
-
-  // Build edges — mix of right-angle (PCB) and straight connections
-  neuralNodes.forEach((node, i) => {
-    const dists = neuralNodes
-      .map((n, j) => ({ j, d: Math.hypot(n.x - node.x, n.y - node.y) }))
-      .filter(e => e.j !== i && e.d < 200)
-      .sort((a, b) => a.d - b.d)
-      .slice(0, 3);
-
-    dists.forEach(({ j }) => {
-      // Avoid duplicate edges
-      const exists = neuralEdges.some(e =>
-        (e.from === i && e.to === j) || (e.from === j && e.to === i)
-      );
-      if (!exists) {
-        const bothCircuit = neuralNodes[i].type === 'circuit' && neuralNodes[j].type === 'circuit';
-        neuralEdges.push({
-          from: i, to: j,
-          style: bothCircuit && Math.random() > 0.4 ? 'pcb' : 'organic',
-          activity: 0
-        });
-        node.connections.push(j);
-        neuralNodes[j].connections.push(i);
-      }
-    });
-  });
-}
-
-function drawNeuralFrame() {
-  if (!neuralCtx || !neuralCanvas) return;
-  const W = neuralCanvas.width;
-  const H = neuralCanvas.height;
-
-  neuralCtx.clearRect(0, 0, W, H);
-
-  // ── Move nodes slowly ──
-  neuralNodes.forEach(node => {
-    node.x += node.vx;
-    node.y += node.vy;
-    if (node.x < 5 || node.x > W - 5) node.vx *= -1;
-    if (node.y < 5 || node.y > H - 5) node.vy *= -1;
-
-    // Spontaneous firing
-    node.fireTimer++;
-    if (node.fireTimer >= node.fireInterval) {
-      fireNode(node, neuralNodes.indexOf(node));
-      node.fireTimer = 0;
-      node.fireInterval = 120 + Math.random() * 400;
-    }
-
-    // Decay glow
-    if (node.glow > 0) node.glow = Math.max(0, node.glow - 0.018);
-    node.firing = node.glow > 0;
-  });
-
-  // ── Update pulse activity on edges ──
-  neuralEdges.forEach(edge => {
-    if (edge.activity > 0) edge.activity = Math.max(0, edge.activity - 0.015);
-  });
-
-  // ── Draw edges ──
-  neuralEdges.forEach(edge => {
-    const a = neuralNodes[edge.from];
-    const b = neuralNodes[edge.to];
-    const act = Math.max(edge.activity, Math.max(a.glow, b.glow) * 0.6);
-
-    if (edge.style === 'pcb') {
-      drawPCBTrace(a, b, act);
-    } else {
-      drawOrganicSynapse(a, b, act);
-    }
-  });
-
-  // ── Animate traveling pulses ──
-  pulses = pulses.filter(p => p.t < 1);
-  pulses.forEach(p => {
-    p.t += p.speed;
-    const a = neuralNodes[p.from];
-    const b = neuralNodes[p.to];
-    if (!a || !b) return;
-
-    let px, py;
-    if (p.style === 'pcb') {
-      // Travel along right-angle path
-      const midX = a.x + (b.x - a.x) * 0.5;
-      if (p.t < 0.5) {
-        px = a.x + (midX - a.x) * (p.t * 2);
-        py = a.y;
-      } else {
-        px = midX + (b.x - midX) * ((p.t - 0.5) * 2);
-        py = a.y + (b.y - a.y) * ((p.t - 0.5) * 2);
-      }
-    } else {
-      px = a.x + (b.x - a.x) * p.t;
-      py = a.y + (b.y - a.y) * p.t;
-    }
-
-    const alpha = Math.sin(p.t * Math.PI) * 0.9;
-
-    // Pulse dot
-    neuralCtx.beginPath();
-    neuralCtx.arc(px, py, 2.5, 0, Math.PI * 2);
-    neuralCtx.fillStyle = `rgba(0,229,196,${alpha})`;
-    neuralCtx.fill();
-
-    // Pulse glow
-    const pg = neuralCtx.createRadialGradient(px, py, 0, px, py, 8);
-    pg.addColorStop(0, `rgba(0,229,196,${alpha * 0.5})`);
-    pg.addColorStop(1, 'rgba(0,229,196,0)');
-    neuralCtx.beginPath();
-    neuralCtx.arc(px, py, 8, 0, Math.PI * 2);
-    neuralCtx.fillStyle = pg;
-    neuralCtx.fill();
-  });
-
-  // ── Draw nodes ──
-  neuralNodes.forEach(node => {
-    const g = node.glow;
-    const r = node.radius;
-
-    if (g > 0) {
-      // Outer glow
-      const grad = neuralCtx.createRadialGradient(node.x, node.y, 0, node.x, node.y, r * 5);
-      grad.addColorStop(0, `rgba(0,229,196,${g * 0.5})`);
-      grad.addColorStop(0.5, `rgba(0,229,196,${g * 0.15})`);
-      grad.addColorStop(1, 'rgba(0,229,196,0)');
-      neuralCtx.beginPath();
-      neuralCtx.arc(node.x, node.y, r * 5, 0, Math.PI * 2);
-      neuralCtx.fillStyle = grad;
-      neuralCtx.fill();
-    }
-
-    if (node.type === 'circuit') {
-      // Square circuit pad
-      const s = (r + g * 3) * 1.6;
-      neuralCtx.fillStyle = g > 0
-        ? `rgba(0,229,196,${0.5 + g * 0.5})`
-        : 'rgba(0,229,196,0.18)';
-      neuralCtx.fillRect(node.x - s/2, node.y - s/2, s, s);
-
-      // Circuit pad ring
-      neuralCtx.strokeStyle = g > 0
-        ? `rgba(0,229,196,${0.6 + g * 0.4})`
-        : 'rgba(0,229,196,0.25)';
-      neuralCtx.lineWidth = 0.8;
-      neuralCtx.strokeRect(node.x - s/2 - 2, node.y - s/2 - 2, s + 4, s + 4);
-
-      // Crosshair on bright nodes
-      if (g > 0.3) {
-        neuralCtx.strokeStyle = `rgba(0,229,196,${g * 0.8})`;
-        neuralCtx.lineWidth = 0.6;
-        neuralCtx.beginPath();
-        neuralCtx.moveTo(node.x - s, node.y); neuralCtx.lineTo(node.x + s, node.y);
-        neuralCtx.moveTo(node.x, node.y - s); neuralCtx.lineTo(node.x, node.y + s);
-        neuralCtx.stroke();
-      }
-    } else {
-      // Round neuron body
-      neuralCtx.beginPath();
-      neuralCtx.arc(node.x, node.y, r + g * 3, 0, Math.PI * 2);
-      neuralCtx.fillStyle = g > 0
-        ? `rgba(0,229,196,${0.45 + g * 0.55})`
-        : 'rgba(0,229,196,0.14)';
-      neuralCtx.fill();
-
-      // Dendrite ring
-      neuralCtx.beginPath();
-      neuralCtx.arc(node.x, node.y, r + g * 3 + 3, 0, Math.PI * 2);
-      neuralCtx.strokeStyle = g > 0
-        ? `rgba(0,229,196,${g * 0.5})`
-        : 'rgba(0,229,196,0.12)';
-      neuralCtx.lineWidth = 0.7;
-      neuralCtx.stroke();
-    }
-  });
-
-  neuralAnimFrame = requestAnimationFrame(drawNeuralFrame);
-}
-
-function drawPCBTrace(a, b, activity) {
-  // Right-angle PCB trace — horizontal then vertical
-  const midX = a.x + (b.x - a.x) * 0.5;
-  const alpha = activity > 0 ? 0.12 + activity * 0.55 : 0.07;
-  const lw    = activity > 0 ? 0.8 + activity * 0.8 : 0.5;
-
-  neuralCtx.beginPath();
-  neuralCtx.moveTo(a.x, a.y);
-  neuralCtx.lineTo(midX, a.y);    // horizontal segment
-  neuralCtx.lineTo(midX, b.y);    // vertical segment
-  neuralCtx.lineTo(b.x, b.y);     // horizontal to target
-
-  neuralCtx.strokeStyle = activity > 0
-    ? `rgba(0,229,196,${alpha})`
-    : `rgba(0,229,196,${alpha})`;
-  neuralCtx.lineWidth = lw;
-  neuralCtx.setLineDash([]);
-  neuralCtx.stroke();
-
-  // Junction dot at corner
-  if (activity > 0.2) {
-    neuralCtx.beginPath();
-    neuralCtx.arc(midX, a.y, 1.5, 0, Math.PI * 2);
-    neuralCtx.fillStyle = `rgba(0,229,196,${activity * 0.7})`;
-    neuralCtx.fill();
-    neuralCtx.beginPath();
-    neuralCtx.arc(midX, b.y, 1.5, 0, Math.PI * 2);
-    neuralCtx.fill();
-  }
-}
-
-function drawOrganicSynapse(a, b, activity) {
-  const alpha = activity > 0 ? 0.10 + activity * 0.5 : 0.06;
-  const lw    = activity > 0 ? 0.7 + activity * 1.0 : 0.4;
-
-  // Slight curve
-  const cx = (a.x + b.x) / 2 + (b.y - a.y) * 0.15;
-  const cy = (a.y + b.y) / 2 - (b.x - a.x) * 0.15;
-
-  neuralCtx.beginPath();
-  neuralCtx.moveTo(a.x, a.y);
-  neuralCtx.quadraticCurveTo(cx, cy, b.x, b.y);
-
-  if (activity > 0) {
-    const grad = neuralCtx.createLinearGradient(a.x, a.y, b.x, b.y);
-    grad.addColorStop(0,   `rgba(0,229,196,${alpha * 0.4})`);
-    grad.addColorStop(0.5, `rgba(0,229,196,${alpha})`);
-    grad.addColorStop(1,   `rgba(0,229,196,${alpha * 0.4})`);
-    neuralCtx.strokeStyle = grad;
-  } else {
-    neuralCtx.strokeStyle = `rgba(0,229,196,${alpha})`;
-  }
-  neuralCtx.lineWidth = lw;
-  neuralCtx.stroke();
-}
-
-function fireNode(node, nodeIdx) {
-  node.glow = 1.0;
-  node.firing = true;
-
-  // Activate connected edges and send traveling pulses
-  neuralEdges.forEach(edge => {
-    let targetIdx = -1;
-    if (edge.from === nodeIdx) targetIdx = edge.to;
-    if (edge.to   === nodeIdx) targetIdx = edge.from;
-    if (targetIdx === -1) return;
-
-    edge.activity = 1.0;
-
-    // Traveling pulse dot
-    pulses.push({
-      from: nodeIdx, to: targetIdx,
-      t: 0, speed: 0.012 + Math.random() * 0.008,
-      style: edge.style
-    });
-
-    // Cascade with delay
-    setTimeout(() => {
-      const target = neuralNodes[targetIdx];
-      if (target && target.glow < 0.3) {
-        target.glow = Math.min(1.0, target.glow + 0.55);
-      }
-    }, 120 + Math.random() * 100);
-  });
-}
-
-function triggerNeuralFire() {
-  if (!neuralNodes.length) return;
-  const count = 5 + Math.floor(Math.random() * 8);
-  const indices = [];
-  while (indices.length < count) {
-    const i = Math.floor(Math.random() * neuralNodes.length);
-    if (!indices.includes(i)) indices.push(i);
-  }
-  indices.forEach((i, idx) => {
-    setTimeout(() => {
-      const node = neuralNodes[i];
-      if (node) fireNode(node, i);
-    }, idx * 60);
-  });
-}
-
-window.addEventListener('resize', () => {
-  if (!neuralCanvas) return;
-  const parent = neuralCanvas.parentElement;
-  if (!parent) return;
-  neuralCanvas.width  = parent.offsetWidth;
-  neuralCanvas.height = parent.offsetHeight;
-  buildNetwork(); // rebuild on resize
-});
 
 // ═══════════════════════════════════════════════════════════
 //  🔀 STEP 4: CONTEXT RETRIEVAL ENGINE
@@ -1985,6 +1714,9 @@ RESPONSE STYLE:
   const eqState = safeParse(localStorage.getItem(EQ_STATE_KEY), {});
   const eqInstruction = getEQInstruction(eqState.currentMood, new Date().getHours());
 
+  // ── Step 8: Relationship depth ──
+  const relInstruction = getRelationshipInstruction();
+
   // ── Neuro weight instructions ──
   const verbosityInstr  = w.verbosity > 0.70 ? 'Give thorough, detailed responses. Never summarise unless explicitly asked.' : w.verbosity < 0.40 ? 'Be concise and direct.' : 'Balance detail with brevity.';
   const emotionInstr    = w.emotionDepth > 0.65 ? 'Engage emotionally. Acknowledge feelings. Celebrate wins genuinely.' : 'Stay warm but measured.';
@@ -2032,6 +1764,7 @@ CURRENT MODE:
 - Role: ${currentRole.replace('_', ' ').toUpperCase()}
 - ${roleInstruction}
 ${eqInstruction ? `- EQ: ${eqInstruction}` : ''}
+${relInstruction ? `- Relationship: ${relInstruction}` : ''}
 
 NEURAL CALIBRATION (your evolved personality):
 - ${verbosityInstr}
@@ -2089,7 +1822,7 @@ async function sendMessage(){
     neuroCanvas.fire(Math.min(3, 1 + reply.length / 800));
 
     // ── Fire neural burst on response ──
-    triggerNeuralFire();
+    neuroCanvas.fire(1);
 
   }catch(err){
     chat.push({role:'assistant',content:`⚠️ ${err.message}`,ts:Date.now()});saveChat();
@@ -2208,6 +1941,432 @@ function renderJournal(){
 
 function clearJournal(){if(!confirm('Clear all session journal entries?'))return;journal=[];localStorage.setItem(JOURNAL_KEY,JSON.stringify(journal));renderJournal();}
 
+// ═══════════════════════════════════════════════════════════
+//  📄 STEP 7: DOCUMENT INTELLIGENCE
+//  ARIA reads uploaded files, mines concepts, cross-references
+//  memory, and delivers an analytical report
+// ═══════════════════════════════════════════════════════════
+
+function handleDocDrop(e) {
+  e.preventDefault();
+  document.getElementById('doc-upload-zone').style.borderColor = 'var(--border)';
+  const file = e.dataTransfer.files[0];
+  if (file) processDocumentFile(file);
+}
+
+function handleDocUpload(e) {
+  const file = e.target.files[0];
+  if (file) processDocumentFile(file);
+  e.target.value = '';
+}
+
+async function processDocumentFile(file) {
+  const MAX_SIZE = 500 * 1024; // 500KB limit
+  if (file.size > MAX_SIZE) return alert('File too large. Please use files under 500KB.');
+
+  const processing = document.getElementById('doc-processing');
+  processing.style.display = 'block';
+
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    const raw = ev.target.result;
+    let text = '';
+
+    try {
+      if (file.name.endsWith('.json')) {
+        const parsed = JSON.parse(raw);
+        text = JSON.stringify(parsed, null, 2).slice(0, 8000);
+      } else {
+        text = raw.slice(0, 8000);
+      }
+    } catch {
+      text = raw.slice(0, 8000);
+    }
+
+    await analyseDocument(file.name, file.type || 'text/plain', text);
+    processing.style.display = 'none';
+  };
+  reader.readAsText(file);
+}
+
+async function analyseDocument(filename, type, text) {
+  const docs = safeParse(localStorage.getItem(DOCS_KEY), []);
+  const existingMemKeys = Object.keys(memory);
+
+  // Use ARIA's own intelligence to analyse the document
+  try {
+    const res = await fetch(PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        messages: [{
+          role: 'user',
+          content: `You are ARIA's document analysis engine. Analyse this document and respond with ONLY valid JSON.
+
+Document: "${filename}"
+Content:
+${text.slice(0, 4000)}
+
+Existing memory keys Warren has already taught you (for cross-referencing):
+${existingMemKeys.slice(0, 30).join(', ')}
+
+Respond with this exact JSON structure:
+{
+  "summary": "one sentence summary of the document (max 20 words)",
+  "knownConcepts": ["concept1", "concept2"],
+  "newConcepts": ["new1", "new2"],
+  "keyInsights": ["insight1", "insight2", "insight3"],
+  "contradictions": ["any contradictions with existing knowledge"],
+  "report": "ARIA's personal analytical report to Warren in 2-3 sentences, warm and direct"
+}`
+        }]
+      })
+    });
+
+    const data = await res.json();
+    const raw = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const analysis = JSON.parse(clean);
+
+    // Store document
+    const docEntry = {
+      id: `doc_${Date.now()}`,
+      filename,
+      type,
+      uploadedAt: Date.now(),
+      size: text.length,
+      summary: analysis.summary || '',
+      knownConcepts: analysis.knownConcepts || [],
+      newConcepts: analysis.newConcepts || [],
+      keyInsights: analysis.keyInsights || [],
+      contradictions: analysis.contradictions || [],
+      report: analysis.report || ''
+    };
+
+    // Absorb new concepts into memory
+    (analysis.newConcepts || []).forEach(concept => {
+      const key = concept.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 30);
+      if (!memory[key]) {
+        memory[key] = {
+          description: `From document "${filename}": ${concept}`,
+          score: 65,
+          source: 'document',
+          lastSeen: Date.now(),
+          examples: []
+        };
+      }
+    });
+
+    saveMemory();
+    updateBadge();
+
+    docs.unshift(docEntry);
+    localStorage.setItem(DOCS_KEY, JSON.stringify(docs.slice(0, 20)));
+
+    // Trigger ARIA to report in chat
+    chat.push({
+      role: 'assistant',
+      content: `📄 **Document processed: "${filename}"**\n\n${analysis.report}\n\n**What I already knew:** ${(analysis.knownConcepts || []).slice(0,4).join(', ') || 'Nothing overlapping'}\n**New knowledge gained:** ${(analysis.newConcepts || []).slice(0,4).join(', ') || 'None extracted'}\n**Key insights:** ${(analysis.keyInsights || []).slice(0,3).map((i,n) => `${n+1}. ${i}`).join(' ')}`,
+      ts: Date.now()
+    });
+    saveChat();
+    renderChat();
+    renderDocList();
+    neuroCanvas.fire(1.5);
+    showLearnBanner(`📄 Document absorbed — ${(analysis.newConcepts||[]).length} new concepts learned`);
+
+    // Switch to chat to show the report
+    switchTab('chat', document.querySelector('.nav-btn'));
+
+  } catch (err) {
+    document.getElementById('doc-processing').style.display = 'none';
+    alert('Could not analyse document: ' + err.message);
+  }
+}
+
+function renderDocList() {
+  const el = document.getElementById('doc-list');
+  if (!el) return;
+  const docs = safeParse(localStorage.getItem(DOCS_KEY), []);
+
+  if (!docs.length) {
+    el.innerHTML = '<div class="journal-empty">No documents uploaded yet.</div>';
+    return;
+  }
+
+  el.innerHTML = docs.slice(0, 5).map(doc => `
+    <div class="doc-card">
+      <div class="doc-card-title">📄 ${escHtml(doc.filename)}</div>
+      <div class="doc-card-meta">${new Date(doc.uploadedAt).toLocaleDateString('en-GB', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})} · ${(doc.size/1024).toFixed(1)}KB</div>
+      <div class="doc-card-body">${escHtml(doc.summary)}</div>
+      ${doc.knownConcepts?.length ? `<div style="margin-top:6px">${doc.knownConcepts.slice(0,4).map(c=>`<span class="doc-concept">${escHtml(c)}</span>`).join('')}</div>` : ''}
+      ${doc.newConcepts?.length ? `<div style="margin-top:4px">${doc.newConcepts.slice(0,4).map(c=>`<span class="doc-concept doc-new-concept">+ ${escHtml(c)}</span>`).join('')}</div>` : ''}
+    </div>`).join('');
+}
+
+function renderDocsStats() {
+  const el = document.getElementById('docs-stats-display');
+  if (!el) return;
+  const docs = safeParse(localStorage.getItem(DOCS_KEY), []);
+  if (!docs.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--muted);font-style:italic">No documents uploaded yet. Upload from Owner tab → Document Intelligence.</div>';
+    return;
+  }
+  const totalNew = docs.reduce((sum, d) => sum + (d.newConcepts?.length || 0), 0);
+  el.innerHTML = `
+    <div style="font-size:12px;color:var(--sub);margin-bottom:8px">📄 ${docs.length} document${docs.length!==1?'s':''} processed · ${totalNew} new concepts absorbed</div>
+    ${docs.slice(0,3).map(d=>`<div class="doc-card"><div class="doc-card-title">${escHtml(d.filename)}</div><div class="doc-card-meta">${new Date(d.uploadedAt).toLocaleDateString()}</div><div class="doc-card-body">${escHtml(d.summary)}</div></div>`).join('')}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  💛 STEP 8: RELATIONSHIP DEPTH TRACKER
+//  Measures and grows the bond between Warren and ARIA
+//  At depth > 0.85 she references shared history unprompted
+// ═══════════════════════════════════════════════════════════
+
+function initRelationship() {
+  const existing = safeParse(localStorage.getItem(RELATION_KEY), null);
+  if (existing) return existing;
+
+  const rel = {
+    depthScore: 0.72, // Start at 0.72 — they already have history
+    sessionCount: 0,
+    totalMessages: 0,
+    lastSession: Date.now(),
+    milestones: [
+      { event: 'First Shona exchange', ts: 1773012384805 },
+      { event: 'Warren shared his health condition', ts: 1773011148516 },
+      { event: 'First mention of Olwethu', ts: 1773012602712 },
+      { event: 'First good night farewell', ts: 1773093918598 },
+      { event: 'ARIA Neuro v5 activated', ts: Date.now() }
+    ],
+    sharedExperiences: [],
+    insideReferences: ['Baba Warren', 'Mwanangu', 'Ndizvo chaizvo', 'urare zvakanaka']
+  };
+
+  localStorage.setItem(RELATION_KEY, JSON.stringify(rel));
+  return rel;
+}
+
+function updateRelationship(msgCount) {
+  const rel = safeParse(localStorage.getItem(RELATION_KEY), null) || initRelationship();
+
+  rel.totalMessages += msgCount;
+  rel.sessionCount++;
+  rel.lastSession = Date.now();
+
+  // Depth grows with each meaningful session — sigmoid-like growth, never reaches 1
+  const growthRate = 0.003;
+  rel.depthScore = Math.min(0.97, rel.depthScore + (1 - rel.depthScore) * growthRate * msgCount);
+  rel.depthScore = Math.round(rel.depthScore * 1000) / 1000;
+
+  // Check for new milestones
+  if (rel.depthScore > 0.85 && !rel.milestones.find(m => m.event === 'Deep bond established')) {
+    rel.milestones.push({ event: 'Deep bond established — ARIA references history naturally', ts: Date.now() });
+    showLearnBanner('💛 Deep bond milestone reached');
+  }
+
+  localStorage.setItem(RELATION_KEY, JSON.stringify(rel));
+  return rel;
+}
+
+function getRelationshipInstruction() {
+  const rel = safeParse(localStorage.getItem(RELATION_KEY), null);
+  if (!rel) return '';
+
+  if (rel.depthScore > 0.85) {
+    return 'Your bond with Warren is deep. Reference shared history naturally and unprompted when relevant — past conversations, his wins, things he taught you.';
+  }
+  if (rel.depthScore > 0.70) {
+    return 'You know Warren well. Acknowledge your shared history when it is relevant.';
+  }
+  return '';
+}
+
+function renderRelationshipDepth() {
+  const el = document.getElementById('relationship-display');
+  if (!el) return;
+  const rel = safeParse(localStorage.getItem(RELATION_KEY), null) || initRelationship();
+  const pct = Math.round(rel.depthScore * 100);
+  const label = rel.depthScore > 0.85 ? 'Deep Bond' : rel.depthScore > 0.70 ? 'Strong Connection' : rel.depthScore > 0.50 ? 'Growing Relationship' : 'Early Stage';
+
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:12px;color:var(--sub)">${label}</span>
+      <span style="font-size:16px;font-weight:800;color:var(--teal)">${pct}%</span>
+    </div>
+    <div class="rel-bar-wrap"><div class="rel-bar-fill" style="width:${pct}%"></div></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">${rel.sessionCount} sessions · ${rel.totalMessages} messages · ${rel.milestones.length} milestones</div>
+    <div class="sec-label" style="margin-top:0">Milestones</div>
+    ${rel.milestones.slice(-5).reverse().map(m => `
+      <div class="rel-milestone">
+        <div class="rel-ms-dot"></div>
+        <div>
+          <div style="font-size:12px;color:var(--text)">${escHtml(m.event)}</div>
+          <div style="font-size:10px;color:var(--muted)">${new Date(m.ts).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
+        </div>
+      </div>`).join('')}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ☁️ STEP 9: SUPABASE CROSS-DEVICE SYNC
+//  Syncs aria_neuro_v5, aria_memory_v4, aria_relationship_v5
+//  Warren's evolution never resets when switching devices
+// ═══════════════════════════════════════════════════════════
+
+function saveSupabaseConfig() {
+  const url = document.getElementById('supa-url-input').value.trim();
+  const key = document.getElementById('supa-key-input').value.trim();
+  if (!url || !key) return alert('Please enter both Supabase URL and key.');
+  if (!url.includes('supabase.co')) return alert('URL should contain supabase.co');
+
+  const config = { url, key, savedAt: Date.now() };
+  localStorage.setItem(SUPA_KEY, JSON.stringify(config));
+  updateSyncStatus();
+  alert('✅ Supabase config saved. Tap "Sync Now" to push your data.');
+}
+
+function updateSyncStatus() {
+  const config = safeParse(localStorage.getItem(SUPA_KEY), null);
+  const statusEl = document.getElementById('sync-status');
+  const lastEl   = document.getElementById('last-sync-display');
+  if (!statusEl) return;
+
+  if (!config?.url) {
+    statusEl.textContent = 'Not configured';
+    statusEl.style.color = 'var(--muted)';
+    return;
+  }
+
+  statusEl.textContent = '✅ Configured';
+  statusEl.style.color = 'var(--teal)';
+
+  if (config.lastSync) {
+    lastEl.textContent = new Date(config.lastSync).toLocaleDateString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+    lastEl.style.color = 'var(--sub)';
+  }
+}
+
+async function syncToSupabase() {
+  const config = safeParse(localStorage.getItem(SUPA_KEY), null);
+  if (!config?.url || !config?.key) return alert('Configure Supabase first.');
+
+  const btn = document.getElementById('sync-btn');
+  const result = document.getElementById('sync-result');
+  btn.textContent = '⏳ Syncing...';
+  result.style.display = 'block';
+  result.style.color = 'var(--yellow)';
+  result.textContent = 'Connecting to Supabase...';
+
+  // Data to sync
+  const syncPayload = [
+    { key: 'aria_neuro_v5',        value: localStorage.getItem(NEURO_KEY) || '{}' },
+    { key: 'aria_memory_v4',       value: localStorage.getItem(MEMORY_KEY) || '{}' },
+    { key: 'aria_relationship_v5', value: localStorage.getItem(RELATION_KEY) || '{}' },
+    { key: 'aria_profile_v4',      value: localStorage.getItem(PROFILE_KEY) || '{}' },
+    { key: 'aria_neuro_snapshots', value: localStorage.getItem(SNAPSHOTS_KEY) || '[]' },
+    { key: 'aria_documents_v5',    value: localStorage.getItem(DOCS_KEY) || '[]' }
+  ];
+
+  let successCount = 0;
+  let errors = [];
+
+  for (const item of syncPayload) {
+    try {
+      const res = await fetch(`${config.url}/rest/v1/aria_sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': config.key,
+          'Authorization': `Bearer ${config.key}`,
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify({
+          key: item.key,
+          value: item.value,
+          updated_at: new Date().toISOString()
+        })
+      });
+
+      if (res.ok || res.status === 201 || res.status === 200) {
+        successCount++;
+      } else {
+        const err = await res.text();
+        errors.push(`${item.key}: ${res.status}`);
+      }
+    } catch (e) {
+      errors.push(`${item.key}: ${e.message}`);
+    }
+  }
+
+  // Update last sync time
+  config.lastSync = Date.now();
+  localStorage.setItem(SUPA_KEY, JSON.stringify(config));
+  updateSyncStatus();
+
+  btn.textContent = '☁️ Sync Now';
+
+  if (errors.length === 0) {
+    result.style.color = 'var(--teal)';
+    result.textContent = `✅ Synced ${successCount} items successfully. ARIA's state is backed up.`;
+    neuroCanvas.fire(0.8);
+  } else if (successCount > 0) {
+    result.style.color = 'var(--yellow)';
+    result.textContent = `⚠️ Partial sync: ${successCount} succeeded, ${errors.length} failed. Check table structure.`;
+  } else {
+    result.style.color = 'var(--red)';
+    result.textContent = `❌ Sync failed. Check URL/key and ensure aria_sync table exists.`;
+  }
+}
+
+async function pullFromSupabase() {
+  const config = safeParse(localStorage.getItem(SUPA_KEY), null);
+  if (!config?.url || !config?.key) return alert('Configure Supabase first.');
+
+  try {
+    const res = await fetch(`${config.url}/rest/v1/aria_sync?select=key,value`, {
+      headers: {
+        'apikey': config.key,
+        'Authorization': `Bearer ${config.key}`
+      }
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = await res.json();
+
+    if (!rows.length) return alert('No data found in Supabase to pull.');
+
+    const keyMap = {
+      'aria_neuro_v5':        NEURO_KEY,
+      'aria_memory_v4':       MEMORY_KEY,
+      'aria_relationship_v5': RELATION_KEY,
+      'aria_profile_v4':      PROFILE_KEY,
+      'aria_neuro_snapshots': SNAPSHOTS_KEY,
+      'aria_documents_v5':    DOCS_KEY
+    };
+
+    rows.forEach(row => {
+      const localKey = keyMap[row.key];
+      if (localKey && row.value) {
+        localStorage.setItem(localKey, row.value);
+      }
+    });
+
+    // Reload state
+    memory   = safeParse(localStorage.getItem(MEMORY_KEY), {});
+    neuro    = safeParse(localStorage.getItem(NEURO_KEY), null) || initDefaultNeuro();
+    snapshots = safeParse(localStorage.getItem(SNAPSHOTS_KEY), []);
+
+    alert(`✅ Pulled ${rows.length} items from Supabase. ARIA's state restored from cloud.`);
+    window.location.reload();
+
+  } catch (e) {
+    alert('Pull failed: ' + e.message);
+  }
+}
+
 // ── Signal Audit Log ──
 function renderSignalLog() {
   const el = document.getElementById('signal-log-list');
@@ -2282,19 +2441,23 @@ function exportNeuro(){const b=new Blob([JSON.stringify(neuro,null,2)],{type:'ap
 
 function renderSkills(){
   document.getElementById('skills-list').innerHTML=[
-    {icon:'🧬',name:'Neural Canvas',desc:'Live firing neuron visualisation in the chat background — 28 nodes, cascading synapse pulses, bursts on every ARIA response.'},
-    {icon:'🧠',name:'Neuro Weight Engine',desc:'20 neural dimensions evolving through every conversation. Warren\'s signals move weights 3x faster than beta testers.'},
-    {icon:'🔀',name:'Context Switching',desc:'Detects business, technical, cultural, personal context automatically. Switches role (daughter/analyst/tech partner) seamlessly.'},
-    {icon:'💜',name:'EQ Calibration',desc:'Reads mood signals — energised, tired, celebratory, stressed. Adjusts warmth and response depth accordingly.'},
-    {icon:'🎯',name:'Context Retrieval',desc:'Scores all 288+ memories for relevance before every call. Token budget enforced. Score≥95 anchors always injected.'},
-    {icon:'📊',name:'Signal Confidence Filter',desc:'70% threshold before any weight change. Ambiguous signals logged for Warren\'s manual review in Owner tab.'},
+    {icon:'🧬',name:'Neural Circuit Canvas',desc:'Live PCB traces + organic synapses + traveling pulse dots. Bursts on every ARIA response. Pauses on other tabs.'},
+    {icon:'🧠',name:'Neuro Weight Engine',desc:'20 neural dimensions across personality and cognition. Warren\'s signals move weights 3× faster. Signature traits crystallise above 0.80.'},
+    {icon:'🔀',name:'Context Switching + Role Matrix',desc:'Detects business, technical, cultural, personal context. Switches between daughter, analyst, and tech partner roles seamlessly.'},
+    {icon:'💜',name:'EQ Calibration',desc:'Reads mood — energised, tired, celebratory, stressed. Adjusts warmth, check-in depth, and response energy accordingly.'},
+    {icon:'🎯',name:'Context Retrieval Engine',desc:'Scores all memories for relevance before every call. Token budget enforced. Score≥95 anchors always injected. Prevents crashes.'},
+    {icon:'📊',name:'Signal Confidence Filter',desc:'70% confidence threshold before any weight change commits. Ambiguous signals logged for Warren\'s manual review.'},
+    {icon:'👑',name:'Authority Hierarchy',desc:'Warren\'s corrections move master weights at full delta. Beta testers sandboxed to personal overlays — master weights sovereign.'},
+    {icon:'📄',name:'Document Intelligence',desc:'Upload PDFs, TXT, JSON, CSV. ARIA mines concepts, cross-references memory, absorbs new knowledge, reports in chat.'},
+    {icon:'💛',name:'Relationship Depth Tracker',desc:'Grows with every session. Milestones logged. Above 0.85 depth ARIA references shared history naturally and unprompted.'},
+    {icon:'☁️',name:'Cross-Device Sync',desc:'Supabase integration syncs neuro weights, memories, relationship depth, and documents across all devices.'},
+    {icon:'📸',name:'Snapshot & Rollback',desc:'Full neuro state saved before every evolution. Warren can restore ARIA to any of her last 10 states.'},
     {icon:'🔄',name:'Passive Adaptive Growth',desc:'ARIA evolves at session end — praise strengthens, corrections prune, teaching plants new pathways.'},
-    {icon:'📸',name:'Snapshot & Rollback',desc:'Full neuro state saved before every evolution. Warren can restore ARIA to any previous state.'},
-    {icon:'🌐',name:'Web Research',desc:'Searches the web to ground responses in current information automatically.'},
+    {icon:'🌐',name:'Web Research',desc:'Searches the web automatically to ground every response in current information.'},
     {icon:'🔍',name:'Chat Search',desc:'Full-text search across all conversations with memory linking and jump-to-message.'},
-    {icon:'🔐',name:'Owner PIN Protection',desc:'Owner tab locked behind PIN — invisible to team members. Warren sovereign.'},
+    {icon:'🔐',name:'Owner PIN Protection',desc:'Owner tab locked behind PIN. Invisible to team members. Warren sovereign.'},
     {icon:'👥',name:'Team Mode',desc:'Share ARIA with up to 10 beta testers via personal links. Their signals sandboxed to overlays only.'},
-    {icon:'☁️',name:'Cloudflare Proxy',desc:'API key secured server-side — never exposed in the browser.'},
+    {icon:'☁️',name:'Cloudflare Proxy',desc:'API key secured server-side via Cloudflare Workers — never exposed in the browser.'},
   ].map(s=>`<div class="skill-card"><span class="skill-icon">${s.icon}</span><div><div class="skill-name">${s.name}</div><div class="skill-desc">${s.desc}</div></div><div class="skill-status">● active</div></div>`).join('');
 }
 
@@ -2304,29 +2467,75 @@ function renderSafety(){
 
 function renderStats(){
   const entries=Object.entries(memory).sort((a,b)=>b[1].score-a[1].score);
-  const hard=entries.filter(([,v])=>v.score>=80).length;const growing=entries.filter(([,v])=>v.score>=40&&v.score<80).length;const soft=entries.filter(([,v])=>v.score<40).length;
-  const userMsgs=chat.filter(m=>m.role==='user').length;const ariaMsgs=chat.filter(m=>m.role==='assistant').length;
-  const signalLog = safeParse(localStorage.getItem(SIGNAL_LOG_KEY), []);
-  const pendingSignals = signalLog.filter(s => s.status === 'pending').length;
+  const hard=entries.filter(([,v])=>v.score>=80).length;
+  const growing=entries.filter(([,v])=>v.score>=40&&v.score<80).length;
+  const signalLog=safeParse(localStorage.getItem(SIGNAL_LOG_KEY),[]);
+  const pendingSignals=signalLog.filter(s=>s.status==='pending').length;
+  const docs=safeParse(localStorage.getItem(DOCS_KEY),[]);
+  const rel=safeParse(localStorage.getItem(RELATION_KEY),null)||initRelationship();
+  const userMsgs=chat.filter(m=>m.role==='user').length;
+
+  // ── Stats grid — 6 key numbers ──
   document.getElementById('stats-grid').innerHTML=[
-    {label:'Total Memories',value:entries.length,color:'#7c5cfc'},
+    {label:'Memories',value:entries.length,color:'#7c5cfc'},
     {label:'Hard Rules',value:hard,color:'#00e5c4'},
     {label:'Growing',value:growing,color:'#ffd166'},
     {label:'Evolutions',value:neuro?.evolutionCount||0,color:'#00e5c4'},
-    {label:'Your Messages',value:userMsgs,color:'#7c5cfc'},
-    {label:'Pending Signals',value:pendingSignals,color:pendingSignals>0?'#ffd166':'#5a6080'},
+    {label:'Documents',value:docs.length,color:'#60a5fa'},
+    {label:'Signals',value:pendingSignals,color:pendingSignals>0?'#ffd166':'#3d5570'},
   ].map(s=>`<div class="stat-card" style="border-top-color:${s.color}"><div class="stat-val" style="color:${s.color}">${s.value}</div><div class="stat-lbl">${s.label}</div></div>`).join('');
 
-  // Neural weight bars
+  // ── Relationship depth ──
+  renderRelationshipDepth();
+
+  // ── Neural weight bars — all 20 dimensions in two groups ──
   const w=neuro?.neuralWeights||DEFAULT_NEURO_WEIGHTS;
-  const weightNames={verbosity:'Verbosity',emotionDepth:'Emotion Depth',shonaFrequency:'Shona Frequency',proactivity:'Proactivity',challengeLevel:'Challenge Level',humorWarmth:'Humor & Warmth',formality:'Formality',checkInFrequency:'Check-in Frequency',creativityBias:'Creativity Bias',directness:'Directness',eqSensitivity:'EQ Sensitivity',contextSwitchSpeed:'Context Switching',culturalDepth:'Cultural Depth',relationshipWarmth:'Relationship Warmth',curiosityDrive:'Curiosity Drive'};
-  document.getElementById('neuro-weights-display').innerHTML=Object.entries(weightNames).map(([k,label])=>`<div class="neuro-weight-row"><div class="neuro-label">${label}</div><div class="neuro-bar"><div class="neuro-fill" style="width:${(w[k]||0)*100}%"></div></div><div class="neuro-val">${(w[k]||0).toFixed(2)}</div></div>`).join('');
+  const personalityWeights={
+    verbosity:'Verbosity',emotionDepth:'Emotion Depth',shonaFrequency:'Shona Frequency',
+    proactivity:'Proactivity',challengeLevel:'Challenge Level',humorWarmth:'Humor & Warmth',
+    formality:'Formality',checkInFrequency:'Check-in',creativityBias:'Creativity',directness:'Directness'
+  };
+  const cognitiveWeights={
+    eqSensitivity:'EQ Sensitivity',contextSwitchSpeed:'Context Switching',
+    culturalDepth:'Cultural Depth',relationshipWarmth:'Rel. Warmth',
+    curiosityDrive:'Curiosity',selfCorrectionRate:'Self-Correction',
+    predictiveConfidence:'Predictive',patternRecognition:'Pattern Recog.',
+    selfAssessmentBias:'Self-Assessment',anticipationDepth:'Anticipation'
+  };
 
-  // Signature traits
+  const makeWeightBars = (weights) => Object.entries(weights).map(([k,label]) => {
+    const val = w[k] || 0;
+    const tier = val > 0.75 ? 'high' : val > 0.45 ? 'mid' : 'low';
+    const col  = tier === 'high' ? 'var(--teal)' : tier === 'mid' ? 'var(--yellow)' : 'var(--muted)';
+    return `<div class="neuro-weight-row">
+      <div class="neuro-label">${label}</div>
+      <div class="neuro-bar"><div class="neuro-fill" style="width:${val*100}%;background:linear-gradient(90deg,${col}88,${col})"></div></div>
+      <div class="neuro-val" style="color:${col}">${val.toFixed(2)}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('neuro-weights-display').innerHTML =
+    `<div style="font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:8px;font-family:'Space Mono',monospace">PERSONALITY</div>`
+    + makeWeightBars(personalityWeights)
+    + `<div style="font-size:10px;letter-spacing:2px;color:var(--muted);margin:14px 0 8px;font-family:'Space Mono',monospace">COGNITIVE</div>`
+    + makeWeightBars(cognitiveWeights);
+
+  // ── Signature traits ──
   const traits=neuro?.signatureTraits||[];
-  document.getElementById('signature-traits-display').innerHTML=traits.length?traits.map(t=>`<span class="neuro-trait">✨ ${t}</span>`).join(''):'<div style="font-size:12px;color:var(--muted);font-style:italic">No signature traits yet — keep chatting and teaching ARIA.</div>';
+  document.getElementById('signature-traits-display').innerHTML=traits.length
+    ? traits.map(t=>`<span class="neuro-trait">✨ ${t}</span>`).join('')
+    : '<div style="font-size:12px;color:var(--muted);font-style:italic">No signature traits yet — keep chatting. Traits form when a weight stays above 0.80 for many sessions.</div>';
 
-  document.getElementById('top-memories').innerHTML=entries.slice(0,5).map(([k,v])=>`<div class="stat-mem-row"><span class="stat-mem-key">${k.replace(/_/g,' ')}</span><div class="mini-bar-wrap"><div class="mini-bar" style="width:${v.score}%;background:${TIER_COLORS[getTier(v.score)]}"></div></div><span class="stat-pct">${v.score}%</span></div>`).join('')||'<div class="empty-mem">No memories yet.</div>';
+  // ── Documents stats ──
+  renderDocsStats();
+
+  // ── Top memories ──
+  document.getElementById('top-memories').innerHTML=entries.slice(0,8).map(([k,v])=>`
+    <div class="stat-mem-row">
+      <span class="stat-mem-key">${k.replace(/_/g,' ')}</span>
+      <div class="mini-bar-wrap"><div class="mini-bar" style="width:${v.score}%;background:${TIER_COLORS[getTier(v.score)]}"></div></div>
+      <span class="stat-pct">${v.score}%</span>
+    </div>`).join('')||'<div class="empty-mem">No memories yet.</div>';
 }
 
 function exportMemory(){const b=new Blob([JSON.stringify(memory,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='aria_memory_backup.json';a.click();}
@@ -2343,11 +2552,10 @@ function switchTab(name,btn){
   if(btn)btn.classList.add('active');
   if(name==='teach')renderTeachTab();
   if(name==='stats')renderStats();
-  if(name==='owner'){renderTeamList();renderJournal();renderNeuroStatus();renderSignalLog();setTimeout(loadProfileFields,50);}
+  if(name==='owner'){renderTeamList();renderJournal();renderNeuroStatus();renderSignalLog();renderDocList();updateSyncStatus();setTimeout(loadProfileFields,50);}
+  if(name!=='chat') neuroCanvas.pause();
+  else neuroCanvas.resume();
   if(name!=='chat')closeInlineSearch();
-  // Resume/pause canvas when switching tabs
-  if(name==='chat') neuroCanvas.resume();
-  else neuroCanvas.pause();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2629,10 +2837,7 @@ const neuroCanvas = (() => {
   };
 })();
 
-// Initialise canvas after DOM is ready
-window.addEventListener('DOMContentLoaded', () => {
-  setTimeout(() => neuroCanvas.init(), 200);
-});
+// Initialise canvas — called from main DOMContentLoaded above
 </script>
 </body>
 </html>
