@@ -1,7 +1,18 @@
-const CACHE = 'aria-v5-1-1';
+const CACHE = 'aria-v5-static-1';
+
+const STATIC_ASSETS = [
+  'manifest.json',
+  'icon-192.png',
+  'icon-512.png'
+];
+
 self.addEventListener('install', e => {
   self.skipWaiting();
+  e.waitUntil(
+    caches.open(CACHE).then(c => c.addAll(STATIC_ASSETS))
+  );
 });
+
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
@@ -9,13 +20,30 @@ self.addEventListener('activate', e => {
     ).then(() => self.clients.claim())
   );
 });
+
 self.addEventListener('fetch', e => {
-  // Always go to network first, fall back to cache
+  const url = new URL(e.request.url);
+
+  if (url.pathname.endsWith('/') || 
+      url.pathname.endsWith('index.html') || 
+      url.pathname.endsWith('/aria') || 
+      url.pathname.endsWith('/aria/')) {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
   e.respondWith(
-    fetch(e.request).then(res => {
-      const clone = res.clone();
-      caches.open(CACHE).then(c => c.put(e.request, clone));
-      return res;
-    }).catch(() => caches.match(e.request))
+    caches.match(e.request).then(cached => {
+      if (cached) return cached;
+      return fetch(e.request).then(res => {
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+        }
+        return res;
+      });
+    })
   );
 });
