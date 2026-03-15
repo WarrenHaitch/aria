@@ -1397,15 +1397,10 @@ function extractConcepts(text){return text.toLowerCase().replace(/[^a-z0-9\s]/g,
 const CONFIDENCE_THRESHOLD = 0.70;
 
 function classifySignal(msg) {
+  if (!msg || typeof msg !== 'string') return { weight: 0, type: null, confidence: 0, applyWeight: false };
   const m = msg.toLowerCase();
 
-  // Score each signal type independently
-  const scores = {
-    correction:  0,
-    praise:      0,
-    teaching:    0,
-    frustration: 0
-  };
+  const scores = { correction: 0, praise: 0, teaching: 0, frustration: 0 };
 
   // Correction signals
   if (/\b(wrong|not right|not correct|i meant|don't say|never say|stop saying)\b/.test(m))  scores.correction += 0.85;
@@ -1821,7 +1816,7 @@ RESPONSE STYLE:
   // ── Feature 2: Active pathways ──
   const activePathways = getActivePathways(currentMessage || '');
   const pathwayInstruction = activePathways.length
-    ? `LEARNED PATHWAYS (Warren's discovered patterns):\n${activePathways.map(p => `- ${p.description} (strength: ${p.strength.toFixed(2)})`).join('\n')}`
+    ? `LEARNED PATHWAYS (Warren's discovered patterns):\n${activePathways.map(p => `- ${p.description || p.key} (strength: ${(p.strength || 0).toFixed(2)})`).join('\n')}`
     : '';
 
   // ── Feature 3: Predictive instruction ──
@@ -2137,10 +2132,10 @@ function discoverPathway(userMsg, ariaReply, signal) {
 }
 
 function getActivePathways(currentMessage) {
-  // Return pathways that match the current message context
+  if (!currentMessage) return [];
   const words = currentMessage.toLowerCase().split(/\s+/);
-  return pathways
-    .filter(p => p.strength > 0.4 && p.trigger.some(t => words.some(w => w.includes(t) || t.includes(w))))
+  return (pathways || [])
+    .filter(p => p && p.strength > 0.4 && Array.isArray(p.trigger) && p.trigger.some(t => words.some(w => w.includes(t) || t.includes(w))))
     .sort((a, b) => b.strength - a.strength)
     .slice(0, 3);
 }
@@ -2296,7 +2291,7 @@ function getSelfEvalInstruction() {
   const selfEval = safeParse(localStorage.getItem(SELF_EVAL_KEY), null);
   if (!selfEval || selfEval.totalEvals < 3) return '';
 
-  const areas = selfEval.improvementAreas.slice(0, 2);
+  const areas = (selfEval.improvementAreas || []).slice(0, 2);
   if (!areas.length) return '';
 
   const fixes = {
