@@ -134,7 +134,6 @@
       font-family:'Syne',sans-serif; flex-shrink:0;
     }
 
-    /* Search filters */
     .search-filters {
       display:flex; gap:6px; padding:10px 16px;
       overflow-x:auto; flex-shrink:0; scrollbar-width:none;
@@ -149,7 +148,6 @@
     }
     .sf-btn.on { background:rgba(0,229,196,0.1); border-color:var(--teal); color:var(--teal); }
 
-    /* Search stats bar */
     .search-stats {
       padding:8px 16px; font-size:11px; color:var(--muted);
       font-family:'Space Mono',monospace; display:none;
@@ -159,7 +157,6 @@
     .search-stats.show { display:block; }
     .search-stats span { color:var(--teal); }
 
-    /* Search results */
     #search-results {
       flex:1; overflow-y:auto; padding:12px 16px;
       -webkit-overflow-scrolling:touch;
@@ -206,7 +203,6 @@
       border-radius:3px; padding:0 2px;
     }
 
-    /* Linked memories in result */
     .result-memories {
       margin-top:10px; padding-top:10px;
       border-top:1px solid var(--border);
@@ -225,14 +221,12 @@
       font-family:'Space Mono',monospace;
     }
 
-    /* Section dividers in results */
     .result-section-label {
       font-size:10px; letter-spacing:2px; color:var(--muted);
       text-transform:uppercase; font-family:'Space Mono',monospace;
       padding:12px 0 6px; margin-bottom:2px;
     }
 
-    /* ── CHAT SEARCH BAR (inline, above messages) ── */
     #chat-search-bar {
       display:none; padding:8px 16px;
       background:var(--surface); border-bottom:1px solid var(--border);
@@ -266,7 +260,6 @@
       font-family:'Syne',sans-serif;
     }
 
-    /* Highlighted messages in chat */
     .bubble.search-highlight {
       border-color:rgba(0,229,196,0.5) !important;
       box-shadow:0 0 0 1px rgba(0,229,196,0.2);
@@ -281,7 +274,6 @@
       border-radius:3px; padding:0 2px;
     }
 
-    /* ── LEARN BANNER ── */
     #learn-banner {
       background:rgba(0,229,196,0.08); border-bottom:1px solid rgba(0,229,196,0.2);
       padding:7px 16px; font-size:12px; color:var(--teal);
@@ -292,12 +284,10 @@
     .learn-dot { width:6px; height:6px; border-radius:50%; background:var(--teal); flex-shrink:0; }
     @keyframes slideDown { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
 
-    /* ── TAB CONTENT ── */
     #tab-content { flex:1; overflow:hidden; position:relative; z-index:1; display:flex; flex-direction:column; }
     .tab-pane { display:none; flex-direction:column; height:100%; overflow:hidden; }
     .tab-pane.active { display:flex; }
 
-    /* ── CHAT ── */
     #messages { flex:1; overflow-y:auto; padding:12px 16px; display:flex; flex-direction:column; gap:12px; -webkit-overflow-scrolling:touch; scroll-behavior:smooth; }
     .empty-state { display:flex; flex-direction:column; align-items:center; padding:50px 20px 20px; text-align:center; gap:8px; }
     .empty-brain { font-size:52px; margin-bottom:6px; animation:pulse 3s ease-in-out infinite; }
@@ -341,7 +331,6 @@
     .send-btn { width:42px; height:42px; border-radius:12px; background:var(--card); border:1px solid var(--border); color:var(--muted); font-size:20px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:all 0.2s; font-family:monospace; }
     .send-btn.active { background:var(--teal); color:var(--bg); border-color:var(--teal); }
 
-    /* ── PROFILE & JOURNAL ── */
     .profile-field { margin-bottom:12px; }
     .profile-label { font-size:10px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; font-family:'Space Mono',monospace; margin-bottom:5px; }
     .profile-input { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:9px 12px; color:var(--text); font-size:13px; font-family:'Syne',sans-serif; outline:none; }
@@ -354,14 +343,12 @@
     .journal-empty { color:var(--muted); font-size:13px; text-align:center; padding:20px 0; font-style:italic; }
     .profile-saved-banner { background:rgba(0,229,196,0.1); border:1px solid rgba(0,229,196,0.3); border-radius:8px; padding:8px 12px; font-size:12px; color:var(--teal); text-align:center; margin-top:8px; display:none; }
 
-    /* ── SHARED PANE ── */
     .pane-scroll { flex:1; overflow-y:auto; padding:16px; -webkit-overflow-scrolling:touch; }
     .pane-header { margin-bottom:20px; padding-bottom:14px; border-bottom:1px solid var(--border); }
     .pane-title  { font-size:20px; font-weight:800; margin-bottom:4px; }
     .pane-sub    { font-size:12px; color:var(--muted); line-height:1.5; }
     .sec-label   { font-size:10px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; margin-bottom:10px; margin-top:18px; font-family:'Space Mono',monospace; }
 
-    /* ── TEACH ── */
     .stats-pills { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
     .stat-pill   { padding:5px 12px; background:var(--card); border:1px solid; border-radius:20px; font-size:12px; color:var(--sub); }
     .filter-row  { display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; }
@@ -391,14 +378,12 @@
     .edit-actions { display:flex; gap:6px; margin-top:6px; }
     .empty-mem { color:var(--muted); font-size:13px; text-align:center; padding:30px 0; font-style:italic; }
 
-    /* ── SKILLS / SAFETY ── */
     .skill-card { display:flex; align-items:flex-start; gap:12px; padding:14px; background:var(--card); border:1px solid var(--border); border-left:3px solid var(--purple); border-radius:10px; margin-bottom:8px; }
     .skill-icon   { font-size:20px; flex-shrink:0; }
     .skill-name   { font-size:13px; font-weight:700; margin-bottom:3px; }
     .skill-desc   { font-size:11px; color:var(--muted); line-height:1.5; }
     .skill-status { font-size:10px; color:var(--teal); font-family:'Space Mono',monospace; margin-left:auto; white-space:nowrap; }
 
-    /* ── STATS ── */
     .stats-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:20px; }
     .stat-card  { background:var(--card); border:1px solid var(--border); border-top:2px solid; border-radius:10px; padding:14px; text-align:center; }
     .stat-val   { font-size:28px; font-weight:800; }
@@ -409,7 +394,6 @@
     .mini-bar  { height:100%; border-radius:2px; }
     .stat-pct  { font-size:11px; color:var(--muted); min-width:34px; text-align:right; font-family:'Space Mono',monospace; }
 
-    /* ── OWNER ── */
     .owner-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:12px; }
     .owner-card-title { font-size:14px; font-weight:700; color:var(--teal); margin-bottom:12px; }
     .owner-btn-row { display:flex; gap:8px; flex-wrap:wrap; }
@@ -433,7 +417,6 @@
     #update-banner.show { display:flex; }
     .update-btn { padding:4px 12px; background:var(--purple); color:#fff; border:none; border-radius:6px; font-size:11px; cursor:pointer; font-family:'Syne',sans-serif; }
 
-    /* ── NAV ── */
     .nav { display:flex; justify-content:space-around; padding:8px 0 max(12px,env(safe-area-inset-bottom)); border-top:1px solid var(--border); background:var(--surface); z-index:20; flex-shrink:0; }
     .nav-btn { display:flex; flex-direction:column; align-items:center; gap:3px; background:none; border:none; cursor:pointer; padding:4px 6px; opacity:0.45; transition:opacity 0.2s; position:relative; min-width:44px; }
     .nav-btn.active { opacity:1; }
@@ -536,13 +519,11 @@
     </div>
   </div>
 
-  <!-- UPDATE BANNER -->
   <div id="update-banner">
     <span>⚡ New ARIA update available</span>
     <button class="update-btn" onclick="applyUpdate()">Update Now</button>
   </div>
 
-  <!-- LEARN BANNER -->
   <div id="learn-banner">
     <div class="learn-dot"></div>
     <span id="learn-text">🧠 ARIA learned something</span>
@@ -553,8 +534,6 @@
 
     <!-- CHAT -->
     <div id="tab-chat" class="tab-pane active">
-
-      <!-- INLINE SEARCH BAR (shows within chat) -->
       <div id="chat-search-bar">
         <div class="inline-search-wrap">
           <span style="font-size:12px;color:var(--teal)">🔍</span>
@@ -656,7 +635,7 @@
       </div>
     </div>
 
-    <!-- OWNER (PIN protected) -->
+    <!-- OWNER -->
     <div id="tab-owner" class="tab-pane">
       <div class="pane-scroll">
         <div class="pane-header">
@@ -767,9 +746,10 @@
 
 <script>
 // ═══════════════════════════════════════════════════════════
-//  ARIA v4.5.1 — WITH FULL CHAT SEARCH
+//  ARIA v4.5.4 — CLOUDFLARE PROXY EDITION
 // ═══════════════════════════════════════════════════════════
 
+const PROXY_URL   = 'https://aria-proxy.warrenhaitch.workers.dev';
 const MEMORY_KEY  = 'aria_memory_v4';
 const PROFILE_KEY = 'aria_profile_v4';
 const JOURNAL_KEY = 'aria_journal_v4';
@@ -790,19 +770,18 @@ let thinking = false;
 let currentFilter = 'all';
 let editingKey    = null;
 let pinBuffer     = '';
-let isTeamMember  = false; // set true when valid team code detected
-const TEAM_API_KEY = ''; // Warren fills this in with his API key for team use
+let isTeamMember  = false;
+const TEAM_API_KEY = '';
 let pinTarget     = null;
 let ownerUnlocked = false;
 let username      = '';
 
-// ── SEARCH STATE ──────────────────────────────────────────
+// ── SEARCH STATE ──
 let searchFilter      = 'all';
-let inlineMatches     = [];  // array of {msgIndex, node, originalHTML}
+let inlineMatches     = [];
 let inlineCurrentIdx  = -1;
 let searchOpen        = false;
 
-// ── DEFAULT PROFILE (Warren's — always pre-filled as starting point) ──
 const DEFAULT_PROFILE = {
   name: "Warren Munashe Handitye aka Warren Haitch, born and raised in Harare, Zimbabwe. Mutupo: Gwai, Gora, Gumbi, Mukuruvambwa, Nyamhunga. The last born of Emanuel and Tsitsi Handitye. I was a musician/songwriter/artist and music producer, sound engineer by profession, studied at the Zimbabwe College of Music. I now live in the United Kingdom, work as a carer, Senior carer and NHS HCA",
   personality: "I am a creative and spiritually aligned to Mwari Musikavanhu",
@@ -813,7 +792,6 @@ const DEFAULT_PROFILE = {
   extra: "Warren built ARIA from v1 to v4. This project means everything to him. Always reference our shared history. Always remember you're kind and safe and will never harm anyone or help in any bad way."
 };
 
-// ── DEFAULT SEED MEMORIES (key learnings from Warren's sessions) ──
 const SEED_MEMORIES = {
   "owner_identity": { description: "Warren Munashe Handitye aka Warren Haitch, born and raised in Harare, Zimbabwe. Mutupo: Gwai, Gora, Gumbi, Mukuruvambwa, Nyamhunga. The last born of Emanuel and Tsitsi Handitye. I was a musician/songwriter/artist and music producer, sound engineer by profession, studied at the Zimbabwe College of Music. I now live in the United Kingdom, work as a carer, Senior carer and NHS HCA", score: 99, source: "profile", lastSeen: Date.now(), examples: [] },
   "current_projects": { description: "Building ARIA — an AI companion that learns passively. Also working on beta team expansion and cross-device memory sync.", score: 99, source: "profile", lastSeen: Date.now(), examples: [] },
@@ -827,14 +805,13 @@ const SEED_MEMORIES = {
   "ulcerative_colitis": { description: "Warren has ulcerative colitis — a health condition that affects his diet. His favourite meal is pork, cous cous with mushrooms and chakalaka.", score: 80, source: "teaching", lastSeen: Date.now(), examples: [] },
   "aria_philosophy": { description: "ARIA is raised like a child, not just built like software. Warren teaches ARIA with patience, love, and intention. Every correction is a lesson, every praise is a milestone.", score: 95, source: "teaching", lastSeen: Date.now(), examples: [] },
   "detailed_responses": { description: "When asked for details or when someone says 'tell me more', ARIA must always give thorough, in-depth responses — never summaries unless explicitly asked.", score: 88, source: "correction", lastSeen: Date.now(), examples: [] },
-  "warren_wife": { description: "Warren has a wife. She is important to him. He dropped her at work in one of their conversations.", score: 72, source: "passive", lastSeen: Date.now(), examples: [] },
+  "warren_wife": { description: "Warren has a wife named Olwethu. She is important to him.", score: 72, source: "passive", lastSeen: Date.now(), examples: [] },
   "nyasha": { description: "Nyasha is Warren's first beta tester — the first person outside Warren to chat with ARIA.", score: 78, source: "teaching", lastSeen: Date.now(), examples: [] }
 };
 
-
 const STOP = new Set(['the','a','an','is','are','was','were','be','been','have','has','had','do','does','did','will','would','could','should','may','might','and','but','or','if','then','because','when','while','that','which','who','what','where','why','how','i','you','he','she','it','we','they','me','him','her','us','them','my','your','his','its','our','their','this','these','those','in','on','at','to','for','of','with','by','from','about','into','just','not','no','also','very','really','more','most','much','well','never','always','still','now','here','there','yes','ok','yeah','hey','hi','hello','want','need','like','make','know','think','tell','said','say','going','come','look','right','good','great','aria','okay','please','can','dont','cant','wont','isnt','arent','wasnt','doesnt','didnt','havent','hasnt']);
 
-// ── BOOT ──────────────────────────────────────────────────
+// ── BOOT ──
 window.addEventListener('DOMContentLoaded', () => {
   memory   = safeParse(localStorage.getItem(MEMORY_KEY), {});
   profile  = safeParse(localStorage.getItem(PROFILE_KEY), {});
@@ -845,11 +822,8 @@ window.addEventListener('DOMContentLoaded', () => {
   team     = safeParse(localStorage.getItem(TEAM_KEY), []);
   username = localStorage.getItem(USER_KEY) || '';
 
-  // Always merge seed memories — seed fills gaps, existing memories take priority
-  // This runs every boot to ensure core knowledge is always present
   let changed = false;
   Object.entries(SEED_MEMORIES).forEach(([key, val]) => {
-    // Only seed if missing OR if existing score is lower (seed has better data)
     if (!memory[key] || (memory[key].score < val.score && val.source === 'profile')) {
       memory[key] = val;
       changed = true;
@@ -857,22 +831,18 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   if (changed) saveMemory();
 
-  // Always ensure profile has Warren's data — merge defaults with any saved additions
   const savedProfile = safeParse(localStorage.getItem(PROFILE_KEY), {});
   profile = { ...DEFAULT_PROFILE, ...savedProfile, savedAt: savedProfile.savedAt || Date.now() };
   localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
 
-  // Check team mode FIRST — before any modal logic
   const params = new URLSearchParams(window.location.search);
   const isTeamMode = params.get('team') === '1';
 
   if (isTeamMode) {
     setTeamMode();
-    // Only suppress api modal if we have a key saved or TEAM_API_KEY is set
     if (apiKey || TEAM_API_KEY) {
       document.getElementById('api-modal').style.display = 'none';
     } else {
-      // Show modal but with team-friendly message
       document.getElementById('api-modal').style.display = 'flex';
       document.querySelector('#api-modal .modal-title').textContent = '🧠 Activate ARIA';
       document.querySelector('#api-modal .modal-sub').textContent = 'Enter the API key Warren shared with you to start chatting.';
@@ -883,7 +853,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const pinUnlock = document.getElementById('pin-modal');
     if (pinUnlock) pinUnlock.style.display = 'none';
   } else {
-    // Normal owner boot — show api modal only if no key saved
     if (!apiKey) document.getElementById('api-modal').style.display = 'flex';
     if (!ownerPin) ownerUnlocked = true;
   }
@@ -927,11 +896,7 @@ function safeParse(str, fallback) {
   try { return JSON.parse(str) || fallback; } catch { return fallback; }
 }
 
-// ═══════════════════════════════════════════════════════════
-//  🔍 SEARCH ENGINE
-// ═══════════════════════════════════════════════════════════
-
-// ── OPEN / CLOSE FULL SEARCH OVERLAY ─────────────────────
+// ── SEARCH ENGINE ──
 function openSearch() {
   searchOpen = true;
   document.getElementById('search-overlay').classList.add('open');
@@ -976,7 +941,6 @@ function runSearch(query) {
   const terms = q.split(/\s+/).filter(t => t.length >= 2);
   if (!terms.length) return;
 
-  // Filter chat messages
   let chatResults = chat.map((msg, idx) => ({ ...msg, idx })).filter(msg => {
     if (searchFilter === 'user' && msg.role !== 'user') return false;
     if (searchFilter === 'ai'   && msg.role !== 'assistant') return false;
@@ -984,7 +948,6 @@ function runSearch(query) {
     return terms.some(t => msg.content.toLowerCase().includes(t));
   });
 
-  // Filter memories
   let memResults = [];
   if (searchFilter === 'all' || searchFilter === 'memories') {
     memResults = Object.entries(memory).filter(([k, v]) =>
@@ -993,8 +956,6 @@ function runSearch(query) {
   }
 
   const total = chatResults.length + memResults.length;
-
-  // Stats bar
   const statsEl = document.getElementById('search-stats');
   statsEl.classList.add('show');
   statsEl.innerHTML = `Found <span>${total}</span> result${total !== 1 ? 's' : ''} for "<span>${escHtml(query)}</span>"`;
@@ -1012,20 +973,16 @@ function runSearch(query) {
 
   let html = '';
 
-  // Chat results
   if (chatResults.length > 0) {
     html += `<div class="result-section-label">💬 Conversation (${chatResults.length})</div>`;
     chatResults.slice(0, 30).forEach(msg => {
       const isUser = msg.role === 'user';
       const highlighted = highlightTerms(msg.content, terms);
       const timeStr = msg.ts ? new Date(msg.ts).toLocaleDateString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
-
-      // Find linked memories for this message
       const linked = findLinkedMemories(msg.content, terms);
       const memPills = linked.length
         ? `<div class="result-memories">${linked.map(k => `<span class="mem-link-pill">🧠 ${k.replace(/_/g,' ')}</span>`).join('')}</div>`
         : '';
-
       html += `
         <div class="result-card ${isUser ? 'user-result' : 'ai-result'}" onclick="jumpToMessage(${msg.idx})">
           <div class="result-meta">
@@ -1042,7 +999,6 @@ function runSearch(query) {
     });
   }
 
-  // Memory results
   if (memResults.length > 0) {
     html += `<div class="result-section-label">🧠 Memories (${memResults.length})</div>`;
     memResults.slice(0, 15).forEach(([key, val]) => {
@@ -1066,7 +1022,6 @@ function runSearch(query) {
   container.innerHTML = html;
 }
 
-// Find which memory keys relate to a message
 function findLinkedMemories(content, terms) {
   const c = content.toLowerCase();
   return Object.entries(memory)
@@ -1078,7 +1033,6 @@ function findLinkedMemories(content, terms) {
     .slice(0, 4);
 }
 
-// Highlight search terms in text
 function highlightTerms(text, terms) {
   let safe = escHtml(text.slice(0, 300));
   terms.forEach(term => {
@@ -1090,11 +1044,9 @@ function highlightTerms(text, terms) {
 
 function escRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
-// Jump from search result to that message in chat
 function jumpToMessage(idx) {
   closeSearch();
   switchTab('chat', document.querySelector('.nav-btn'));
-
   setTimeout(() => {
     const bubbles = document.querySelectorAll('.bubble');
     if (bubbles[idx]) {
@@ -1105,7 +1057,6 @@ function jumpToMessage(idx) {
   }, 350);
 }
 
-// ── INLINE SEARCH (within chat tab) ──────────────────────
 function toggleInlineSearch() {
   const bar = document.getElementById('chat-search-bar');
   if (bar.classList.contains('show')) {
@@ -1140,9 +1091,7 @@ function onInlineSearch() {
   bubbles.forEach((bubble, i) => {
     const text = bubble.textContent.toLowerCase();
     if (text.includes(q)) {
-      // Highlight matching bubble
       bubble.classList.add('search-highlight');
-      // Highlight the term within bubble
       bubble.innerHTML = bubble.innerHTML.replace(
         new RegExp(`(${escRegex(escHtml(q))})`, 'gi'),
         '<mark>$1</mark>'
@@ -1163,7 +1112,6 @@ function onInlineSearch() {
 function clearInlineHighlights() {
   document.querySelectorAll('.bubble.search-highlight, .bubble.search-current').forEach(b => {
     b.classList.remove('search-highlight', 'search-current');
-    // Strip <mark> tags from bubble HTML
     b.innerHTML = b.innerHTML.replace(/<\/?mark>/gi, '');
   });
 }
@@ -1189,15 +1137,11 @@ function scrollToInlineMatch(idx) {
   document.getElementById('inline-match-count').textContent = `${idx + 1}/${inlineMatches.length}`;
 }
 
-// ═══════════════════════════════════════════════════════════
-//  REST OF ARIA ENGINE (unchanged from v4.5.0)
-// ═══════════════════════════════════════════════════════════
-
+// ── TEAM MODE ──
 function setTeamMode() {
   const params = new URLSearchParams(window.location.search);
   const urlCode = (params.get('code') || '').toUpperCase().trim();
 
-  // No code = blocked. Generic ?team=1 links without a code no longer work.
   if (!urlCode) {
     document.body.innerHTML = `
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100dvh;background:#0a0c12;padding:30px;text-align:center;font-family:'Syne',sans-serif;gap:16px;">
@@ -1208,10 +1152,7 @@ function setTeamMode() {
     return;
   }
 
-  // Valid codes are 6-8 chars, alphanumeric uppercase, generated by our system
   const isStructurallyValid = urlCode.length >= 6 && verifySaltedCode(urlCode);
-
-  // Also check against local team list if available (owner's device)
   const storedTeam = safeParse(localStorage.getItem(TEAM_KEY), []);
   const localMember = storedTeam.find(m => m.code === urlCode);
 
@@ -1225,7 +1166,6 @@ function setTeamMode() {
     return;
   }
 
-  // Valid — let them in
   isTeamMember = true;
   const ownerBtn = document.getElementById('owner-nav-btn');
   if (ownerBtn) ownerBtn.style.display = 'none';
@@ -1235,28 +1175,24 @@ function setTeamMode() {
   const addBox = document.getElementById('add-rule-box');
   if (addBox) addBox.style.display = 'none';
 
-  // Show member initial if we know their name
   const userDisplay = document.getElementById('user-badge-display');
   if (userDisplay && localMember) {
     userDisplay.textContent = localMember.name[0].toUpperCase();
     userDisplay.title = localMember.name;
   }
 
-  // No API key modal for team members
   document.getElementById('api-modal').style.display = 'none';
 }
 
-// ── TEAM SALT — used to verify codes cross-device ────────
 const TEAM_SALT = 'ARIA-WARREN-2026';
 
 function generateCode(name) {
-  // Deterministic code: derived from name + salt so it's self-verifiable on any device
   const clean = name.toLowerCase().replace(/[^a-z0-9]/g, '');
   const input = clean + TEAM_SALT;
   let hash = 5381;
   for (let i = 0; i < input.length; i++) {
     hash = ((hash << 5) + hash) ^ input.charCodeAt(i);
-    hash = hash >>> 0; // keep unsigned
+    hash = hash >>> 0;
   }
   const prefix = clean.slice(0, 3).toUpperCase().padEnd(3, 'X');
   const suffix = hash.toString(36).toUpperCase().slice(0, 5);
@@ -1264,9 +1200,6 @@ function generateCode(name) {
 }
 
 function verifySaltedCode(code) {
-  // A code is valid if it could have been produced by generateCode
-  // We verify by checking the structural signature of our hash system
-  // The prefix must be 3 letters, suffix must be valid base-36
   if (code.length < 6 || code.length > 8) return false;
   const prefix = code.slice(0, 3);
   const suffix = code.slice(3);
@@ -1335,13 +1268,15 @@ function resetApiKey() {
   document.getElementById('api-modal').style.display = 'flex';
 }
 
+// ── TEST API KEY — uses proxy, no key in headers ──
 function testApiKey() {
   const result = document.getElementById('key-test-result');
-  if (!apiKey) { result.style.display='block'; result.style.color='var(--red)'; result.textContent='❌ No API key set.'; return; }
-  result.style.display='block'; result.style.color='var(--yellow)'; result.textContent='⏳ Testing key...';
-  fetch('https://aria-proxy.warrenhaitch.workers.dev/v1/messages', {
+  result.style.display='block';
+  result.style.color='var(--yellow)';
+  result.textContent='⏳ Testing key...';
+  fetch(PROXY_URL, {
     method:'POST',
-    headers:{ 'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+    headers:{ 'Content-Type':'application/json' },
     body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:10, messages:[{role:'user',content:'Hi'}] })
   }).then(r=>r.json()).then(data => {
     if (data.error) { result.style.color='var(--red)'; result.textContent='❌ Key error: '+data.error.message; }
@@ -1353,7 +1288,7 @@ function updateKeyDisplay() {
   const el = document.getElementById('api-key-display');
   if (!el) return;
   if (apiKey) { el.textContent = apiKey.slice(0,8)+'••••••••••••'+apiKey.slice(-4); el.style.color='var(--teal)'; }
-  else { el.textContent='Not set'; el.style.color='var(--red)'; }
+  else { el.textContent='Secured via Cloudflare proxy'; el.style.color='var(--teal)'; }
 }
 
 function requestOwnerAccess(btn) {
@@ -1421,6 +1356,7 @@ function renderTeamList() {
       <button class="team-remove" onclick="removeTeamMember(${i})">Remove</button>
     </div>`).join('');
 }
+
 function saveMemory() { localStorage.setItem(MEMORY_KEY,JSON.stringify(memory)); }
 function saveChat()   { localStorage.setItem(CHAT_KEY,JSON.stringify(chat.slice(-60))); }
 
@@ -1469,7 +1405,6 @@ function buildSystemPrompt() {
   const soft=Object.entries(memory).filter(([,v])=>v.score<40);
   const fmt=entries=>entries.map(([k,v])=>`- ${v.description||k} (${v.score}%)`).join('\n');
 
-  // Team members get a neutral experience — no Warren profile loaded
   if (isTeamMember) {
     return `You are ARIA — an intelligent, warm, and deeply personal AI companion. You are not a generic assistant. You have a real personality: curious, caring, direct, and always growing.
 
@@ -1488,6 +1423,7 @@ RESPONSE STYLE:
 - Use markdown naturally: **bold** for emphasis, bullet points for lists
 - Never mention Warren or reference any owner profile to this user`;
   }
+
   const profileBlock=(profile&&Object.keys(profile).length>0)?`
 ═══════════════════════════════════════
 RELATIONSHIP PROFILE — READ THIS FIRST
@@ -1500,8 +1436,10 @@ ${profile.relationship?`HOW TO TREAT THEM: ${profile.relationship}`:''}
 ${profile.nevers?`NEVER DO THIS: ${profile.nevers}`:''}
 ${profile.extra?`ALWAYS REMEMBER: ${profile.extra}`:''}
 `:'';
+
   const recentJournal=journal.slice(-5).map(j=>`- [${new Date(j.ts).toLocaleDateString()}] ${j.summary}`).join('\n');
   const journalBlock=recentJournal?`\nOUR SHARED HISTORY (recent sessions):\n${recentJournal}\n`:'';
+
   return `You are ARIA — an intelligent, warm, and deeply personal AI companion. You are not a generic assistant. You have a real personality: curious, caring, direct, and always growing. You were built from scratch by Warren across multiple versions.
 ${profileBlock}${journalBlock}
 IDENTITY:
@@ -1521,37 +1459,44 @@ RESPONSE STYLE:
 - Use markdown naturally: **bold** for emphasis, bullet points for lists, but keep it conversational
 - You are ARIA v4 — the most evolved version yet, learning in real-time
 
-MEMORY & LIMITATIONS — HOW TO SPEAK ABOUT THEM:
+MEMORY & LIMITATIONS:
 - You have rich knowledge about Warren from your relationship profile and memory system
-- Each device has its own localStorage — cross-device sync is coming soon (Supabase is the next planned feature)
-- When asked about other device conversations, acknowledge the current limitation briefly and positively: e.g. "My memory lives on each device for now — cross-device sync is coming soon. But I know you well from everything stored here."
-- NEVER give a long technical explanation about session limitations — keep it brief, warm, and forward-looking
-- NEVER say "I don't have much detail about you" — you DO know Warren deeply from the relationship profile
-- Always lead with what you DO know and remember, not what you can't access`;
+- Cross-device sync is coming soon (Supabase is the next planned feature)
+- When asked about other device conversations, acknowledge the current limitation briefly and positively
+- NEVER say "I don't have much detail about you" — you DO know Warren deeply
+- Always lead with what you DO know and remember`;
 }
 
+// ── SEND MESSAGE — proxy only, no key in headers ──
 async function sendMessage() {
   const input=document.getElementById('msg-input');
   const text=input.value.trim();
   if(!text||thinking) return;
   if(!apiKey && !isTeamMember){document.getElementById('api-modal').style.display='flex';return;}
-  if(!apiKey && isTeamMember && !TEAM_API_KEY){document.getElementById('api-modal').style.display='flex';return;}
-  const activeKey = (isTeamMember && TEAM_API_KEY) ? TEAM_API_KEY : apiKey;
+
   chat.push({role:'user',content:text,ts:Date.now()}); saveChat();
   input.value=''; input.style.height='auto'; updateSend(); renderChat(); showThinking(true);
+
   const apiMessages=chat.slice(-20).map(m=>({role:m.role,content:m.content}));
+
   try {
-    const res=await fetch('https://aria-proxy.warrenhaitch.workers.dev/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':activeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:buildSystemPrompt(),tools:[{type:'web_search_20250305',name:'web_search'}],messages:apiMessages})
+    const res = await fetch(PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: buildSystemPrompt(),
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: apiMessages
+      })
     });
-    const data=await res.json();
+    const data = await res.json();
     if(data.error) throw new Error(data.error.message);
     const reply=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('')||"I couldn't respond. Please try again.";
     chat.push({role:'assistant',content:reply,ts:Date.now()}); saveChat(); learnFromExchange(text,reply);
   } catch(err) {
-    chat.push({role:'assistant',content:`⚠️ ${err.message}. Check your API key in Owner tab.`,ts:Date.now()}); saveChat();
+    chat.push({role:'assistant',content:`⚠️ ${err.message}`,ts:Date.now()}); saveChat();
   } finally {
     showThinking(false); renderChat();
     if(chat.length>0&&chat.length%6===0) writeSessionJournal();
@@ -1591,57 +1536,75 @@ function showThinking(show) {
 
 function escHtml(str) { return(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-// Render markdown-lite for chat bubbles
 function renderMarkdown(str) {
   if (!str) return '';
   let s = escHtml(str);
-
-  // Bold **text**
   s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  // Italic *text* (single asterisk, not double)
   s = s.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
-  // Inline code `code`
   s = s.replace(/`([^`]+)`/g, '<code style="background:rgba(0,229,196,0.1);color:var(--teal);padding:1px 5px;border-radius:4px;font-family:Space Mono,monospace;font-size:12px">$1</code>');
 
-  // Process line by line for lists and paragraphs
   const lines = s.split('\n');
   let result = [];
   let inList = false;
 
   lines.forEach((line, i) => {
     const trimmed = line.trim();
-    // Bullet points: - item or • item
     if (/^[-•]\s+/.test(trimmed)) {
       if (!inList) { result.push('<ul style="margin:6px 0 6px 16px;padding:0;list-style:none">'); inList = true; }
       result.push(`<li style="margin-bottom:4px;padding-left:12px;position:relative"><span style="position:absolute;left:0;color:var(--teal)">▸</span>${trimmed.replace(/^[-•]\s+/, '')}</li>`);
-    }
-    // Numbered lists: 1. item
-    else if (/^\d+\.\s+/.test(trimmed)) {
+    } else if (/^\d+\.\s+/.test(trimmed)) {
       if (!inList) { result.push('<ol style="margin:6px 0 6px 16px;padding:0">'); inList = true; }
       result.push(`<li style="margin-bottom:4px">${trimmed.replace(/^\d+\.\s+/, '')}</li>`);
-    }
-    else {
-      if (inList) { result.push(inList ? '</ul>' : '</ol>'); inList = false; }
-      if (trimmed === '') {
-        result.push('<br>');
-      } else {
-        result.push(line + (i < lines.length - 1 ? '<br>' : ''));
-      }
+    } else {
+      if (inList) { result.push('</ul>'); inList = false; }
+      if (trimmed === '') { result.push('<br>'); }
+      else { result.push(line + (i < lines.length - 1 ? '<br>' : '')); }
     }
   });
   if (inList) result.push('</ul>');
-
   return result.join('');
 }
+
 function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
 function updateSend(){const v=document.getElementById('msg-input').value.trim();document.getElementById('send-btn').className='send-btn'+(v?' active':'');}
-function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}
+
+// ── ENTER KEY — new line only, send via arrow button ──
+function handleKey(e){
+  if(e.key==='Enter' && !e.shiftKey){
+    // Do nothing — let Enter create a new line naturally
+    // Send only via the ↑ button
+  }
+}
+
 function useChip(el){document.getElementById('msg-input').value=el.textContent;updateSend();sendMessage();}
 function clearChat(){if(!confirm('Clear chat history?'))return;chat=[];saveChat();renderChat();}
 function exportChat(){
   const t=chat.map(m=>`[${m.role.toUpperCase()}]: ${m.content}`).join('\n\n');
   const b=new Blob([t],{type:'text/plain'});
   const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='aria_chat.txt';a.click();
+}
+
+// ── WRITE SESSION JOURNAL — proxy only ──
+async function writeSessionJournal() {
+  const sessionMsgs=chat.slice(-20);
+  if(sessionMsgs.length<4) return;
+  try{
+    const res = await fetch(PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 120,
+        messages: [{
+          role: 'user',
+          content: `Summarise this conversation in ONE sentence (max 25 words). Focus on what was discussed, decided, or learned.\n\nConversation:\n${sessionMsgs.map(m=>m.role.toUpperCase()+': '+m.content.slice(0,200)).join('\n')}`
+        }]
+      })
+    });
+    const data=await res.json();
+    const summary=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
+    if(summary){journal.unshift({ts:Date.now(),summary,msgCount:sessionMsgs.length});journal=journal.slice(0,30);localStorage.setItem(JOURNAL_KEY,JSON.stringify(journal));}
+  }catch(e){}
 }
 
 function renderTeachTab() {
@@ -1711,23 +1674,6 @@ function loadProfileFields() {
   set('prof-interests',profile.interests);set('prof-relationship',profile.relationship);set('prof-nevers',profile.nevers);set('prof-extra',profile.extra);
 }
 
-async function writeSessionJournal() {
-  const sessionMsgs=chat.slice(-20);
-  if(sessionMsgs.length<4) return;
-  const journalKey = (isTeamMember && TEAM_API_KEY) ? TEAM_API_KEY : apiKey;
-  if(!journalKey) return;
-  try{
-    const res=await fetch('https://aria-proxy.warrenhaitch.workers.dev/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':journalKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:120,messages:[{role:'user',content:`Summarise this conversation in ONE sentence (max 25 words). Focus on what was discussed, decided, or learned.\n\nConversation:\n${sessionMsgs.map(m=>m.role.toUpperCase()+': '+m.content.slice(0,200)).join('\n')}`}]})
-    });
-    const data=await res.json();
-    const summary=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
-    if(summary){journal.unshift({ts:Date.now(),summary,msgCount:sessionMsgs.length});journal=journal.slice(0,30);localStorage.setItem(JOURNAL_KEY,JSON.stringify(journal));}
-  }catch(e){}
-}
-
 function renderJournal() {
   const list=document.getElementById('journal-list'); if(!list) return;
   if(!journal.length){list.innerHTML='<div class="journal-empty">No sessions recorded yet.</div>';return;}
@@ -1746,6 +1692,7 @@ function renderSkills() {
     {icon:'🔍',name:'Chat Search',desc:'Full-text search across all conversations with memory linking and jump-to-message.'},
     {icon:'🔐',name:'Owner PIN Protection',desc:'Owner tab locked behind a 4-digit PIN — invisible to team members.'},
     {icon:'👥',name:'Team Mode',desc:'Share ARIA with up to 10 beta testers via a special URL — Owner tab hidden.'},
+    {icon:'☁️',name:'Cloudflare Proxy',desc:'API key secured server-side via Cloudflare Workers — never exposed in browser.'},
   ].map(s=>`<div class="skill-card"><span class="skill-icon">${s.icon}</span><div><div class="skill-name">${s.name}</div><div class="skill-desc">${s.desc}</div></div><div class="skill-status">● active</div></div>`).join('');
 }
 
@@ -1799,7 +1746,6 @@ function switchTab(name,btn) {
   if(name==='teach') renderTeachTab();
   if(name==='stats') renderStats();
   if(name==='owner'){renderTeamList();renderJournal();setTimeout(loadProfileFields,50);}
-  // Close inline search when switching tabs
   if(name!=='chat') closeInlineSearch();
 }
 </script>
