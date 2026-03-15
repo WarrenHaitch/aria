@@ -1,4 +1,4 @@
-const CACHE = 'aria-v5-0-0';
+const CACHE = 'aria-v5-1-0';
 self.addEventListener('install', e => {
   self.skipWaiting();
 });
