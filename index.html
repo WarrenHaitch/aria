@@ -1339,7 +1339,7 @@ function testApiKey() {
   const result = document.getElementById('key-test-result');
   if (!apiKey) { result.style.display='block'; result.style.color='var(--red)'; result.textContent='❌ No API key set.'; return; }
   result.style.display='block'; result.style.color='var(--yellow)'; result.textContent='⏳ Testing key...';
-  fetch('https://api.anthropic.com/v1/messages', {
+  fetch('https://aria-proxy.warrenhaitch.workers.dev/v1/messages', {
     method:'POST',
     headers:{ 'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
     body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:10, messages:[{role:'user',content:'Hi'}] })
@@ -1541,7 +1541,7 @@ async function sendMessage() {
   input.value=''; input.style.height='auto'; updateSend(); renderChat(); showThinking(true);
   const apiMessages=chat.slice(-20).map(m=>({role:m.role,content:m.content}));
   try {
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
+    const res=await fetch('https://aria-proxy.warrenhaitch.workers.dev/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':activeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:buildSystemPrompt(),tools:[{type:'web_search_20250305',name:'web_search'}],messages:apiMessages})
@@ -1717,7 +1717,7 @@ async function writeSessionJournal() {
   const journalKey = (isTeamMember && TEAM_API_KEY) ? TEAM_API_KEY : apiKey;
   if(!journalKey) return;
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
+    const res=await fetch('https://aria-proxy.warrenhaitch.workers.dev/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':journalKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:120,messages:[{role:'user',content:`Summarise this conversation in ONE sentence (max 25 words). Focus on what was discussed, decided, or learned.\n\nConversation:\n${sessionMsgs.map(m=>m.role.toUpperCase()+': '+m.content.slice(0,200)).join('\n')}`}]})
