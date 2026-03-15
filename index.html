@@ -56,7 +56,13 @@
     .pin-error { color:var(--red); font-size:12px; text-align:center; margin-top:8px; min-height:18px; }
     .header { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border); background:linear-gradient(135deg,rgba(13,16,32,0.98),rgba(10,12,20,0.98)); z-index:20; flex-shrink:0; position:relative; overflow:hidden; }
     .header::after { content:''; position:absolute; bottom:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(0,229,196,0.4),rgba(124,92,252,0.3),transparent); }
-    .logo { font-family:'Space Mono',monospace; font-size:22px; font-weight:700; color:var(--teal); letter-spacing:3px; text-shadow:0 0 20px rgba(0,229,196,0.4); }
+    .logo { font-family:'Space Mono',monospace; font-size:22px; font-weight:700; color:var(--teal); letter-spacing:3px; text-shadow:0 0 20px rgba(0,229,196,0.4); transition: opacity 0.2s; }
+    .logo.thinking { letter-spacing:1px; }
+    .logo .think-note { font-size:18px; animation:noteFloat 1.4s ease-in-out infinite; display:inline-block; color:var(--teal); letter-spacing:2px; }
+    .logo .think-note:nth-child(1){ animation-delay:0s; }
+    .logo .think-note:nth-child(2){ animation-delay:0.2s; }
+    .logo .think-note:nth-child(3){ animation-delay:0.4s; }
+    .logo .think-note:nth-child(4){ animation-delay:0.6s; }
     .header-left { display:flex; align-items:center; gap:8px; }
     .badge { font-size:11px; padding:2px 8px; border-radius:20px; border:1px solid var(--border); color:var(--sub); background:var(--card); }
     .badge-safe  { color:var(--teal);   border-color:rgba(0,229,196,0.3); background:rgba(0,229,196,0.07); }
@@ -1998,14 +2004,28 @@ function renderChat(){
 }
 
 function showThinking(show){
-  thinking=show; document.querySelectorAll('.thinking-row').forEach(el=>el.remove());
+  thinking = show;
+  const logo = document.querySelector('.logo');
+  document.querySelectorAll('.thinking-row').forEach(el=>el.remove());
+
   if(show){
+    // Transform ARIA logo into thinking notes
+    if(logo){
+      logo.classList.add('thinking');
+      logo.innerHTML = '<span class="think-note">♩</span><span class="think-note">♪</span><span class="think-note">♫</span><span class="think-note">♬</span>';
+    }
+    // Still add thinking row so there is visual context in chat
     const row=document.createElement('div');
     row.className='msg-row thinking-row';
     row.innerHTML=`<div class="ai-badge">AI</div><div class="thinking-bubble"><span class="music-note">♩</span><span class="music-note">♪</span><span class="music-note">♫</span><span class="music-note">♬</span></div>`;
     document.getElementById('messages').appendChild(row);
-    // Scroll thinking bubble into view immediately
-    setTimeout(()=>row.scrollIntoView({behavior:'smooth',block:'end'}),30);
+    row.scrollIntoView({behavior:'smooth',block:'end'});
+  } else {
+    // Restore ARIA logo
+    if(logo){
+      logo.classList.remove('thinking');
+      logo.textContent = 'ARIA';
+    }
   }
 }
 
@@ -2183,34 +2203,7 @@ function initPredictive() {
   return pred;
 }
 
-function updatePredictive(userMsg, context) {
-  const pred = safeParse(localStorage.getItem(PREDICTIVE_KEY), null) || initPredictive();
-  const hour = new Date().getHours();
-  const timeSlot = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : hour < 21 ? 'evening' : 'night';
-
-  // Track topic sequences
-  if (pred.sessionPatterns.length > 0) {
-    const lastTopic = pred.sessionPatterns[pred.sessionPatterns.length - 1];
-    if (lastTopic !== context) {
-      pred.topicSequences.push({ from: lastTopic, to: context, ts: Date.now() });
-      pred.topicSequences = pred.topicSequences.slice(-30);
-    }
-  }
-
-  pred.sessionPatterns.push(context);
-  pred.sessionPatterns = pred.sessionPatterns.slice(-20);
-
-  // Track time patterns
-  if (!pred.timePatterns[timeSlot]) pred.timePatterns[timeSlot] = {};
-  pred.timePatterns[timeSlot][context] = (pred.timePatterns[timeSlot][context] || 0) + 1;
-
-  // Detect response preferences
-  if (/code|function|script|build|deploy/.test(userMsg.toLowerCase())) pred.responsePrefs.preferscode = true;
-  if (userMsg.length > 200) pred.responsePrefs.prefersDetailed = true;
-
-  localStorage.setItem(PREDICTIVE_KEY, JSON.stringify(pred));
-  return pred;
-}
+// updatePredictive (old) removed — replaced by updatePredictiveModel
 
 function getPredictiveInstruction(context) {
   const pred = safeParse(localStorage.getItem(PREDICTIVE_KEY), null);
@@ -2328,53 +2321,24 @@ function getSelfEvalInstruction() {
 // ═══════════════════════════════════════════════════════════
 
 function initConvPatterns() {
+  // Always nuke old incompatible structure and rebuild fresh
   const existing = safeParse(localStorage.getItem(PATTERNS_KEY), null);
-  if (existing) return existing;
+  if (existing && existing.topicClusters) return existing;
 
   const patterns = {
-    questionTypes: {},          // counts of question types Warren asks
-    avgSessionDepth: 0,         // how deep conversations go
-    topicFrequency: {},         // how often each context appears
-    curiosityScore: 0.5,        // how curious Warren is being
-    sessionQuestions: 0,        // questions asked this session
-    deepTopics: [],             // topics that led to long exchanges
-    conversationRhythm: 'balanced' // fast/deep/balanced
+    topicClusters: {},
+    questionQuality: [],
+    curiosityScore: 0,
+    sessionLength: 0,
+    deepDiveSessions: 0,
+    conversationRhythm: 'balanced'
   };
 
   localStorage.setItem(PATTERNS_KEY, JSON.stringify(patterns));
   return patterns;
 }
 
-function analyseConversationPattern(userMsg, context) {
-  const patterns = safeParse(localStorage.getItem(PATTERNS_KEY), null) || initConvPatterns();
-
-  // Detect question type
-  const isQuestion = /\?$/.test(userMsg.trim());
-  const isDeepQuestion = /\b(why|how|explain|what does|what is|tell me about|elaborate|describe)\b/i.test(userMsg);
-  const isActionRequest = /\b(build|create|make|write|fix|update|add|deploy|change)\b/i.test(userMsg);
-
-  if (isQuestion) patterns.sessionQuestions++;
-  if (isDeepQuestion) {
-    patterns.questionTypes['deep'] = (patterns.questionTypes['deep'] || 0) + 1;
-    patterns.curiosityScore = Math.min(1.0, patterns.curiosityScore + 0.05);
-  }
-  if (isActionRequest) {
-    patterns.questionTypes['action'] = (patterns.questionTypes['action'] || 0) + 1;
-  }
-
-  // Track topic frequency
-  patterns.topicFrequency[context] = (patterns.topicFrequency[context] || 0) + 1;
-
-  // Determine conversation rhythm
-  const totalDeep = patterns.questionTypes['deep'] || 0;
-  const totalAction = patterns.questionTypes['action'] || 0;
-  if (totalDeep > totalAction * 1.5) patterns.conversationRhythm = 'deep';
-  else if (totalAction > totalDeep * 1.5) patterns.conversationRhythm = 'action';
-  else patterns.conversationRhythm = 'balanced';
-
-  localStorage.setItem(PATTERNS_KEY, JSON.stringify(patterns));
-  return patterns;
-}
+// analyseConversationPattern removed — merged into updateConversationPatterns
 
 function getPatternInstruction() {
   const patterns = safeParse(localStorage.getItem(PATTERNS_KEY), null);
