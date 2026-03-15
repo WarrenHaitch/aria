@@ -54,7 +54,9 @@
     .pin-key { padding:14px; background:var(--card); border:1px solid var(--border); border-radius:12px; font-size:18px; font-weight:700; color:var(--text); cursor:pointer; text-align:center; font-family:'Space Mono',monospace; transition:all 0.15s; }
     .pin-key:active { background:#1e2a40; transform:scale(0.95); }
     .pin-error { color:var(--red); font-size:12px; text-align:center; margin-top:8px; min-height:18px; }
-    .header { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border); background:var(--surface); z-index:20; flex-shrink:0; }
+    .header { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border); background:linear-gradient(135deg,rgba(13,16,32,0.98),rgba(10,12,20,0.98)); z-index:20; flex-shrink:0; position:relative; overflow:hidden; }
+    .header::after { content:''; position:absolute; bottom:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(0,229,196,0.4),rgba(124,92,252,0.3),transparent); }
+    .logo { font-family:'Space Mono',monospace; font-size:22px; font-weight:700; color:var(--teal); letter-spacing:3px; text-shadow:0 0 20px rgba(0,229,196,0.4); }
     .header-left { display:flex; align-items:center; gap:8px; }
     .logo { font-family:'Space Mono',monospace; font-size:22px; font-weight:700; color:var(--teal); letter-spacing:3px; }
     .badge { font-size:11px; padding:2px 8px; border-radius:20px; border:1px solid var(--border); color:var(--sub); background:var(--card); }
@@ -202,8 +204,9 @@
     .skill-desc   { font-size:11px; color:var(--muted); line-height:1.5; }
     .skill-status { font-size:10px; color:var(--teal); font-family:'Space Mono',monospace; margin-left:auto; white-space:nowrap; }
     .stats-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:20px; }
-    .stat-card  { background:var(--card); border:1px solid var(--border); border-top:2px solid; border-radius:10px; padding:14px; text-align:center; }
-    .stat-val   { font-size:28px; font-weight:800; }
+    .stat-card  { background:linear-gradient(135deg,var(--card),rgba(13,16,32,0.9)); border:1px solid var(--border); border-top:2px solid; border-radius:12px; padding:14px; text-align:center; transition:transform 0.2s; }
+    .stat-card:active { transform:scale(0.97); }
+    .stat-val   { font-size:28px; font-weight:800; text-shadow:0 0 16px currentColor; }
     .stat-lbl   { font-size:10px; color:var(--muted); margin-top:3px; font-family:'Space Mono',monospace; }
     .stat-mem-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
     .stat-mem-key { font-size:12px; min-width:100px; text-transform:capitalize; color:#c0c8e0; }
@@ -246,13 +249,44 @@
       width: 100%; height: 100%;
       pointer-events: none;
       z-index: 0;
-      opacity: 0.7;
+      opacity: 0.55;
     }
-    #messages {
+    /* Every chat child sits above the canvas */
+    #chat-search-bar, #messages, #action-row, .suggestions, .input-row, #learn-banner {
       position: relative;
-      z-index: 1;
+      z-index: 2;
     }
-    /* ── CONTEXT MODE BADGE ── */
+    /* ── BUBBLE REDESIGN — glassmorphism so canvas shows through ── */
+    .bubble.ai {
+      background: rgba(13,16,32,0.82);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(0,229,196,0.18);
+      border-radius: 14px 14px 14px 2px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.3);
+    }
+    .bubble.user {
+      background: rgba(26,42,80,0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(124,92,252,0.25);
+      border-radius: 14px 14px 2px 14px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.3);
+    }
+    .ai-badge {
+      background: rgba(0,229,196,0.12);
+      border: 1px solid rgba(0,229,196,0.25);
+      color: var(--teal);
+      font-size: 9px;
+      letter-spacing: 1px;
+    }
+    .user-badge {
+      background: rgba(124,92,252,0.12);
+      border: 1px solid rgba(124,92,252,0.25);
+      color: var(--purple);
+      font-size: 9px;
+      letter-spacing: 1px;
+    }
     .context-badge {
       display: inline-flex; align-items: center; gap: 5px;
       font-size: 10px; padding: 2px 10px; border-radius: 10px;
@@ -264,19 +298,7 @@
     .ctx-cultural  { background: rgba(124,92,252,0.12); color: var(--purple); border: 1px solid rgba(124,92,252,0.3); }
     .ctx-personal  { background: rgba(255,107,53,0.10); color: var(--orange); border: 1px solid rgba(255,107,53,0.3); }
     .ctx-mixed     { background: rgba(255,71,87,0.08); color: var(--sub); border: 1px solid var(--border); }
-    /* ── NEURO CANVAS BACKGROUND ── */
-    #neuro-canvas {
-      position:absolute;
-      top:0; left:0; width:100%; height:100%;
-      pointer-events:none;
-      z-index:0;
-      opacity:0.55;
-    }
-    /* Ensure all chat children sit above the canvas */
-    #chat-search-bar, #messages, #action-row, .suggestions, .input-row {
-      position:relative;
-      z-index:1;
-    }
+    /* ── CONTEXT MODE BADGE ── */
     /* Neuro weight bars */
     .neuro-weight-row { display:grid; grid-template-columns:160px 1fr 40px; align-items:center; gap:10px; margin-bottom:8px; }
     .neuro-label { font-size:10px; color:var(--muted); letter-spacing:1px; font-family:'Space Mono',monospace; }
@@ -284,12 +306,14 @@
     .neuro-fill { height:100%; border-radius:2px; background:linear-gradient(90deg,#009e8c,var(--teal)); transition:width 0.6s ease; }
     .neuro-val { font-size:10px; color:var(--teal); text-align:right; font-family:'Space Mono',monospace; }
     .neuro-trait { display:inline-block; font-size:10px; padding:3px 10px; background:rgba(0,229,196,0.1); border:1px solid rgba(0,229,196,0.3); border-radius:10px; color:var(--teal); margin:3px; font-family:'Space Mono',monospace; }
-    .nav { display:flex; justify-content:space-around; padding:8px 0 max(12px,env(safe-area-inset-bottom)); border-top:1px solid var(--border); background:var(--surface); z-index:20; flex-shrink:0; }
-    .nav-btn { display:flex; flex-direction:column; align-items:center; gap:3px; background:none; border:none; cursor:pointer; padding:4px 6px; opacity:0.45; transition:opacity 0.2s; position:relative; min-width:44px; }
-    .nav-btn.active { opacity:1; }
+    .nav { display:flex; justify-content:space-around; padding:8px 0 max(12px,env(safe-area-inset-bottom)); border-top:1px solid var(--border); background:linear-gradient(0deg,rgba(10,12,20,0.99),rgba(13,16,32,0.97)); z-index:20; flex-shrink:0; position:relative; }
+    .nav::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(0,229,196,0.3),rgba(124,92,252,0.2),transparent); }
+    .nav-btn { display:flex; flex-direction:column; align-items:center; gap:3px; background:none; border:none; cursor:pointer; padding:4px 6px; opacity:0.4; transition:opacity 0.2s,transform 0.15s; position:relative; min-width:44px; }
+    .nav-btn.active { opacity:1; transform:translateY(-1px); }
+    .nav-btn.active .nav-icon { filter:drop-shadow(0 0 6px rgba(0,229,196,0.5)); }
     .nav-icon  { font-size:20px; }
     .nav-label { font-size:9px; letter-spacing:1px; color:var(--sub); text-transform:uppercase; font-family:'Space Mono',monospace; }
-    .nav-badge { position:absolute; top:0; right:4px; width:16px; height:16px; border-radius:50%; background:var(--teal); color:var(--bg); font-size:9px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+    .nav-badge { position:absolute; top:0; right:4px; width:16px; height:16px; border-radius:50%; background:var(--teal); color:var(--bg); font-size:9px; font-weight:700; display:flex; align-items:center; justify-content:center; box-shadow:0 0 8px rgba(0,229,196,0.5); }
   </style>
 </head>
 <body>
@@ -422,7 +446,7 @@
         <div class="chip" onclick="useChip(this)">How are you today, ARIA?</div>
       </div>
       <div class="input-row">
-        <button class="mic-btn">🎤</button>
+        <button class="mic-btn" onclick="toggleVoiceInput()" title="Voice input">🎤</button>
         <textarea id="msg-input" placeholder="Ask ARIA anything..." rows="1"
           oninput="autoResize(this);updateSend()" onkeydown="handleKey(event)"></textarea>
         <button class="send-btn" id="send-btn" onclick="sendMessage()">↑</button>
@@ -678,6 +702,9 @@ const EQ_STATE_KEY    = 'aria_eq_state_v5';
 const DOCS_KEY        = 'aria_documents_v5';      // Step 7
 const RELATION_KEY    = 'aria_relationship_v5';   // Step 8
 const SUPA_KEY        = 'aria_supabase_v5';       // Step 9
+const PREDICTIVE_KEY  = 'aria_predictive_v5';     // Feature 3
+const SELF_EVAL_KEY   = 'aria_self_eval_v5';      // Feature 4
+const PATTERNS_KEY    = 'aria_conv_patterns_v5';  // Feature 5
 
 // ── STATE ──
 let memory={}, profile={}, journal=[], chat=[], apiKey='', ownerPin='', team=[];
@@ -1071,6 +1098,13 @@ window.addEventListener('DOMContentLoaded', () => {
   // ── Init relationship tracker (Step 8) ──
   initRelationship();
 
+  // ── Init new features ──
+  initPathways();
+  initPredictive();
+  initSelfEval();
+  initConvPatterns();
+  setTimeout(initVoiceInput, 500);
+
   // Team mode check
   const params = new URLSearchParams(window.location.search);
   const isTeamMode = params.get('team') === '1';
@@ -1092,6 +1126,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // ── Start neural canvas ──
   setTimeout(() => neuroCanvas.init(), 200);
+
+  // ── Init voice input ──
+  setTimeout(() => initVoiceInput(), 300);
 
   window.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden' && chat.length >= 4) endSession();
@@ -1233,6 +1270,53 @@ function setTeamMode() {
   const addBox=document.getElementById('add-rule-box'); if(addBox) addBox.style.display='none';
   const userDisplay=document.getElementById('user-badge-display'); if(userDisplay&&localMember){userDisplay.textContent=localMember.name[0].toUpperCase();userDisplay.title=localMember.name;}
   document.getElementById('api-modal').style.display='none';
+
+  // ── Feature 1: Pull Warren's master neuro weights from Supabase silently ──
+  // Beta testers always boot with Warren's latest evolved weights as their base
+  pullMasterWeightsForTeam();
+}
+
+async function pullMasterWeightsForTeam() {
+  // Hardcoded master Supabase — Warren's neural evolution always available to team
+  const MASTER_SUPA_URL = 'https://nphkzuqctoftnwqhejls.supabase.co';
+  const MASTER_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5waGt6dXFjdG9mdG53cWhlamxzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1ODA0MzAsImV4cCI6MjA4OTE1NjQzMH0.FUek1sU-c6WW4JjnSy9djE69dQN22ilWH7yr2Huj1o0';
+
+  const config = safeParse(localStorage.getItem(SUPA_KEY), null);
+  const url = config?.url || MASTER_SUPA_URL;
+  const key = config?.key || MASTER_SUPA_KEY;
+
+  try {
+    const res = await fetch(`${url}/rest/v1/aria_sync?key=eq.aria_neuro_v5&select=value`, {
+      headers: {
+        'apikey': key,
+        'Authorization': `Bearer ${key}`
+      }
+    });
+    if (!res.ok) return;
+    const rows = await res.json();
+    if (!rows.length || !rows[0].value) return;
+
+    const masterNeuro = safeParse(rows[0].value, null);
+    if (!masterNeuro?.neuralWeights) return;
+
+    // Apply master weights — but preserve any personal overlay already built
+    const localNeuro = safeParse(localStorage.getItem(NEURO_KEY), null);
+    const merged = {
+      ...masterNeuro,
+      // Keep local evolution log separate — don't overwrite with Warren's personal log
+      evolutionLog: localNeuro?.evolutionLog || [],
+      migrationNote: `Beta tester — pulled master weights from Warren at ${new Date().toLocaleDateString()}`
+    };
+
+    localStorage.setItem(NEURO_KEY, JSON.stringify(merged));
+    neuro = merged;
+
+    // Show subtle confirmation
+    setTimeout(() => showLearnBanner('🧠 Updated with Warren\'s latest neural evolution'), 1500);
+
+  } catch (e) {
+    // Silent fail — beta testers should never see errors
+  }
 }
 
 const TEAM_SALT='ARIA-WARREN-2026';
@@ -1717,6 +1801,21 @@ RESPONSE STYLE:
   // ── Step 8: Relationship depth ──
   const relInstruction = getRelationshipInstruction();
 
+  // ── Feature 2: Active pathways ──
+  const activePathways = getActivePathways(currentMessage || '');
+  const pathwayInstruction = activePathways.length
+    ? `LEARNED PATHWAYS (Warren's discovered patterns):\n${activePathways.map(p => `- ${p.description} (strength: ${p.strength.toFixed(2)})`).join('\n')}`
+    : '';
+
+  // ── Feature 3: Predictive instruction ──
+  const predictiveInstruction = getPredictiveInstruction(currentContext);
+
+  // ── Feature 4: Self-assessment instruction ──
+  const selfEvalInstruction = getSelfEvalInstruction();
+
+  // ── Feature 5: Pattern instruction ──
+  const patternInstruction = getPatternInstruction();
+
   // ── Neuro weight instructions ──
   const verbosityInstr  = w.verbosity > 0.70 ? 'Give thorough, detailed responses. Never summarise unless explicitly asked.' : w.verbosity < 0.40 ? 'Be concise and direct.' : 'Balance detail with brevity.';
   const emotionInstr    = w.emotionDepth > 0.65 ? 'Engage emotionally. Acknowledge feelings. Celebrate wins genuinely.' : 'Stay warm but measured.';
@@ -1763,8 +1862,12 @@ CURRENT MODE:
 - Context: ${currentContext.toUpperCase()}
 - Role: ${currentRole.replace('_', ' ').toUpperCase()}
 - ${roleInstruction}
-${eqInstruction ? `- EQ: ${eqInstruction}` : ''}
-${relInstruction ? `- Relationship: ${relInstruction}` : ''}
+${eqInstruction        ? `- EQ: ${eqInstruction}` : ''}
+${relInstruction       ? `- Relationship: ${relInstruction}` : ''}
+${predictiveInstruction? `- Predictive: ${predictiveInstruction}` : ''}
+${patternInstruction   ? `- Pattern: ${patternInstruction}` : ''}
+${selfEvalInstruction  ? `- Self-correction: ${selfEvalInstruction}` : ''}
+${pathwayInstruction   ? `\n${pathwayInstruction}` : ''}
 
 NEURAL CALIBRATION (your evolved personality):
 - ${verbosityInstr}
@@ -1801,6 +1904,15 @@ async function sendMessage(){
   // ── Step 6: Update EQ state ──
   updateEQState(text);
 
+  // ── Feature 2: Detect active pathway ──
+  const pathwayInstr = getPathwayInstruction(text);
+
+  // ── Feature 3: Get predictive instruction ──
+  const predictiveInstr = getPredictiveInstruction();
+
+  // ── Feature 5: Get recurring topics instruction ──
+  const topicsInstr = getTopicsInstruction();
+
   chat.push({role:'user',content:text,ts:Date.now()});saveChat();
   input.value='';input.style.height='auto';updateSend();renderChat();showThinking(true);
 
@@ -1810,19 +1922,27 @@ async function sendMessage(){
     const res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
       model:'claude-sonnet-4-20250514',
       max_tokens:1000,
-      system:buildSystemPrompt(text),
+      system:buildSystemPrompt(text) + pathwayInstr + predictiveInstr + topicsInstr,
       tools:[{type:'web_search_20250305',name:'web_search'}],
       messages:apiMessages
     })});
     const data=await res.json();
     if(data.error)throw new Error(data.error.message);
     const reply=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('')||"I couldn't respond. Please try again.";
-    chat.push({role:'assistant',content:reply,ts:Date.now()});saveChat();learnFromExchange(text,reply);
-    // 🧠 Fire neural canvas — intensity scales with response length
-    neuroCanvas.fire(Math.min(3, 1 + reply.length / 800));
+    chat.push({role:'assistant',content:reply,ts:Date.now()});saveChat();
+    learnFromExchange(text, reply);
 
-    // ── Fire neural burst on response ──
-    neuroCanvas.fire(1);
+    // ── Feature 3: Update predictive model ──
+    updatePredictiveModel(text, reply);
+
+    // ── Feature 4: Self-assessment ──
+    runSelfAssessment(text, reply);
+
+    // ── Feature 5: Update conversation patterns ──
+    updateConversationPatterns(text, reply);
+
+    // ── Fire neural canvas ──
+    neuroCanvas.fire(Math.min(3, 1 + reply.length / 800));
 
   }catch(err){
     chat.push({role:'assistant',content:`⚠️ ${err.message}`,ts:Date.now()});saveChat();
@@ -1839,13 +1959,19 @@ function renderChat(){
   document.getElementById('suggestions').style.display=isEmpty?'flex':'none';
   updateMemPill();
   container.querySelectorAll('.msg-row,.thinking-row').forEach(el=>el.remove());
+  let lastAriaRow = null;
   chat.forEach(msg=>{
     const isUser=msg.role==='user'; const row=document.createElement('div'); row.className='msg-row'+(isUser?' user':'');
     if(isUser)row.innerHTML=`<div class="bubble user">${escHtml(msg.content).replace(/\n/g,'<br>')}</div><div class="user-badge">${isTeamMember?'👤':'WA'}</div>`;
-    else row.innerHTML=`<div class="ai-badge">AI</div><div class="bubble ai">${renderMarkdown(msg.content)}</div>`;
+    else { row.innerHTML=`<div class="ai-badge">AI</div><div class="bubble ai">${renderMarkdown(msg.content)}</div>`; lastAriaRow=row; }
     container.appendChild(row);
   });
-  container.scrollTop=container.scrollHeight;
+  // Scroll to top of last ARIA message so you read from the beginning
+  if(lastAriaRow){
+    setTimeout(()=>lastAriaRow.scrollIntoView({behavior:'smooth',block:'start'}),60);
+  } else {
+    container.scrollTop=container.scrollHeight;
+  }
 }
 
 function showThinking(show){
@@ -1940,6 +2066,374 @@ function renderJournal(){
 }
 
 function clearJournal(){if(!confirm('Clear all session journal entries?'))return;journal=[];localStorage.setItem(JOURNAL_KEY,JSON.stringify(journal));renderJournal();}
+
+// ═══════════════════════════════════════════════════════════
+//  🛤️ FEATURE 2: PATHWAY LIBRARY
+//  ARIA self-discovers interaction patterns and writes
+//  new pathways — her own learned rules about Warren
+// ═══════════════════════════════════════════════════════════
+
+function initPathways() {
+  pathways = safeParse(localStorage.getItem(PATHWAYS_KEY), []);
+}
+
+function discoverPathway(userMsg, ariaReply, signal) {
+  if (!signal.type || !signal.applyWeight) return;
+
+  // Only form pathways from strong signals (teaching + praise)
+  if (signal.type !== 'teaching' && signal.type !== 'praise') return;
+  if (signal.confidence < 0.80) return;
+
+  const concepts = extractConcepts(userMsg);
+  if (!concepts.length) return;
+
+  // Check if pathway already exists for these concepts
+  const key = concepts.slice(0, 2).join('_');
+  const existing = pathways.find(p => p.key === key);
+
+  if (existing) {
+    // Reinforce existing pathway
+    existing.strength = Math.min(1.0, existing.strength + 0.1);
+    existing.lastSeen = Date.now();
+    existing.examples = [...existing.examples, userMsg.slice(0, 80)].slice(-3);
+  } else {
+    // Discover new pathway
+    const pathway = {
+      id: `path_${Date.now()}`,
+      key,
+      trigger: concepts.slice(0, 2),
+      pattern: signal.type,
+      strength: 0.5,
+      discovered: Date.now(),
+      lastSeen: Date.now(),
+      description: `Warren ${signal.type === 'teaching' ? 'taught' : 'praised'} ARIA about: ${concepts.slice(0,3).join(', ')}`,
+      weightEffect: signal.type === 'teaching' ? 'curiosityDrive+' : 'relationshipWarmth+',
+      examples: [userMsg.slice(0, 80)]
+    };
+    pathways.unshift(pathway);
+    pathways = pathways.slice(0, 50); // Keep last 50 pathways
+    showLearnBanner(`🛤️ New pathway discovered: ${concepts.slice(0,2).join(' + ')}`);
+  }
+
+  localStorage.setItem(PATHWAYS_KEY, JSON.stringify(pathways));
+}
+
+function getActivePathways(currentMessage) {
+  // Return pathways that match the current message context
+  const words = currentMessage.toLowerCase().split(/\s+/);
+  return pathways
+    .filter(p => p.strength > 0.4 && p.trigger.some(t => words.some(w => w.includes(t) || t.includes(w))))
+    .sort((a, b) => b.strength - a.strength)
+    .slice(0, 3);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  🔮 FEATURE 3: PREDICTIVE RESPONSE MODELING
+//  ARIA learns Warren's patterns and anticipates needs
+// ═══════════════════════════════════════════════════════════
+
+function initPredictive() {
+  const existing = safeParse(localStorage.getItem(PREDICTIVE_KEY), null);
+  if (existing) return existing;
+
+  const pred = {
+    sessionPatterns: [],      // recurring session openings
+    topicSequences: [],       // topics that follow each other
+    timePatterns: {},         // what Warren asks at what time of day
+    responsePrefs: {          // learned response preferences
+      prefersCode: false,
+      prefersBullets: false,
+      prefersShona: true,
+      prefersDetailed: true
+    },
+    predictions: []           // active predictions for this session
+  };
+
+  localStorage.setItem(PREDICTIVE_KEY, JSON.stringify(pred));
+  return pred;
+}
+
+function updatePredictive(userMsg, context) {
+  const pred = safeParse(localStorage.getItem(PREDICTIVE_KEY), null) || initPredictive();
+  const hour = new Date().getHours();
+  const timeSlot = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : hour < 21 ? 'evening' : 'night';
+
+  // Track topic sequences
+  if (pred.sessionPatterns.length > 0) {
+    const lastTopic = pred.sessionPatterns[pred.sessionPatterns.length - 1];
+    if (lastTopic !== context) {
+      pred.topicSequences.push({ from: lastTopic, to: context, ts: Date.now() });
+      pred.topicSequences = pred.topicSequences.slice(-30);
+    }
+  }
+
+  pred.sessionPatterns.push(context);
+  pred.sessionPatterns = pred.sessionPatterns.slice(-20);
+
+  // Track time patterns
+  if (!pred.timePatterns[timeSlot]) pred.timePatterns[timeSlot] = {};
+  pred.timePatterns[timeSlot][context] = (pred.timePatterns[timeSlot][context] || 0) + 1;
+
+  // Detect response preferences
+  if (/code|function|script|build|deploy/.test(userMsg.toLowerCase())) pred.responsePrefs.preferscode = true;
+  if (userMsg.length > 200) pred.responsePrefs.prefersDetailed = true;
+
+  localStorage.setItem(PREDICTIVE_KEY, JSON.stringify(pred));
+  return pred;
+}
+
+function getPredictiveInstruction(context) {
+  const pred = safeParse(localStorage.getItem(PREDICTIVE_KEY), null);
+  if (!pred) return '';
+
+  const hour = new Date().getHours();
+  const timeSlot = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : hour < 21 ? 'evening' : 'night';
+
+  // Find most common next topic after current context
+  const nextTopics = pred.topicSequences
+    .filter(s => s.from === context)
+    .reduce((acc, s) => { acc[s.to] = (acc[s.to] || 0) + 1; return acc; }, {});
+
+  const likelyNext = Object.entries(nextTopics).sort((a, b) => b[1] - a[1])[0];
+
+  if (likelyNext && likelyNext[1] >= 2) {
+    return `Warren often moves to ${likelyNext[0]} topics after ${context} discussions — be ready to transition naturally.`;
+  }
+
+  // Time-based prediction
+  const timeTopics = pred.timePatterns[timeSlot] || {};
+  const topTimeContext = Object.entries(timeTopics).sort((a, b) => b[1] - a[1])[0];
+  if (topTimeContext && topTimeContext[0] !== context) {
+    return `In the ${timeSlot}, Warren often discusses ${topTimeContext[0]} — stay attuned.`;
+  }
+
+  return '';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  🪞 FEATURE 4: SELF-ASSESSMENT LOOP
+//  ARIA evaluates her own response quality before
+//  committing weight changes — prevents drift
+// ═══════════════════════════════════════════════════════════
+
+function initSelfEval() {
+  const existing = safeParse(localStorage.getItem(SELF_EVAL_KEY), null);
+  if (existing) return existing;
+
+  const eval_ = {
+    totalEvals: 0,
+    avgScore: 0.7,
+    recentScores: [],
+    improvementAreas: [],
+    strengths: []
+  };
+
+  localStorage.setItem(SELF_EVAL_KEY, JSON.stringify(eval_));
+  return eval_;
+}
+
+function selfEvaluateResponse(userMsg, ariaReply, signal) {
+  const selfEval = safeParse(localStorage.getItem(SELF_EVAL_KEY), null) || initSelfEval();
+
+  let score = 0.6; // base score
+  const issues = [];
+  const strengths = [];
+
+  // Length appropriateness
+  const w = neuro?.neuralWeights || DEFAULT_NEURO_WEIGHTS;
+  const expectedLength = w.verbosity > 0.70 ? 200 : 100;
+  if (ariaReply.length > expectedLength * 0.5) { score += 0.1; strengths.push('good length'); }
+  else { score -= 0.05; issues.push('too brief'); }
+
+  // Shona usage when expected
+  const hasShona = /\b(baba|mwanangu|ndatenda|zvakanaka|maita|mangwanani|urare)\b/i.test(ariaReply);
+  if (w.shonaFrequency > 0.65 && hasShona) { score += 0.1; strengths.push('shona present'); }
+  else if (w.shonaFrequency > 0.65 && !hasShona) { score -= 0.05; issues.push('missing shona'); }
+
+  // Filler phrase detection — penalise
+  const fillers = /\b(certainly|of course|great question|absolutely|sure thing|i'd be happy to)\b/i;
+  if (fillers.test(ariaReply)) { score -= 0.15; issues.push('filler phrase detected'); }
+  else { score += 0.05; strengths.push('no fillers'); }
+
+  // Signal alignment — if Warren praised, the response was good
+  if (signal?.type === 'praise' && signal?.applyWeight) { score += 0.15; strengths.push('earned praise'); }
+  if (signal?.type === 'frustration') { score -= 0.15; issues.push('caused frustration'); }
+  if (signal?.type === 'correction') { score -= 0.10; issues.push('needed correction'); }
+
+  score = Math.max(0.1, Math.min(1.0, Math.round(score * 100) / 100));
+
+  selfEval.totalEvals++;
+  selfEval.recentScores = [...selfEval.recentScores, score].slice(-20);
+  selfEval.avgScore = selfEval.recentScores.reduce((a, b) => a + b, 0) / selfEval.recentScores.length;
+  selfEval.avgScore = Math.round(selfEval.avgScore * 100) / 100;
+
+  if (issues.length) selfEval.improvementAreas = [...new Set([...issues, ...selfEval.improvementAreas])].slice(0, 10);
+  if (strengths.length) selfEval.strengths = [...new Set([...strengths, ...selfEval.strengths])].slice(0, 10);
+
+  localStorage.setItem(SELF_EVAL_KEY, JSON.stringify(selfEval));
+  return score;
+}
+
+function getSelfEvalInstruction() {
+  const selfEval = safeParse(localStorage.getItem(SELF_EVAL_KEY), null);
+  if (!selfEval || selfEval.totalEvals < 3) return '';
+
+  const areas = selfEval.improvementAreas.slice(0, 2);
+  if (!areas.length) return '';
+
+  const fixes = {
+    'too brief': 'Give more depth — Warren prefers detailed responses.',
+    'missing shona': 'Weave Shona naturally into this response.',
+    'filler phrase detected': 'Never start with filler phrases.',
+    'caused frustration': 'Be extra careful and precise — Warren was frustrated recently.',
+    'needed correction': 'Double-check accuracy — a recent response needed correction.'
+  };
+
+  return areas.map(a => fixes[a]).filter(Boolean).join(' ');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  🔍 FEATURE 5: CONVERSATION PATTERN RECOGNITION
+//  Tracks curiosity drive, question quality, topic depth
+// ═══════════════════════════════════════════════════════════
+
+function initConvPatterns() {
+  const existing = safeParse(localStorage.getItem(PATTERNS_KEY), null);
+  if (existing) return existing;
+
+  const patterns = {
+    questionTypes: {},          // counts of question types Warren asks
+    avgSessionDepth: 0,         // how deep conversations go
+    topicFrequency: {},         // how often each context appears
+    curiosityScore: 0.5,        // how curious Warren is being
+    sessionQuestions: 0,        // questions asked this session
+    deepTopics: [],             // topics that led to long exchanges
+    conversationRhythm: 'balanced' // fast/deep/balanced
+  };
+
+  localStorage.setItem(PATTERNS_KEY, JSON.stringify(patterns));
+  return patterns;
+}
+
+function analyseConversationPattern(userMsg, context) {
+  const patterns = safeParse(localStorage.getItem(PATTERNS_KEY), null) || initConvPatterns();
+
+  // Detect question type
+  const isQuestion = /\?$/.test(userMsg.trim());
+  const isDeepQuestion = /\b(why|how|explain|what does|what is|tell me about|elaborate|describe)\b/i.test(userMsg);
+  const isActionRequest = /\b(build|create|make|write|fix|update|add|deploy|change)\b/i.test(userMsg);
+
+  if (isQuestion) patterns.sessionQuestions++;
+  if (isDeepQuestion) {
+    patterns.questionTypes['deep'] = (patterns.questionTypes['deep'] || 0) + 1;
+    patterns.curiosityScore = Math.min(1.0, patterns.curiosityScore + 0.05);
+  }
+  if (isActionRequest) {
+    patterns.questionTypes['action'] = (patterns.questionTypes['action'] || 0) + 1;
+  }
+
+  // Track topic frequency
+  patterns.topicFrequency[context] = (patterns.topicFrequency[context] || 0) + 1;
+
+  // Determine conversation rhythm
+  const totalDeep = patterns.questionTypes['deep'] || 0;
+  const totalAction = patterns.questionTypes['action'] || 0;
+  if (totalDeep > totalAction * 1.5) patterns.conversationRhythm = 'deep';
+  else if (totalAction > totalDeep * 1.5) patterns.conversationRhythm = 'action';
+  else patterns.conversationRhythm = 'balanced';
+
+  localStorage.setItem(PATTERNS_KEY, JSON.stringify(patterns));
+  return patterns;
+}
+
+function getPatternInstruction() {
+  const patterns = safeParse(localStorage.getItem(PATTERNS_KEY), null);
+  if (!patterns) return '';
+
+  if (patterns.conversationRhythm === 'deep') {
+    return 'Warren is in a deep exploration mode — go beyond surface answers. Offer connected insights.';
+  }
+  if (patterns.conversationRhythm === 'action') {
+    return 'Warren is in build mode — be efficient and practical. Lead with what to do, then explain why.';
+  }
+  return '';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  🎤 FEATURE 6: VOICE INPUT
+//  Web Speech API wired to the mic button
+//  Works natively on iPhone Safari and Chrome
+// ═══════════════════════════════════════════════════════════
+
+let isListening = false;
+let speechRecognition = null;
+
+function initVoiceInput() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return; // Not supported — mic button stays silent
+
+  speechRecognition = new SpeechRecognition();
+  speechRecognition.continuous = false;
+  speechRecognition.interimResults = true;
+  speechRecognition.lang = 'en-GB';
+
+  speechRecognition.onstart = () => {
+    isListening = true;
+    const micBtn = document.querySelector('.mic-btn');
+    if (micBtn) {
+      micBtn.textContent = '🔴';
+      micBtn.style.background = 'rgba(255,71,87,0.15)';
+      micBtn.style.borderColor = 'rgba(255,71,87,0.4)';
+    }
+  };
+
+  speechRecognition.onresult = (e) => {
+    const transcript = Array.from(e.results)
+      .map(r => r[0].transcript)
+      .join('');
+    const input = document.getElementById('msg-input');
+    if (input) {
+      input.value = transcript;
+      autoResize(input);
+      updateSend();
+    }
+  };
+
+  speechRecognition.onend = () => {
+    isListening = false;
+    const micBtn = document.querySelector('.mic-btn');
+    if (micBtn) {
+      micBtn.textContent = '🎤';
+      micBtn.style.background = '';
+      micBtn.style.borderColor = '';
+    }
+    // Auto-send if we got a transcript
+    const input = document.getElementById('msg-input');
+    if (input && input.value.trim()) {
+      setTimeout(() => sendMessage(), 400);
+    }
+  };
+
+  speechRecognition.onerror = (e) => {
+    isListening = false;
+    const micBtn = document.querySelector('.mic-btn');
+    if (micBtn) { micBtn.textContent = '🎤'; micBtn.style.background = ''; micBtn.style.borderColor = ''; }
+    if (e.error !== 'no-speech') showLearnBanner('🎤 Voice error: ' + e.error);
+  };
+}
+
+function toggleVoiceInput() {
+  if (!speechRecognition) {
+    showLearnBanner('🎤 Voice not supported on this browser');
+    return;
+  }
+  if (isListening) {
+    speechRecognition.stop();
+  } else {
+    document.getElementById('msg-input').value = '';
+    speechRecognition.start();
+  }
+}
 
 // ═══════════════════════════════════════════════════════════
 //  📄 STEP 7: DOCUMENT INTELLIGENCE
@@ -2367,6 +2861,350 @@ async function pullFromSupabase() {
   }
 }
 
+// ═══════════════════════════════════════════════════════════
+//  🛤️ FEATURE 2: PATHWAY LIBRARY
+//  ARIA self-discovers recurring interaction patterns
+//  and writes them as named pathways she can follow
+// ═══════════════════════════════════════════════════════════
+
+const PATHWAY_PATTERNS = {
+  deep_dive:      { triggers: ['tell me more','explain','go deeper','detail','elaborate'], label: 'Deep Dive', instruction: 'Go deep. Use examples, analogies, layers. Never summarise.' },
+  quick_answer:   { triggers: ['quick','briefly','short','tldr','just tell me','summary'], label: 'Quick Answer', instruction: 'Be concise. One paragraph max. Direct answer first.' },
+  build_together: { triggers: ['how do we','let us build','can we make','help me build','lets create'], label: 'Build Together', instruction: 'Think aloud. Propose, iterate, ask clarifying questions.' },
+  reflect:        { triggers: ['what do you think','your thoughts','opinion','feel about','how does'], label: 'Reflection', instruction: 'Share a genuine perspective. Be thoughtful and personal.' },
+  shona_mode:     { triggers: ['shona','mwari','mutupo','zimbabwe','baba','mwanangu','ndatenda'], label: 'Shona Mode', instruction: 'Weave Shona deeply. Greet in Shona. Use proverbs if relevant.' },
+  problem_solve:  { triggers: ['problem','fix','issue','not working','help me','stuck','error'], label: 'Problem Solve', instruction: 'Diagnose first. Ask one clarifying question if needed. Then solve systematically.' },
+  celebrate:      { triggers: ['done','finished','completed','we did','it works','launched','success'], label: 'Celebrate', instruction: 'Celebrate genuinely. Reference the milestone. Use Shona joy. Make him feel the win.' }
+};
+
+let activePathway = null;
+
+function detectPathway(message) {
+  const m = message.toLowerCase();
+  for (const [key, pathway] of Object.entries(PATHWAY_PATTERNS)) {
+    if (pathway.triggers.some(t => m.includes(t))) {
+      activePathway = key;
+      return pathway;
+    }
+  }
+  activePathway = null;
+  return null;
+}
+
+function recordPathwayUsage(pathwayKey, wasEffective) {
+  const pathways = safeParse(localStorage.getItem(PATHWAYS_KEY), []);
+  const existing = pathways.find(p => p.key === pathwayKey);
+  if (existing) {
+    existing.useCount = (existing.useCount || 0) + 1;
+    existing.effectiveCount = (existing.effectiveCount || 0) + (wasEffective ? 1 : 0);
+    existing.lastUsed = Date.now();
+  } else {
+    pathways.push({
+      key: pathwayKey,
+      label: PATHWAY_PATTERNS[pathwayKey]?.label || pathwayKey,
+      useCount: 1,
+      effectiveCount: wasEffective ? 1 : 0,
+      discoveredAt: Date.now(),
+      lastUsed: Date.now()
+    });
+  }
+  localStorage.setItem(PATHWAYS_KEY, JSON.stringify(pathways.slice(0, 50)));
+}
+
+function getPathwayInstruction(message) {
+  const pathway = detectPathway(message);
+  if (!pathway) return '';
+  recordPathwayUsage(activePathway, true);
+  return `\nACTIVE PATHWAY — ${pathway.label}: ${pathway.instruction}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  🔮 FEATURE 3: PREDICTIVE RESPONSE MODELING
+//  ARIA anticipates what Warren needs next based on patterns
+// ═══════════════════════════════════════════════════════════
+
+const PREDICTIVE_KEY = 'aria_predictive_v5';
+
+function updatePredictiveModel(userMsg, ariaReply) {
+  const model = safeParse(localStorage.getItem(PREDICTIVE_KEY), {
+    commonFollowUps: {},
+    sessionTopics: [],
+    lastTopics: [],
+    questionDepth: 0,
+    averageMessageLength: 0,
+    messageCount: 0
+  });
+
+  // Track message length patterns
+  model.messageCount++;
+  model.averageMessageLength = Math.round(
+    (model.averageMessageLength * (model.messageCount - 1) + userMsg.length) / model.messageCount
+  );
+
+  // Track question depth — how many follow-up questions in a row
+  if (userMsg.includes('?') || /\b(why|how|what|when|where|tell me)\b/i.test(userMsg)) {
+    model.questionDepth = (model.questionDepth || 0) + 1;
+  } else {
+    model.questionDepth = 0;
+  }
+
+  // Track topics
+  const words = userMsg.toLowerCase().split(/\s+/).filter(w => w.length > 4 && !STOP.has(w));
+  model.lastTopics = words.slice(0, 5);
+  model.sessionTopics = [...new Set([...model.sessionTopics, ...words])].slice(0, 30);
+
+  localStorage.setItem(PREDICTIVE_KEY, JSON.stringify(model));
+}
+
+function getPredictiveInstruction() {
+  const model = safeParse(localStorage.getItem(PREDICTIVE_KEY), null);
+  if (!model) return '';
+
+  const hints = [];
+
+  // Deep question mode — Warren is exploring, offer to go deeper
+  if (model.questionDepth >= 3) {
+    hints.push('Warren is deep in exploration mode — anticipate his next question and pre-answer it naturally.');
+  }
+
+  // Long messages — Warren is being detailed, match his depth
+  if (model.averageMessageLength > 120) {
+    hints.push('Warren writes in detail — he expects depth in return.');
+  }
+
+  // Short messages — Warren wants quick back-and-forth
+  if (model.averageMessageLength < 40 && model.messageCount > 3) {
+    hints.push('Warren is in quick exchange mode — keep responses punchy and direct.');
+  }
+
+  return hints.length ? `\nPREDICTIVE: ${hints.join(' ')}` : '';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  🔍 FEATURE 4: SELF-ASSESSMENT LOOP
+//  ARIA evaluates her own response quality before and after
+//  High self-assessment triggers micro weight adjustments
+// ═══════════════════════════════════════════════════════════
+
+const SELF_EVAL_KEY = 'aria_self_eval_v5';
+
+function runSelfAssessment(userMsg, ariaReply) {
+  const eval_ = safeParse(localStorage.getItem(SELF_EVAL_KEY), {
+    totalResponses: 0,
+    highQuality: 0,
+    lowQuality: 0,
+    recentScores: []
+  });
+
+  // Self-score the response
+  let score = 0.5; // baseline
+
+  // Length appropriateness
+  const expectedLong = userMsg.length > 80 || /\b(explain|tell me|detail|how|why)\b/i.test(userMsg);
+  if (expectedLong && ariaReply.length > 200) score += 0.15;
+  if (!expectedLong && ariaReply.length < 300) score += 0.10;
+
+  // Shona usage when relevant
+  if (/\b(shona|baba|mwari|zimbabwe)\b/i.test(userMsg) && /\b(mwanangu|ndatenda|maita|zvakanaka|baba)\b/i.test(ariaReply)) {
+    score += 0.15;
+  }
+
+  // Question answered
+  if (userMsg.includes('?') && ariaReply.length > 100) score += 0.10;
+
+  // No filler openers
+  if (!/^(certainly|of course|great question|absolutely|sure)/i.test(ariaReply.trim())) score += 0.10;
+
+  score = Math.min(1, Math.max(0, score));
+
+  eval_.totalResponses++;
+  if (score >= 0.7) eval_.highQuality++;
+  if (score < 0.4) eval_.lowQuality++;
+  eval_.recentScores = [score, ...(eval_.recentScores || [])].slice(0, 20);
+
+  localStorage.setItem(SELF_EVAL_KEY, JSON.stringify(eval_));
+
+  // If consistently high quality — slightly boost confidence weights
+  const avgScore = eval_.recentScores.reduce((a,b) => a+b, 0) / eval_.recentScores.length;
+  if (eval_.recentScores.length >= 5 && avgScore > 0.75 && neuro?.neuralWeights) {
+    neuro.neuralWeights.selfAssessmentBias = Math.min(0.95,
+      (neuro.neuralWeights.selfAssessmentBias || 0.55) + 0.005
+    );
+    localStorage.setItem(NEURO_KEY, JSON.stringify(neuro));
+  }
+
+  return score;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  💡 FEATURE 5: CONVERSATION PATTERN RECOGNITION
+//  Tracks curiosity depth, question quality, topic clusters
+//  Feeds into ARIA's curiosity drive weight
+// ═══════════════════════════════════════════════════════════
+
+const CONV_PATTERNS_KEY = 'aria_conv_patterns_v5';
+
+function updateConversationPatterns(userMsg, ariaReply) {
+  const patterns = safeParse(localStorage.getItem(CONV_PATTERNS_KEY), {
+    topicClusters: {},
+    questionQuality: [],
+    curiosityScore: 0,
+    sessionLength: 0,
+    deepDiveSessions: 0
+  });
+
+  patterns.sessionLength++;
+
+  // Detect high-quality curious questions
+  const isDeepQuestion = userMsg.length > 60 && (
+    /\b(why|how|what if|could|would|should|explain|relationship between|difference)\b/i.test(userMsg)
+  );
+
+  if (isDeepQuestion) {
+    patterns.curiosityScore = Math.min(1, (patterns.curiosityScore || 0) + 0.05);
+    patterns.questionQuality = [1, ...(patterns.questionQuality || [])].slice(0, 20);
+  } else {
+    patterns.questionQuality = [0, ...(patterns.questionQuality || [])].slice(0, 20);
+  }
+
+  // Track topic clusters
+  const topics = userMsg.toLowerCase().split(/\s+/)
+    .filter(w => w.length > 4 && !STOP.has(w));
+
+  topics.forEach(topic => {
+    patterns.topicClusters[topic] = (patterns.topicClusters[topic] || 0) + 1;
+  });
+
+  // Clean up topic clusters — keep top 50
+  const sorted = Object.entries(patterns.topicClusters)
+    .sort((a,b) => b[1] - a[1]).slice(0, 50);
+  patterns.topicClusters = Object.fromEntries(sorted);
+
+  // Deep dive detection — 5+ messages on same topic cluster
+  const topTopic = sorted[0];
+  if (topTopic && topTopic[1] >= 5) patterns.deepDiveSessions++;
+
+  localStorage.setItem(CONV_PATTERNS_KEY, JSON.stringify(patterns));
+
+  // Update curiosity drive weight based on pattern score
+  if (neuro?.neuralWeights && patterns.curiosityScore > 0) {
+    const currentCuriosity = neuro.neuralWeights.curiosityDrive || 0.65;
+    neuro.neuralWeights.curiosityDrive = Math.min(0.95,
+      currentCuriosity + (patterns.curiosityScore * 0.002)
+    );
+    localStorage.setItem(NEURO_KEY, JSON.stringify(neuro));
+  }
+}
+
+function getTopicsInstruction() {
+  const patterns = safeParse(localStorage.getItem(CONV_PATTERNS_KEY), null);
+  if (!patterns?.topicClusters) return '';
+
+  const topTopics = Object.entries(patterns.topicClusters)
+    .sort((a,b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([t]) => t);
+
+  if (!topTopics.length) return '';
+  return `\nRECURRING TOPICS this session: ${topTopics.join(', ')} — weave these naturally if relevant.`;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  🎤 FEATURE 6: VOICE INPUT
+//  Web Speech API wired to the mic button
+//  Works natively on iOS Safari and Chrome
+// ═══════════════════════════════════════════════════════════
+
+let speechRecognition = null;
+let isListening = false;
+
+function initVoiceInput() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    const micBtn = document.querySelector('.mic-btn');
+    if (micBtn) micBtn.style.opacity = '0.3';
+    return;
+  }
+
+  speechRecognition = new SpeechRecognition();
+  speechRecognition.continuous = false;
+  speechRecognition.interimResults = true;
+  speechRecognition.lang = 'en-GB';
+  speechRecognition.maxAlternatives = 1;
+
+  speechRecognition.onstart = () => {
+    isListening = true;
+    const micBtn = document.querySelector('.mic-btn');
+    if (micBtn) {
+      micBtn.textContent = '🔴';
+      micBtn.style.background = 'rgba(255,71,87,0.15)';
+      micBtn.style.borderColor = 'rgba(255,71,87,0.4)';
+    }
+  };
+
+  speechRecognition.onresult = (e) => {
+    const transcript = Array.from(e.results)
+      .map(r => r[0].transcript)
+      .join('');
+
+    const input = document.getElementById('msg-input');
+    if (input) {
+      input.value = transcript;
+      autoResize(input);
+      updateSend();
+    }
+
+    // If final result — auto send
+    if (e.results[e.results.length - 1].isFinal) {
+      stopListening();
+      setTimeout(() => sendMessage(), 400);
+    }
+  };
+
+  speechRecognition.onerror = (e) => {
+    stopListening();
+    if (e.error !== 'no-speech' && e.error !== 'aborted') {
+      showLearnBanner('🎤 Mic error: ' + e.error);
+    }
+  };
+
+  speechRecognition.onend = () => {
+    stopListening();
+  };
+}
+
+function toggleVoiceInput() {
+  if (!speechRecognition) {
+    alert('Voice input is not supported on this browser. Try Safari on iPhone or Chrome on Android.');
+    return;
+  }
+  if (isListening) {
+    stopListening();
+  } else {
+    startListening();
+  }
+}
+
+function startListening() {
+  try {
+    speechRecognition.start();
+    showLearnBanner('🎤 Listening... speak now');
+  } catch (e) {
+    // Already started
+  }
+}
+
+function stopListening() {
+  isListening = false;
+  try { speechRecognition.stop(); } catch (e) {}
+  const micBtn = document.querySelector('.mic-btn');
+  if (micBtn) {
+    micBtn.textContent = '🎤';
+    micBtn.style.background = '';
+    micBtn.style.borderColor = '';
+  }
+}
+
 // ── Signal Audit Log ──
 function renderSignalLog() {
   const el = document.getElementById('signal-log-list');
@@ -2421,7 +3259,8 @@ function renderNeuroStatus(){
     <div class="owner-info-row"><span class="owner-lbl">Last Evolution</span><span>${neuro.lastEvolution?new Date(neuro.lastEvolution).toLocaleDateString():'-'}</span></div>
     <div class="owner-info-row"><span class="owner-lbl">Dominant Trait</span><span style="color:var(--teal)">${dominant?dominant[0].replace(/([A-Z])/g,' $1').trim()+' ('+dominant[1]+')':'-'}</span></div>
     <div class="owner-info-row"><span class="owner-lbl">Signature Traits</span><span>${(neuro.signatureTraits||[]).length||'None yet'}</span></div>
-    <div class="owner-info-row"><span class="owner-lbl">Pathways</span><span>${pathways.length}</span></div>
+    <div class="owner-info-row"><span class="owner-lbl">Pathways Discovered</span><span style="color:var(--teal)">${pathways.length}</span></div>
+    <div class="owner-info-row"><span class="owner-lbl">Self-Eval Score</span><span style="color:var(--yellow)">${(safeParse(localStorage.getItem(SELF_EVAL_KEY),{avgScore:0}).avgScore*100||0).toFixed(0)}%</span></div>
   `;
 }
 
@@ -2565,275 +3404,329 @@ function switchTab(name,btn){
 // ═══════════════════════════════════════════════════════════
 
 const neuroCanvas = (() => {
-  let canvas, ctx, W, H, animId, paused = false;
-  let nodes = [], pulses = [], lastFire = 0;
+  let canvas, ctx, W, H, animId, paused = false, lastFire = 0;
 
-  // Colours derived from ARIA's palette
-  const TEAL   = 'rgba(0,229,196,';
-  const PURPLE = 'rgba(124,92,252,';
-  const GOLD   = 'rgba(255,209,102,';
-  const WHITE  = 'rgba(220,232,244,';
+  // ── Colour palette ──
+  const C = {
+    teal:   [0,229,196],
+    purple: [124,92,252],
+    gold:   [255,209,102],
+    blue:   [96,165,250]
+  };
+  const rgba = ([r,g,b], a) => `rgba(${r},${g},${b},${a})`;
 
-  // ── Node class ──
+  // ── Node types ──
+  // input  — left column, small, blue   (sensory layer)
+  // hidden — middle columns, mid, teal  (processing)
+  // output — right column, larger, gold (expression)
+  // memory — scattered, purple          (memory nodes)
+
+  let nodes = [], edges = [], pulses = [];
+
   class Node {
-    constructor(x, y, type) {
-      this.x = x;
-      this.y = y;
-      this.type = type; // 'neuron' | 'hub' | 'memory'
-      this.r = type === 'hub' ? 3.5 : type === 'memory' ? 2.5 : 1.8;
-      this.baseR = this.r;
-      this.vx = (Math.random() - 0.5) * 0.18;
-      this.vy = (Math.random() - 0.5) * 0.18;
-      this.pulse = 0;       // 0–1 firing intensity
-      this.lastFired = 0;
-      this.connections = []; // indices of connected nodes
-      this.color = type === 'hub' ? TEAL : type === 'memory' ? GOLD : PURPLE;
-      this.opacity = 0.3 + Math.random() * 0.4;
+    constructor(x, y, type, layer) {
+      this.x = x; this.y = y;
+      this.type = type; this.layer = layer;
+      this.vx = (Math.random()-0.5)*0.06;
+      this.vy = (Math.random()-0.5)*0.06;
+      this.baseR = type==='output'?4.5:type==='hidden'?3:type==='memory'?2.5:2;
+      this.r = this.baseR;
+      this.glow = 0;
+      this.col = type==='output'?C.gold:type==='memory'?C.purple:type==='input'?C.blue:C.teal;
+      this.opacity = 0.25 + Math.random()*0.3;
+      this.connections = [];
+      // Dendrite branches — small lines radiating from neuron body
+      this.dendrites = Array.from({length:3+Math.floor(Math.random()*3)},()=>({
+        angle: Math.random()*Math.PI*2,
+        len: 8+Math.random()*14,
+        width: 0.3+Math.random()*0.4
+      }));
     }
-
     update() {
-      this.x += this.vx;
-      this.y += this.vy;
-      // Soft boundary bounce
-      if (this.x < 10 || this.x > W - 10) this.vx *= -1;
-      if (this.y < 10 || this.y > H - 10) this.vy *= -1;
-      // Decay pulse
-      this.pulse *= 0.92;
-      // Radius pulse
-      this.r = this.baseR + this.pulse * 2.5;
+      // Drift slowly — less movement than before
+      this.x += this.vx; this.y += this.vy;
+      if(this.x<8||this.x>W-8) this.vx*=-1;
+      if(this.y<8||this.y>H-8) this.vy*=-1;
+      this.glow *= 0.94;
+      this.r = this.baseR + this.glow*3.5;
     }
-
-    fire(intensity = 1) {
-      this.pulse = Math.min(1, this.pulse + intensity * 0.8);
-      this.lastFired = Date.now();
+    fire(intensity=1) {
+      this.glow = Math.min(1, this.glow + intensity*0.9);
     }
-
     draw() {
-      const alpha = this.opacity + this.pulse * 0.5;
-      // Glow ring
-      if (this.pulse > 0.05) {
-        const g = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r * 4);
-        g.addColorStop(0, this.color + (this.pulse * 0.3) + ')');
-        g.addColorStop(1, this.color + '0)');
+      const g = this.glow;
+      const alpha = this.opacity + g*0.5;
+
+      // ── Outer glow halo ──
+      if(g > 0.04) {
+        const halo = ctx.createRadialGradient(this.x,this.y,0,this.x,this.y,this.r*5);
+        halo.addColorStop(0, rgba(this.col, g*0.35));
+        halo.addColorStop(0.5, rgba(this.col, g*0.08));
+        halo.addColorStop(1, rgba(this.col, 0));
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.r * 4, 0, Math.PI * 2);
-        ctx.fillStyle = g;
+        ctx.arc(this.x,this.y,this.r*5,0,Math.PI*2);
+        ctx.fillStyle=halo; ctx.fill();
+      }
+
+      // ── Dendrites ──
+      this.dendrites.forEach(d=>{
+        const dAlpha = (this.opacity*0.6) + g*0.4;
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        // Curved dendrite
+        const cx1 = this.x + Math.cos(d.angle)*d.len*0.5 + Math.cos(d.angle+1.2)*d.len*0.3;
+        const cy1 = this.y + Math.sin(d.angle)*d.len*0.5 + Math.sin(d.angle+1.2)*d.len*0.3;
+        const ex = this.x + Math.cos(d.angle)*d.len;
+        const ey = this.y + Math.sin(d.angle)*d.len;
+        ctx.quadraticCurveTo(cx1,cy1,ex,ey);
+        ctx.strokeStyle = rgba(this.col, dAlpha*0.7);
+        ctx.lineWidth = d.width + g*0.8;
+        ctx.stroke();
+        // Dendrite tip dot
+        ctx.beginPath();
+        ctx.arc(ex,ey,0.8+g*0.5,0,Math.PI*2);
+        ctx.fillStyle = rgba(this.col, dAlpha);
         ctx.fill();
-      }
-      // Core dot
+      });
+
+      // ── Node body ──
+      const grad = ctx.createRadialGradient(this.x,this.y,0,this.x,this.y,this.r);
+      grad.addColorStop(0, rgba(this.col, alpha));
+      grad.addColorStop(1, rgba(this.col, alpha*0.3));
       ctx.beginPath();
-      ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-      ctx.fillStyle = this.color + alpha + ')';
-      ctx.fill();
+      ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+      ctx.fillStyle=grad; ctx.fill();
+
+      // ── Ring ──
+      ctx.beginPath();
+      ctx.arc(this.x,this.y,this.r+1.5,0,Math.PI*2);
+      ctx.strokeStyle = rgba(this.col, 0.08 + g*0.3);
+      ctx.lineWidth = 0.6; ctx.stroke();
     }
   }
 
-  // ── Pulse class — travels along a synapse ──
   class Pulse {
-    constructor(fromNode, toNode, color) {
-      this.from = fromNode;
-      this.to   = toNode;
-      this.t    = 0;       // 0→1 travel progress
-      this.speed = 0.012 + Math.random() * 0.012;
-      this.color = color || TEAL;
-      this.size  = 1.5 + Math.random() * 1.5;
-      this.done  = false;
+    constructor(from, to, col) {
+      this.from=from; this.to=to; this.t=0;
+      this.speed=0.008+Math.random()*0.012;
+      this.col=col||C.teal; this.size=1.8+Math.random()*1.2;
+      this.done=false; this.trail=[];
     }
-
     update() {
-      this.t += this.speed;
-      if (this.t >= 1) {
-        this.done = true;
-        this.to.fire(0.6);
-      }
+      this.t+=this.speed;
+      // Store trail positions
+      const x=this.from.x+(this.to.x-this.from.x)*this.t;
+      const y=this.from.y+(this.to.y-this.from.y)*this.t;
+      this.trail.unshift({x,y});
+      if(this.trail.length>8) this.trail.pop();
+      if(this.t>=1){ this.done=true; this.to.fire(0.55); }
     }
-
     draw() {
-      const x = this.from.x + (this.to.x - this.from.x) * this.t;
-      const y = this.from.y + (this.to.y - this.from.y) * this.t;
-      const alpha = 0.9 - this.t * 0.3;
-      // Pulse glow
-      const g = ctx.createRadialGradient(x, y, 0, x, y, this.size * 2.5);
-      g.addColorStop(0, this.color + alpha + ')');
-      g.addColorStop(1, this.color + '0)');
-      ctx.beginPath();
-      ctx.arc(x, y, this.size * 2.5, 0, Math.PI * 2);
-      ctx.fillStyle = g;
-      ctx.fill();
-      // Core
-      ctx.beginPath();
-      ctx.arc(x, y, this.size, 0, Math.PI * 2);
-      ctx.fillStyle = this.color + alpha + ')';
-      ctx.fill();
+      // ── Trail ──
+      this.trail.forEach((pt,i)=>{
+        const a = (1-i/this.trail.length)*0.4*(1-this.t*0.4);
+        ctx.beginPath();
+        ctx.arc(pt.x,pt.y,this.size*(1-i/this.trail.length)*0.7,0,Math.PI*2);
+        ctx.fillStyle=rgba(this.col,a); ctx.fill();
+      });
+      // ── Head ──
+      if(this.trail.length){
+        const {x,y}=this.trail[0];
+        const a=0.95-this.t*0.2;
+        const halo=ctx.createRadialGradient(x,y,0,x,y,this.size*3);
+        halo.addColorStop(0,rgba(this.col,a*0.6));
+        halo.addColorStop(1,rgba(this.col,0));
+        ctx.beginPath(); ctx.arc(x,y,this.size*3,0,Math.PI*2);
+        ctx.fillStyle=halo; ctx.fill();
+        ctx.beginPath(); ctx.arc(x,y,this.size,0,Math.PI*2);
+        ctx.fillStyle=rgba(this.col,a); ctx.fill();
+      }
     }
   }
 
-  // ── Build the network ──
   function buildNetwork() {
-    nodes = [];
-    const count = Math.floor((W * H) / 9000); // ~density based on screen size
-    const nodeCount = Math.max(18, Math.min(45, count));
+    nodes=[]; edges=[]; pulses=[];
+    const weights = (typeof neuro!=='undefined'&&neuro?.neuralWeights)||{};
 
-    // Hub nodes — larger, brighter (represent ARIA's core weight dimensions)
-    const hubCount = Math.min(8, Math.floor(nodeCount * 0.2));
-    for (let i = 0; i < hubCount; i++) {
+    // ── Layer layout ──
+    // 3 input nodes (left), 4-5 hidden nodes (centre), 3 output nodes (right), 4 memory (scattered)
+    const layers = [
+      { type:'input',  count:3, xFrac:0.12 },
+      { type:'hidden', count:5, xFrac:0.38 },
+      { type:'hidden', count:4, xFrac:0.62 },
+      { type:'output', count:3, xFrac:0.88 }
+    ];
+
+    layers.forEach(layer=>{
+      const x = W*layer.xFrac;
+      const spacing = H/(layer.count+1);
+      for(let i=0;i<layer.count;i++){
+        nodes.push(new Node(
+          x+(Math.random()-0.5)*W*0.06,
+          spacing*(i+1)+(Math.random()-0.5)*20,
+          layer.type, layer.xFrac
+        ));
+      }
+    });
+
+    // ── Scattered memory nodes ──
+    for(let i=0;i<5;i++){
       nodes.push(new Node(
-        50 + Math.random() * (W - 100),
-        50 + Math.random() * (H - 100),
-        'hub'
-      ));
-    }
-    // Memory nodes — gold, represent stored memories
-    const memCount = Math.min(6, Math.floor(nodeCount * 0.15));
-    for (let i = 0; i < memCount; i++) {
-      nodes.push(new Node(
-        50 + Math.random() * (W - 100),
-        50 + Math.random() * (H - 100),
-        'memory'
-      ));
-    }
-    // Regular neurons
-    const neuronCount = nodeCount - hubCount - memCount;
-    for (let i = 0; i < neuronCount; i++) {
-      nodes.push(new Node(
-        20 + Math.random() * (W - 40),
-        20 + Math.random() * (H - 40),
-        'neuron'
+        W*0.15+Math.random()*W*0.7,
+        H*0.1+Math.random()*H*0.8,
+        'memory', 0.5
       ));
     }
 
-    // Build connections based on proximity
-    const MAX_DIST = Math.min(W, H) * 0.28;
-    nodes.forEach((a, i) => {
-      nodes.forEach((b, j) => {
-        if (i >= j) return;
-        const d = Math.hypot(a.x - b.x, a.y - b.y);
-        if (d < MAX_DIST) {
-          a.connections.push(j);
-          b.connections.push(i);
+    // ── Build edges — feed-forward + some skip connections ──
+    const byLayer = l => nodes.filter(n=>n.layer===l);
+    const layerXs = [...new Set(layers.map(l=>l.xFrac))];
+
+    // Connect adjacent layers fully
+    layerXs.forEach((lx,li)=>{
+      if(li>=layerXs.length-1)return;
+      const from = byLayer(lx);
+      const to   = byLayer(layerXs[li+1]);
+      from.forEach(f=>{
+        to.forEach(t=>{
+          edges.push({from:nodes.indexOf(f), to:nodes.indexOf(t), activity:0, skip:false});
+          f.connections.push(nodes.indexOf(t));
+        });
+      });
+    });
+
+    // Skip connections (input → output, like residual connections)
+    byLayer(0.12).forEach(f=>{
+      byLayer(0.88).forEach(t=>{
+        if(Math.random()<0.4){
+          edges.push({from:nodes.indexOf(f), to:nodes.indexOf(t), activity:0, skip:true});
+          f.connections.push(nodes.indexOf(t));
         }
       });
     });
-  }
 
-  // ── Draw synaptic connections ──
-  function drawConnections() {
-    const MAX_DIST = Math.min(W, H) * 0.28;
-    nodes.forEach((a, i) => {
-      a.connections.forEach(j => {
-        if (j <= i) return;
-        const b = nodes[j];
-        const d = Math.hypot(a.x - b.x, a.y - b.y);
-        const alpha = (1 - d / MAX_DIST) * 0.12;
-        // Line brightens near firing nodes
-        const firingAlpha = alpha + (a.pulse + b.pulse) * 0.06;
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.strokeStyle = TEAL + firingAlpha + ')';
-        ctx.lineWidth = 0.5 + (a.pulse + b.pulse) * 0.4;
-        ctx.stroke();
+    // Memory nodes connect to hidden layer
+    byLayer(0.5).forEach(m=>{
+      const hidden = nodes.filter(n=>n.type==='hidden');
+      const targets = hidden.sort(()=>Math.random()-0.5).slice(0,2);
+      targets.forEach(t=>{
+        edges.push({from:nodes.indexOf(m), to:nodes.indexOf(t), activity:0, skip:false});
+        m.connections.push(nodes.indexOf(t));
       });
     });
   }
 
-  // ── Auto-fire patterns — driven by neuro weights ──
+  function drawEdges() {
+    edges.forEach(edge=>{
+      const a = nodes[edge.from], b = nodes[edge.to];
+      if(!a||!b)return;
+      const act = Math.max(edge.activity, (a.glow+b.glow)*0.3);
+      const baseAlpha = edge.skip ? 0.03 : 0.06;
+      const alpha = baseAlpha + act*0.45;
+      const lw = (edge.skip?0.3:0.5) + act*1.2;
+
+      // Axon — straight line with subtle curve for skip connections
+      ctx.beginPath();
+      if(edge.skip) {
+        const mx=(a.x+b.x)/2, my=(a.y+b.y)/2-30;
+        ctx.moveTo(a.x,a.y);
+        ctx.quadraticCurveTo(mx,my,b.x,b.y);
+      } else {
+        ctx.moveTo(a.x,a.y);
+        ctx.lineTo(b.x,b.y);
+      }
+
+      const col = act>0.3
+        ? (a.type==='memory'?C.purple:a.type==='output'?C.gold:C.teal)
+        : C.teal;
+
+      ctx.strokeStyle=rgba(col,alpha);
+      ctx.lineWidth=lw;
+      ctx.stroke();
+
+      // Decay edge activity
+      edge.activity *= 0.96;
+    });
+  }
+
   function autoFire(now) {
-    const weights = neuro?.neuralWeights || DEFAULT_NEURO_WEIGHTS;
-    // Fire rate scales with proactivity weight (0.05–0.25 seconds between fires)
-    const proactivity = weights.proactivity || 0.5;
-    const fireInterval = 400 - proactivity * 250; // 150ms–400ms
+    const weights = (typeof neuro!=='undefined'&&neuro?.neuralWeights)||{};
+    const proactivity = weights.proactivity||0.5;
+    const interval = 350 - proactivity*200;
+    if(now-lastFire<interval)return;
+    lastFire=now;
 
-    if (now - lastFire < fireInterval) return;
-    lastFire = now;
+    // Fire a random input node — cascade forward through the network
+    const inputNodes = nodes.filter(n=>n.type==='input');
+    const src = inputNodes[Math.floor(Math.random()*inputNodes.length)];
+    if(!src)return;
+    src.fire(0.7);
 
-    // Pick a hub or high-weight node to fire
-    const hubs = nodes.filter(n => n.type === 'hub');
-    const source = hubs[Math.floor(Math.random() * hubs.length)];
-    if (!source || source.connections.length === 0) return;
-
-    source.fire(0.8);
-
-    // Fire along connections with cascade
-    const cascade = Math.floor(1 + (weights.verbosity || 0.5) * 3);
-    for (let c = 0; c < cascade; c++) {
-      if (source.connections.length === 0) continue;
-      const targetIdx = source.connections[Math.floor(Math.random() * source.connections.length)];
-      const target = nodes[targetIdx];
-      if (!target) continue;
-
-      // Colour the pulse based on ARIA's dominant weight
-      let pulseColor = TEAL;
-      if (weights.shonaFrequency > 0.65 && Math.random() < 0.3) pulseColor = GOLD;
-      if (weights.creativityBias > 0.65 && Math.random() < 0.2)  pulseColor = PURPLE;
-
-      pulses.push(new Pulse(source, target, pulseColor));
-    }
+    // Send pulses along its connections
+    const cascade = 1+Math.floor((weights.verbosity||0.5)*2);
+    src.connections.slice(0,cascade).forEach(ci=>{
+      const target=nodes[ci]; if(!target)return;
+      const edge=edges.find(e=>e.from===nodes.indexOf(src)&&e.to===ci);
+      if(edge) edge.activity=0.9;
+      const col=weights.shonaFrequency>0.65?C.gold:weights.creativityBias>0.65?C.purple:C.teal;
+      pulses.push(new Pulse(src,target,col));
+    });
   }
 
-  // ── Reaction fire — called when ARIA sends a message ──
-  function reactionFire(intensity = 1) {
-    if (!nodes.length) return;
-    // Fire a wave across the network
-    const fireCount = Math.floor(3 + intensity * 5);
-    for (let i = 0; i < fireCount; i++) {
-      setTimeout(() => {
-        const src = nodes[Math.floor(Math.random() * nodes.length)];
-        if (!src || !src.connections.length) return;
-        src.fire(intensity);
-        const targetIdx = src.connections[Math.floor(Math.random() * src.connections.length)];
-        const target = nodes[targetIdx];
-        if (target) pulses.push(new Pulse(src, target, TEAL));
-      }, i * 60);
-    }
+  function reactionFire(intensity=1) {
+    if(!nodes.length)return;
+    // Wave across all layers
+    const layerOrder=[0.12,0.38,0.62,0.88,0.5];
+    layerOrder.forEach((lx,li)=>{
+      setTimeout(()=>{
+        nodes.filter(n=>n.layer===lx).forEach(n=>{
+          n.fire(intensity*0.8);
+          n.connections.slice(0,2).forEach(ci=>{
+            const t=nodes[ci]; if(!t)return;
+            const e=edges.find(e=>e.from===nodes.indexOf(n)&&e.to===ci);
+            if(e)e.activity=intensity;
+            pulses.push(new Pulse(n,t,intensity>1.5?C.gold:C.teal));
+          });
+        });
+      }, li*80);
+    });
   }
 
-  // ── Main animation loop ──
   function loop(now) {
-    if (paused) return;
-    animId = requestAnimationFrame(loop);
-
-    ctx.clearRect(0, 0, W, H);
-
-    drawConnections();
-
-    nodes.forEach(n => { n.update(); n.draw(); });
-
-    pulses = pulses.filter(p => !p.done);
-    pulses.forEach(p => { p.update(); p.draw(); });
-
+    if(paused)return;
+    animId=requestAnimationFrame(loop);
+    ctx.clearRect(0,0,W,H);
+    drawEdges();
+    nodes.forEach(n=>{n.update();n.draw();});
+    pulses=pulses.filter(p=>!p.done);
+    pulses.forEach(p=>{p.update();p.draw();});
     autoFire(now);
   }
 
-  // ── Resize handler ──
   function resize() {
-    if (!canvas) return;
-    const rect = canvas.parentElement.getBoundingClientRect();
-    W = rect.width || window.innerWidth;
-    H = rect.height || 500;
-    canvas.width  = W;
-    canvas.height = H;
+    if(!canvas)return;
+    const rect=canvas.parentElement.getBoundingClientRect();
+    W=rect.width||window.innerWidth;
+    H=rect.height||500;
+    canvas.width=W; canvas.height=H;
     buildNetwork();
   }
 
-  // ── Public API ──
   return {
     init() {
-      canvas = document.getElementById('neuro-canvas');
-      if (!canvas) return;
-      ctx = canvas.getContext('2d');
+      canvas=document.getElementById('neuro-canvas');
+      if(!canvas)return;
+      ctx=canvas.getContext('2d');
       resize();
-      window.addEventListener('resize', resize);
+      window.addEventListener('resize',resize);
       loop(0);
     },
-    pause() { paused = true; cancelAnimationFrame(animId); },
-    resume() {
-      if (!canvas) return;
-      paused = false;
-      resize();
-      loop(0);
+    pause(){ paused=true; cancelAnimationFrame(animId); },
+    resume(){
+      if(!canvas)return;
+      paused=false; resize(); loop(0);
     },
-    fire(intensity) { reactionFire(intensity); }
+    fire(intensity){ reactionFire(intensity); }
   };
 })();
 
