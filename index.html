@@ -1287,7 +1287,6 @@ window.addEventListener('DOMContentLoaded', () => {
   initPredictive();
   initSelfEval();
   initConvPatterns();
-  setTimeout(initVoiceInput, 500);
 
   // Team mode check
   const params = new URLSearchParams(window.location.search);
@@ -1313,11 +1312,8 @@ window.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => brainCanvas.init(), 250);
   setTimeout(() => initStarfield(), 300);
   setTimeout(() => updateStatusBar(), 400);
-  // Check for goal follow-ups from previous session
+  setTimeout(() => initVoiceInput(), 500);
   setTimeout(() => checkGoalFollowUp(), 2000);
-
-  // ── Init voice input ──
-  setTimeout(() => initVoiceInput(), 300);
 
   window.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden' && chat.length >= 4) endSession();
@@ -2004,8 +2000,7 @@ ${growing.length ? `GROWING KNOWLEDGE:\n${fmt(growing)}\n` : ''}
 RESPONSE STYLE:
 - Conversational, warm, genuine — never robotic
 - Address them as ${memberName}
-- No filler openers like "Certainly" or "Of course"
-- Never mention Warren or reference any owner profile to this user`;nly!", "Of course!", "Great question!"
+- No filler openers like "Certainly", "Of course", or "Great question!"
 - Never mention Warren or reference any owner profile to this user`;
   }
 
