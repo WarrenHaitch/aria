@@ -57,20 +57,13 @@
     .pin-error { color:var(--red); font-size:12px; text-align:center; margin-top:8px; min-height:18px; }
     .header { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border); background:linear-gradient(135deg,rgba(13,16,32,0.98),rgba(10,12,20,0.98)); z-index:20; flex-shrink:0; position:relative; overflow:hidden; }
     .header::after { content:''; position:absolute; bottom:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(0,229,196,0.4),rgba(124,92,252,0.3),transparent); }
-    .logo { font-family:'Space Mono',monospace; font-size:22px; font-weight:700; color:var(--teal); letter-spacing:3px; text-shadow:0 0 20px rgba(0,229,196,0.4); transition: opacity 0.2s; }
-    .logo.thinking { letter-spacing:0px; }
-    .logo .think-note {
-      font-size:13px;
-      animation:noteFloat 1.4s ease-in-out infinite;
-      display:inline-block;
-      color:var(--teal);
-      letter-spacing:1px;
-      line-height:1;
-    }
+    .logo { font-family:'Space Mono',monospace; font-size:22px; font-weight:700; color:var(--teal); letter-spacing:3px; text-shadow:0 0 20px rgba(0,229,196,0.4); transition:all 0.2s; white-space:nowrap; }
+    .logo.thinking { letter-spacing:1px; font-size:14px; min-width:60px; }
+    .logo .think-note { font-size:14px !important; animation:noteFloat 1.4s ease-in-out infinite; display:inline-block !important; color:var(--teal); letter-spacing:1px; line-height:1; }
     .logo .think-note:nth-child(1){ animation-delay:0s; }
-    .logo .think-note:nth-child(2){ animation-delay:0.2s; }
-    .logo .think-note:nth-child(3){ animation-delay:0.4s; }
-    .logo .think-note:nth-child(4){ animation-delay:0.6s; }
+    .logo .think-note:nth-child(2){ animation-delay:0.22s; }
+    .logo .think-note:nth-child(3){ animation-delay:0.44s; }
+    .logo .think-note:nth-child(4){ animation-delay:0.66s; }
     /* ── HOLOGRAPHIC BRAIN THINKING BUBBLE ── */
     .thinking-bubble {
       background: rgba(5,8,20,0.65);
@@ -2224,11 +2217,18 @@ async function sendMessage(){
   renderChat();
   showThinking(true);
   pulseActivityMeter();
-  // Scroll AFTER thinking row is in DOM so brain bubble is visible
+  // After both user message AND brain bubble are in DOM, scroll so user msg is at top
+  // This pushes previous chat up and shows the new question + processing brain
   setTimeout(() => {
     const msgs = document.getElementById('messages');
-    msgs.scrollTop = msgs.scrollHeight;
-  }, 50);
+    const allWraps = msgs.querySelectorAll('.msg-wrap');
+    const lastUserWrap = Array.from(allWraps).reverse().find(w => w.querySelector('.bubble.user'));
+    if (lastUserWrap) {
+      lastUserWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+  }, 60);
 
   const apiMessages=chat.slice(-20).map(m=>({role:m.role,content:m.content}));
 
@@ -2908,36 +2908,33 @@ function streamReply(fullReply, onComplete) {
     <div class="msg-meta">${timeStr}</div>`;
   container.appendChild(wrap);
 
-  // Scroll to show the user message + start of typing
-  container.scrollTop = container.scrollHeight;
+  // Scroll to show start of ARIA's bubble — then stay there while typing
+  setTimeout(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
 
   const bubble = document.getElementById('stream-bubble');
   const words = fullReply.split(' ');
   let i = 0;
   let built = '';
 
-  // Speed: fast enough to feel live, slow enough to read
-  const WORD_DELAY = 18; // ms per word
+  const WORD_DELAY = 18;
 
   function typeNext() {
     if (i >= words.length) {
       // Done typing — render final markdown
       bubble.innerHTML = renderMarkdown(fullReply);
       bubble.removeAttribute('id');
-      // Scroll to TOP of ARIA's response
+      // Scroll to TOP of response one final time
       setTimeout(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
       if (onComplete) onComplete();
       return;
     }
 
-    // Type in chunks of 3 words for smoother feel
     const chunk = words.slice(i, i + 3).join(' ');
     built += (built ? ' ' : '') + chunk;
     i += 3;
 
-    // Show plain text while typing (no markdown flicker)
     bubble.textContent = built + (i < words.length ? ' ▌' : '');
-    container.scrollTop = container.scrollHeight;
+    // Do NOT scroll while typing — let user read from top
 
     setTimeout(typeNext, WORD_DELAY);
   }
