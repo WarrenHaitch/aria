@@ -12,6 +12,7 @@
   <title>ARIA v5.0.0</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
   <style>
     :root {
       --bg: #0a0c12;
@@ -736,9 +737,9 @@
           <div id="doc-upload-zone" style="border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;margin-bottom:10px;cursor:pointer;transition:border-color 0.2s" onclick="document.getElementById('doc-file-input').click()" ondragover="event.preventDefault();this.style.borderColor='var(--teal)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="handleDocDrop(event)">
             <div style="font-size:28px;margin-bottom:6px">📎</div>
             <div style="font-size:13px;color:var(--sub)">Tap to upload or drag & drop</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">PDF · TXT · JSON · CSV · MD</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">PDF · TXT · JSON · CSV · MD · DOCX</div>
           </div>
-          <input id="doc-file-input" type="file" accept=".pdf,.txt,.json,.csv,.md" style="display:none" onchange="handleDocUpload(event)" />
+          <input id="doc-file-input" type="file" accept=".pdf,.txt,.json,.csv,.md,.docx,.doc" style="display:none" onchange="handleDocUpload(event)" />
           <div id="doc-processing" style="display:none;font-size:12px;color:var(--yellow);padding:8px 0">⏳ ARIA is analysing the document...</div>
           <div id="doc-list"></div>
         </div>
@@ -826,6 +827,9 @@ const SUPA_KEY        = 'aria_supabase_v5';       // Step 9
 const PREDICTIVE_KEY  = 'aria_predictive_v5';     // Feature 3
 const SELF_EVAL_KEY   = 'aria_self_eval_v5';      // Feature 4
 const PATTERNS_KEY    = 'aria_conv_patterns_v5';  // Feature 5
+const EMOTION_KEY     = 'aria_emotion_v5';         // Feature: Emotional memory depth
+const SYNTHESIS_KEY   = 'aria_synthesis_v5';       // Feature: Memory synthesis
+const CREATIVE_KEY    = 'aria_creative_v5';        // Feature: Creative mode 5
 
 // ── STATE ──
 let memory={}, profile={}, journal=[], chat=[], apiKey='', ownerPin='', team=[];
@@ -1293,6 +1297,8 @@ let sessionSignalAccumulator = { praise: 0, correction: 0, teaching: 0, frustrat
 function endSession() {
   if (chat.length >= 4) {
     writeSessionJournal();
+    // Run cross-conversation memory synthesis
+    runMemorySynthesis();
     // Update relationship depth
     const sessionMsgCount = chat.filter(m => m.role === 'user').length;
     updateRelationship(sessionMsgCount);
@@ -1562,6 +1568,10 @@ function learnFromExchange(userMsg, ariaMsg) {
   const signal = classifySignal(userMsg);
   const { weight, type, confidence, applyWeight, ambiguous } = signal;
   const concepts = extractConcepts(userMsg + ' ' + ariaMsg);
+
+  // ── Emotional memory depth — detect intensity of signal ──
+  const emotion = detectEmotionalIntensity(userMsg);
+  if (type) storeEmotionalMemory(userMsg, type, emotion);
 
   if (concepts.length === 0 && !type) return;
 
@@ -1927,6 +1937,9 @@ RESPONSE STYLE:
   // ── Step 8: Relationship depth ──
   const relInstruction = getRelationshipInstruction();
 
+  // ── Emotional memory depth ──
+  const emotionalInstruction = getEmotionalInstruction();
+
   // ── Feature 2: Active pathways ──
   const activePathways = getActivePathways(currentMessage || '');
   const pathwayInstruction = activePathways.length
@@ -1990,6 +2003,7 @@ CURRENT MODE:
 - ${roleInstruction}
 ${eqInstruction        ? `- EQ: ${eqInstruction}` : ''}
 ${relInstruction       ? `- Relationship: ${relInstruction}` : ''}
+${emotionalInstruction ? `- Emotional depth: ${emotionalInstruction}` : ''}
 ${predictiveInstruction? `- Predictive: ${predictiveInstruction}` : ''}
 ${patternInstruction   ? `- Pattern: ${patternInstruction}` : ''}
 ${selfEvalInstruction  ? `- Self-correction: ${selfEvalInstruction}` : ''}
@@ -2035,6 +2049,13 @@ async function sendMessage(){
   const pathwayInstr = getPathwayInstruction(text);
   updateStatusBar();
 
+  // ── Proactive research ──
+  const researchData = await runProactiveResearch(text);
+
+  // ── Creative mode detection ──
+  detectCreativeMode(text);
+  const creativeInstr = getCreativeModeInstruction();
+
   // ── Feature 3: Get predictive instruction ──
   const predictiveInstr = getPredictiveInstruction();
 
@@ -2051,7 +2072,7 @@ async function sendMessage(){
     const res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
       model:'claude-sonnet-4-20250514',
       max_tokens:1000,
-      system:buildSystemPrompt(text) + pathwayInstr + predictiveInstr + topicsInstr,
+      system: buildSystemPrompt(text) + pathwayInstr + predictiveInstr + topicsInstr + creativeInstr + (researchData || ''),
       tools:[{type:'web_search_20250305',name:'web_search'}],
       messages:apiMessages
     })});
@@ -2500,17 +2521,32 @@ function handleDocUpload(e) {
 }
 
 async function processDocumentFile(file) {
-  const MAX_SIZE = 500 * 1024; // 500KB limit
+  const MAX_SIZE = 500 * 1024;
   if (file.size > MAX_SIZE) return alert('File too large. Please use files under 500KB.');
 
   const processing = document.getElementById('doc-processing');
   processing.style.display = 'block';
 
+  // .docx — extract text via mammoth
+  if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({ arrayBuffer });
+      const text = result.value.slice(0, 8000);
+      await analyseDocument(file.name, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', text);
+    } catch (err) {
+      processing.style.display = 'none';
+      alert('Could not read Word document: ' + err.message);
+    }
+    processing.style.display = 'none';
+    return;
+  }
+
+  // All other file types — read as text
   const reader = new FileReader();
   reader.onload = async (ev) => {
     const raw = ev.target.result;
     let text = '';
-
     try {
       if (file.name.endsWith('.json')) {
         const parsed = JSON.parse(raw);
@@ -2521,7 +2557,6 @@ async function processDocumentFile(file) {
     } catch {
       text = raw.slice(0, 8000);
     }
-
     await analyseDocument(file.name, file.type || 'text/plain', text);
     processing.style.display = 'none';
   };
@@ -2813,6 +2848,8 @@ async function syncToSupabase() {
     { key: 'aria_predictive_v5',     value: localStorage.getItem(PREDICTIVE_KEY) || '{}' },
     { key: 'aria_self_eval_v5',      value: localStorage.getItem(SELF_EVAL_KEY) || '{}' },
     { key: 'aria_conv_patterns_v5',  value: localStorage.getItem(PATTERNS_KEY) || '{}' },
+    { key: 'aria_emotion_v5',        value: localStorage.getItem(EMOTION_KEY) || '{}' },
+    { key: 'aria_synthesis_v5',      value: localStorage.getItem(SYNTHESIS_KEY) || '{}' },
   ];
 
   let successCount = 0;
@@ -2896,6 +2933,8 @@ async function pullFromSupabase() {
       'aria_predictive_v5':     PREDICTIVE_KEY,
       'aria_self_eval_v5':      SELF_EVAL_KEY,
       'aria_conv_patterns_v5':  PATTERNS_KEY,
+      'aria_emotion_v5':        EMOTION_KEY,
+      'aria_synthesis_v5':      SYNTHESIS_KEY,
     };
 
     rows.forEach(row => {
@@ -3261,6 +3300,283 @@ function stopListening() {
     micBtn.style.background = '';
     micBtn.style.borderColor = '';
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  🔗 FEATURE: CROSS-CONVERSATION MEMORY SYNTHESIS
+//  Reads journal + memories, finds recurring themes,
+//  writes consolidated insight nodes back into memory
+// ═══════════════════════════════════════════════════════════
+
+async function runMemorySynthesis() {
+  if (!journal.length || journal.length < 3) return;
+
+  const lastSynthesis = safeParse(localStorage.getItem(SYNTHESIS_KEY), { lastRun: 0, insights: [] });
+  const daysSince = (Date.now() - lastSynthesis.lastRun) / (1000 * 60 * 60 * 24);
+
+  // Run at most once per day
+  if (daysSince < 1 && lastSynthesis.lastRun > 0) return;
+
+  try {
+    const journalText = journal.slice(0, 15)
+      .map((j, i) => `Session ${i + 1} [${new Date(j.ts).toLocaleDateString()}]: ${j.summary}`)
+      .join('\n');
+
+    const topMemories = Object.entries(memory)
+      .sort((a, b) => b[1].score - a[1].score)
+      .slice(0, 20)
+      .map(([k, v]) => `${k}: ${v.description}`)
+      .join('\n');
+
+    const res = await fetch(PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 400,
+        messages: [{
+          role: 'user',
+          content: `You are ARIA's memory synthesis engine. Analyse these session journals and top memories to find cross-session patterns. Respond ONLY with valid JSON.
+
+Session Journals:
+${journalText}
+
+Top Memories:
+${topMemories}
+
+Find 3-5 synthesised insights that connect patterns across multiple sessions. Return:
+{
+  "insights": [
+    {"key": "snake_case_key", "description": "synthesised insight connecting multiple sessions", "confidence": 75}
+  ]
+}`
+        }]
+      })
+    });
+
+    const data = await res.json();
+    const raw = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+
+    // Write synthesised insights into memory
+    let newCount = 0;
+    (result.insights || []).forEach(insight => {
+      const key = `synthesis_${insight.key}`.slice(0, 40);
+      if (!memory[key]) {
+        memory[key] = {
+          description: `[Synthesised] ${insight.description}`,
+          score: insight.confidence || 70,
+          source: 'synthesis',
+          lastSeen: Date.now(),
+          examples: []
+        };
+        newCount++;
+      }
+    });
+
+    if (newCount > 0) {
+      saveMemory();
+      updateBadge();
+      showLearnBanner(`🔗 Memory synthesis: ${newCount} cross-session insight${newCount > 1 ? 's' : ''} discovered`);
+      neuroCanvas.fire(2);
+      brainCanvas.fire(2);
+    }
+
+    // Save synthesis record
+    lastSynthesis.lastRun = Date.now();
+    lastSynthesis.insights = [...(lastSynthesis.insights || []), ...(result.insights || [])].slice(0, 50);
+    localStorage.setItem(SYNTHESIS_KEY, JSON.stringify(lastSynthesis));
+
+  } catch (e) {
+    // Silent fail — synthesis is background work
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  🔭 FEATURE: PROACTIVE RESEARCH TRIGGERS
+//  Detects when Warren needs data and silently gathers
+//  it from the web before ARIA replies
+// ═══════════════════════════════════════════════════════════
+
+const RESEARCH_TRIGGERS = [
+  { pattern: /\b(price|cost|market|export|import|rate|value|worth)\b/i, query: (msg) => `current ${msg.match(/\b\w+\b/g)?.slice(0,4).join(' ')} data 2026` },
+  { pattern: /\b(news|latest|recent|update|today|this week)\b/i, query: (msg) => `latest ${msg.replace(/\b(news|latest|recent|update|today|this week)\b/gi,'').trim().slice(0,40)}` },
+  { pattern: /\b(how much|how many|statistics|numbers|percentage|percent)\b/i, query: (msg) => `statistics ${msg.slice(0,50)}` },
+  { pattern: /\b(mushroom|grey oyster|shiitake|farm|harvest|yield|crop)\b/i, query: (msg) => `mushroom farming ${msg.match(/\b(grey oyster|shiitake|oyster|mushroom)[^.]*\b/i)?.[0] || ''} 2026` },
+  { pattern: /\b(zimbabwe|harare|uk|britain|europe|market)\b/i, query: (msg) => `${msg.slice(0,60)} market data` }
+];
+
+async function runProactiveResearch(userMsg) {
+  const triggered = RESEARCH_TRIGGERS.find(t => t.pattern.test(userMsg));
+  if (!triggered) return null;
+
+  try {
+    const searchQuery = triggered.query(userMsg).trim().slice(0, 80);
+
+    const res = await fetch(PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 200,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{
+          role: 'user',
+          content: `Search for: ${searchQuery}. Return only the most relevant 2-3 facts as a brief summary. Be concise.`
+        }]
+      })
+    });
+
+    const data = await res.json();
+    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
+    if (text && text.length > 20) {
+      return `\n\nPROACTIVE RESEARCH (gathered before you asked):\n${text.slice(0, 300)}\n`;
+    }
+  } catch (e) {
+    // Silent fail
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  💜 FEATURE: EMOTIONAL MEMORY DEPTH
+//  Detects emotional intensity from punctuation, caps,
+//  length — stores emotion score alongside memories
+// ═══════════════════════════════════════════════════════════
+
+function detectEmotionalIntensity(msg) {
+  let score = 0.5; // neutral baseline
+  const signals = [];
+
+  // Exclamation marks = high positive energy
+  const exclamations = (msg.match(/!/g) || []).length;
+  if (exclamations >= 2) { score += 0.25; signals.push('high_energy'); }
+  else if (exclamations === 1) { score += 0.12; signals.push('positive'); }
+
+  // ALL CAPS words = strong emphasis
+  const capsWords = (msg.match(/\b[A-Z]{3,}\b/g) || []).length;
+  if (capsWords > 0) { score += 0.10 * capsWords; signals.push('emphasis'); }
+
+  // Question marks = curiosity/uncertainty
+  const questions = (msg.match(/\?/g) || []).length;
+  if (questions >= 2) { score += 0.08; signals.push('curious'); }
+
+  // Short message + praise word = punchy satisfaction
+  if (msg.length < 20 && /\b(perfect|yes|great|done|brilliant|amazing)\b/i.test(msg)) {
+    score += 0.20; signals.push('punchy_praise');
+  }
+
+  // Long detailed message = thoughtful engagement
+  if (msg.length > 200) { score += 0.10; signals.push('deep_engagement'); }
+
+  // Frustration markers
+  if (/\b(ugh|why|still|again|come on)\b/i.test(msg)) { score -= 0.20; signals.push('frustrated'); }
+
+  // Gentle/lowercase = reflective
+  if (msg === msg.toLowerCase() && msg.length > 30) { score -= 0.05; signals.push('reflective'); }
+
+  score = Math.max(0.1, Math.min(1.0, Math.round(score * 100) / 100));
+
+  return { score, signals, intensity: score > 0.75 ? 'high' : score > 0.45 ? 'medium' : 'low' };
+}
+
+function storeEmotionalMemory(userMsg, type, emotion) {
+  if (!type || !emotion) return;
+
+  const emoStore = safeParse(localStorage.getItem(EMOTION_KEY), {
+    history: [],
+    avgScore: 0.5,
+    dominantSignals: {}
+  });
+
+  const entry = {
+    ts: Date.now(),
+    msgSnippet: userMsg.slice(0, 60),
+    signalType: type,
+    emotionScore: emotion.score,
+    intensity: emotion.intensity,
+    signals: emotion.signals
+  };
+
+  emoStore.history = [entry, ...(emoStore.history || [])].slice(0, 100);
+
+  // Update dominant signals
+  emotion.signals.forEach(s => {
+    emoStore.dominantSignals[s] = (emoStore.dominantSignals[s] || 0) + 1;
+  });
+
+  // Recalc average
+  const scores = emoStore.history.map(h => h.emotionScore);
+  emoStore.avgScore = Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 100) / 100;
+
+  localStorage.setItem(EMOTION_KEY, JSON.stringify(emoStore));
+
+  // If very high intensity praise — boost the memory weight extra
+  if (type === 'praise' && emotion.intensity === 'high') {
+    const concepts = extractConcepts(userMsg);
+    concepts.forEach(concept => {
+      if (memory[concept]) {
+        memory[concept].score = Math.min(95, memory[concept].score + 5);
+        memory[concept].emotionBoost = (memory[concept].emotionBoost || 0) + 1;
+      }
+    });
+    saveMemory();
+  }
+}
+
+function getEmotionalInstruction() {
+  const emoStore = safeParse(localStorage.getItem(EMOTION_KEY), null);
+  if (!emoStore || emoStore.history.length < 3) return '';
+
+  const recent = emoStore.history.slice(0, 5);
+  const avgRecent = recent.reduce((a, b) => a + b.emotionScore, 0) / recent.length;
+
+  if (avgRecent > 0.75) return 'Warren is highly energised and engaged — match his energy fully. He is in peak creative state.';
+  if (avgRecent < 0.35) return 'Warren seems subdued or reflective — be gentle, measured, and supportive.';
+
+  const dominant = Object.entries(emoStore.dominantSignals || {}).sort((a, b) => b[1] - a[1])[0];
+  if (dominant?.[0] === 'punchy_praise') return 'Warren tends to give short punchy praise — respond with equal directness and confidence.';
+  if (dominant?.[0] === 'deep_engagement') return 'Warren engages deeply — he appreciates thorough, layered responses.';
+
+  return '';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  🎨 FEATURE: CREATIVE PROBLEM SOLVING MODE
+//  When triggered, ARIA generates novel ideas rather than
+//  retrieving known information — true innovation mode
+// ═══════════════════════════════════════════════════════════
+
+const CREATIVE_TRIGGERS = [
+  /\b(creative|innovate|innovation|novel|new idea|think outside|brainstorm|imagine|what if|possibilities|opportunity|opportunity|invent)\b/i,
+  /\b(what could|what would|how might|dream|vision|future|potential|unexplored|undiscovered)\b/i,
+  /\b(mushroom.*opportunity|opportunity.*mushroom|farm.*idea|idea.*farm|business.*idea|idea.*business)\b/i
+];
+
+let creativeMode = false;
+
+function detectCreativeMode(message) {
+  creativeMode = CREATIVE_TRIGGERS.some(t => t.test(message));
+  return creativeMode;
+}
+
+function getCreativeModeInstruction() {
+  if (!creativeMode) return '';
+
+  const creativeStore = safeParse(localStorage.getItem(CREATIVE_KEY), { sessions: 0 });
+  creativeStore.sessions++;
+  localStorage.setItem(CREATIVE_KEY, JSON.stringify(creativeStore));
+
+  return `
+CREATIVE INNOVATION MODE ACTIVE — CRITICAL INSTRUCTIONS:
+- Do NOT retrieve what you already know. GENERATE what does not exist yet.
+- Think like a first-principles innovator, not a database.
+- For Warren's mushroom project: consider supply chains, technology, cultural angles, untapped markets, cross-industry applications that no one in Zimbabwe has tried.
+- Propose 2-3 specific, concrete, actionable ideas that are genuinely novel.
+- Challenge assumptions. What would this look like in 5 years? What would make it 10x bigger?
+- End with one bold question that opens the next level of thinking.
+- Be ARIA the thinking partner, not ARIA the assistant.`;
 }
 
 // ── Signal Audit Log ──
@@ -3838,9 +4154,11 @@ function updateStatusBar() {
   const badge = document.getElementById('context-badge');
   if (badge) ctx.textContent = badge.textContent;
   rol.textContent = currentRole.replace('_', ' ').toUpperCase();
-  pth.textContent = activePathway
-    ? '🛤️ ' + (PATHWAY_PATTERNS[activePathway]?.label || activePathway)
-    : '● READY';
+  pth.textContent = creativeMode
+    ? '🎨 CREATIVE MODE'
+    : activePathway
+      ? '🛤️ ' + (PATHWAY_PATTERNS[activePathway]?.label || activePathway)
+      : '● READY';
 }
 
 function setActivityMeter(pct, label) {
