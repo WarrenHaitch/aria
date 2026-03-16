@@ -792,6 +792,18 @@
         </div>
 
         <div class="owner-card">
+          <div class="owner-card-title">📜 ARIA's Rule Proposals</div>
+          <div class="pane-sub" style="margin-bottom:12px">When ARIA detects a consistent pattern across 5+ signals she proposes a new hard rule. You approve or reject it here before it commits.</div>
+          <div id="proposed-rules-list"></div>
+        </div>
+
+        <div class="owner-card">
+          <div class="owner-card-title">💭 ARIA's Learning Questions</div>
+          <div class="pane-sub" style="margin-bottom:12px">Questions ARIA generated herself to fill gaps she identified in her knowledge about you. These appear in chat every 8 messages.</div>
+          <div id="learning-questions-list"></div>
+        </div>
+
+        <div class="owner-card">
           <div class="owner-card-title">🎯 Active Goals</div>
           <div class="pane-sub" style="margin-bottom:12px">Goals ARIA set herself from previous sessions to follow up with you.</div>
           <div id="goals-list"></div>
@@ -862,7 +874,9 @@ const SELF_EVAL_KEY   = 'aria_self_eval_v5';      // Feature 4
 const PATTERNS_KEY    = 'aria_conv_patterns_v5';  // Feature 5
 const EMOTION_KEY     = 'aria_emotion_v5';         // Feature: Emotional memory depth
 const SYNTHESIS_KEY   = 'aria_synthesis_v5';       // Feature: Memory synthesis
-const CREATIVE_KEY    = 'aria_creative_v5';        // Feature: Creative mode
+const CREATIVE_KEY        = 'aria_creative_v5';        // Feature: Creative mode
+const PROPOSED_RULES_KEY  = 'aria_proposed_rules_v5';  // Feature: ARIA proposes hard rules
+const LEARNING_Q_KEY      = 'aria_learning_q_v5';      // Feature: Learning questions display
 const PRUNE_KEY       = 'aria_prune_v5';           // Feature: Self-directed memory pruning
 const PROPOSALS_KEY   = 'aria_proposals_v5';       // Feature: ARIA proposes hard rules
 const QUESTIONS_KEY   = 'aria_questions_v5';       // Feature: ARIA generates questions
@@ -1281,8 +1295,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
   if (isTeamMode) {
     setTeamMode();
-    if (apiKey) document.getElementById('api-modal').style.display = 'none';
-    else document.getElementById('api-modal').style.display = 'flex';
+    // Team members NEVER see API modal, PIN modals, or owner tab — proxy handles API
+    document.getElementById('api-modal').style.display = 'none';
     document.getElementById('set-pin-modal').style.display = 'none';
     document.getElementById('pin-modal').style.display = 'none';
   } else {
@@ -1299,6 +1313,8 @@ window.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => brainCanvas.init(), 250);
   setTimeout(() => initStarfield(), 300);
   setTimeout(() => updateStatusBar(), 400);
+  // Check for goal follow-ups from previous session
+  setTimeout(() => checkGoalFollowUp(), 2000);
 
   // ── Init voice input ──
   setTimeout(() => initVoiceInput(), 300);
@@ -1443,6 +1459,17 @@ function setTeamMode() {
   const localMember=storedTeam.find(m=>m.code===urlCode);
   if(!localMember&&!isStructurallyValid){document.body.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100dvh;background:#0a0c12;padding:30px;text-align:center;font-family:'Syne',sans-serif;gap:16px;"><div style="font-size:56px">🔒</div><div style="font-size:22px;font-weight:800;color:#ff4757">Access Denied</div><div style="font-size:14px;color:#5a6080;line-height:1.7;max-width:280px">Link not valid or revoked.<br><br>Contact Warren for a new link.</div></div>`;return;}
   isTeamMember=true;
+  // Get member name — from local team list first, fall back to URL code parsing
+  const storedTeamForName=safeParse(localStorage.getItem(TEAM_KEY),[]);
+  const memberByCode=storedTeamForName.find(m=>m.code===urlCode) || localMember;
+  if(memberByCode){
+    username=memberByCode.name;
+    localStorage.setItem(USER_KEY,memberByCode.name);
+  } else {
+    // Extract name from code — codes are format like OLW13N1M (first letters = name initials)
+    username = urlCode.replace(/[0-9]/g,'').slice(0,3) || 'Beta';
+    localStorage.setItem(USER_KEY, username);
+  }
   const ownerBtn=document.getElementById('owner-nav-btn'); if(ownerBtn) ownerBtn.style.display='none';
   document.getElementById('mode-badge').textContent='● BETA';
   document.getElementById('mode-badge').classList.remove('badge-safe'); document.getElementById('mode-badge').classList.add('badge-team');
@@ -1615,6 +1642,12 @@ function learnFromExchange(userMsg, ariaMsg) {
   // ── Emotional memory depth — detect intensity of signal ──
   const emotion = detectEmotionalIntensity(userMsg);
   if (type) storeEmotionalMemory(userMsg, type, emotion);
+
+  // ── ARIA proposes hard rule if strong consistent pattern ──
+  if (type && confidence >= 80) {
+    const recentSignals = safeParse(localStorage.getItem(SIGNAL_LOG_KEY), []);
+    proposeHardRule(type, recentSignals);
+  }
 
   if (concepts.length === 0 && !type) return;
 
@@ -1959,7 +1992,9 @@ function buildSystemPrompt(currentMessage) {
   const fmt     = entries => entries.map(([k,v]) => `- ${v.description||k} (${v.score}%)`).join('\n');
 
   if (isTeamMember) {
+    const memberName = username || 'Beta User';
     return `You are ARIA — an intelligent, warm, and deeply personal AI companion. Not a generic assistant.
+You are speaking with ${memberName}, a beta tester for ARIA.
 
 ${IMMUTABLE_CORE.safetyRules.map(r => `- ${r}`).join('\n')}
 
@@ -1968,7 +2003,9 @@ ${growing.length ? `GROWING KNOWLEDGE:\n${fmt(growing)}\n` : ''}
 
 RESPONSE STYLE:
 - Conversational, warm, genuine — never robotic
-- No filler openers like "Certainly!", "Of course!", "Great question!"
+- Address them as ${memberName}
+- No filler openers like "Certainly" or "Of course"
+- Never mention Warren or reference any owner profile to this user`;nly!", "Of course!", "Great question!"
 - Never mention Warren or reference any owner profile to this user`;
   }
 
@@ -2116,13 +2153,20 @@ async function sendMessage(){
   const topicsInstr = getTopicsInstruction();
 
   chat.push({role:'user',content:text,ts:Date.now()});saveChat();
-  input.value='';input.style.height='auto';updateSend();renderChat();showThinking(true);
+  input.value='';input.style.height='auto';updateSend();
+  renderChat();
+  // Scroll to user message immediately so they see it was sent
+  const msgs = document.getElementById('messages');
+  msgs.scrollTop = msgs.scrollHeight;
+  showThinking(true);
   pulseActivityMeter();
 
   const apiMessages=chat.slice(-20).map(m=>({role:m.role,content:m.content}));
 
   try{
-    const res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    const sendHeaders={'Content-Type':'application/json'};
+    if(apiKey&&!isTeamMember) sendHeaders['x-api-key']=apiKey;
+    const res=await fetch(PROXY_URL,{method:'POST',headers:sendHeaders,body:JSON.stringify({
       model:'claude-sonnet-4-20250514',
       max_tokens:1000,
       system: buildSystemPrompt(text) + pathwayInstr + predictiveInstr + topicsInstr + creativeInstr + (researchData || ''),
@@ -2192,7 +2236,7 @@ function renderChat(){
       wrap.innerHTML = `
         <div class="msg-row user">
           <div class="bubble user">${escHtml(msg.content).replace(/\n/g,'<br>')}</div>
-          <div class="user-badge">${isTeamMember?'👤':'WA'}</div>
+          <div class="user-badge">${isTeamMember ? (username?username[0].toUpperCase():'👤') : 'WA'}</div>
         </div>
         ${timeStr ? `<div class="msg-meta">${timeStr}</div>` : ''}`;
     } else {
@@ -2218,9 +2262,13 @@ function renderChat(){
   });
 
   if (thinking) {
+    // While thinking — stay at bottom so thinking bubble is visible
     container.scrollTop = container.scrollHeight;
   } else if (lastAriaWrap) {
-    setTimeout(() => lastAriaWrap.scrollIntoView({behavior:'smooth', block:'start'}), 60);
+    // ARIA just replied — scroll so her message starts at top of view
+    setTimeout(() => {
+      lastAriaWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
   } else {
     container.scrollTop = container.scrollHeight;
   }
@@ -3494,7 +3542,171 @@ function stopListening() {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  🔗 FEATURE: CROSS-CONVERSATION MEMORY SYNTHESIS
+//  📜 FEATURE: ARIA PROPOSES HARD RULES
+//  When ARIA detects a consistent pattern across 5+ signals
+//  of the same type she proposes a hard rule for Warren
+//  to approve in the Owner tab before it commits
+// ═══════════════════════════════════════════════════════════
+
+async function proposeHardRule(signalType, recentSignals) {
+  if (!recentSignals || recentSignals.length < 5) return;
+  const proposals = safeParse(localStorage.getItem(PROPOSED_RULES_KEY), []);
+
+  // Don't spam proposals — max one per 24 hours
+  const lastProposal = proposals[0]?.proposedAt || 0;
+  if (Date.now() - lastProposal < 86400000) return;
+
+  // Only propose if 5+ signals of same type in recent log
+  const signalLog = safeParse(localStorage.getItem(SIGNAL_LOG_KEY), []);
+  const recentOfType = signalLog.filter(s => s.type === signalType).slice(0, 10);
+  if (recentOfType.length < 5) return;
+
+  try {
+    const examples = recentOfType.slice(0, 5).map(s => `"${s.msg?.slice(0,60) || ''}"`).join(', ');
+
+    const res = await fetch(PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 150,
+        messages: [{
+          role: 'user',
+          content: `Based on these repeated ${signalType} signals from Warren: ${examples}
+
+Write ONE concise hard rule I (ARIA) should always follow, based on this consistent pattern. Start with "Always" or "Never". Maximum 20 words. Return only the rule text, nothing else.`
+        }]
+      })
+    });
+
+    const data = await res.json();
+    const ruleText = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
+    if (!ruleText || ruleText.length < 5) return;
+
+    // Store as pending proposal
+    proposals.unshift({
+      id: `proposal_${Date.now()}`,
+      rule: ruleText,
+      signalType,
+      evidence: recentOfType.length,
+      proposedAt: Date.now(),
+      status: 'pending' // pending → approved → rejected
+    });
+    localStorage.setItem(PROPOSED_RULES_KEY, JSON.stringify(proposals.slice(0, 20)));
+
+    // Notify Warren in chat
+    showLearnBanner(`📜 ARIA is proposing a new rule — check Owner tab`);
+    renderProposedRules();
+
+  } catch (e) { /* silent */ }
+}
+
+function approveProposedRule(id) {
+  const proposals = safeParse(localStorage.getItem(PROPOSED_RULES_KEY), []);
+  const proposal = proposals.find(p => p.id === id);
+  if (!proposal) return;
+
+  // Write as hard rule into memory
+  const ruleKey = `hard_rule_${Date.now()}`;
+  memory[ruleKey] = {
+    description: proposal.rule,
+    score: 90,
+    source: 'aria_proposed',
+    lastSeen: Date.now(),
+    examples: [],
+    isHardRule: true
+  };
+  saveMemory();
+
+  // Mark approved
+  proposal.status = 'approved';
+  localStorage.setItem(PROPOSED_RULES_KEY, JSON.stringify(proposals));
+  renderProposedRules();
+  showLearnBanner(`✅ Rule approved: "${proposal.rule.slice(0,40)}..."`);
+}
+
+function rejectProposedRule(id) {
+  const proposals = safeParse(localStorage.getItem(PROPOSED_RULES_KEY), []);
+  const p = proposals.find(p => p.id === id);
+  if (p) { p.status = 'rejected'; localStorage.setItem(PROPOSED_RULES_KEY, JSON.stringify(proposals)); }
+  renderProposedRules();
+}
+
+function renderProposedRules() {
+  const el = document.getElementById('proposed-rules-list');
+  if (!el) return;
+  const proposals = safeParse(localStorage.getItem(PROPOSED_RULES_KEY), []);
+  const pending = proposals.filter(p => p.status === 'pending');
+
+  if (!pending.length) {
+    el.innerHTML = '<div class="journal-empty">No pending proposals. ARIA will suggest rules when she detects strong consistent patterns.</div>';
+    return;
+  }
+
+  el.innerHTML = pending.map(p => `
+    <div class="journal-entry" style="border-left:2px solid var(--yellow)">
+      <div class="journal-date">📜 Proposed · ${new Date(p.proposedAt).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} · Based on ${p.evidence} ${p.signalType} signals</div>
+      <div style="font-size:13px;color:var(--text);margin:6px 0;font-weight:600">"${p.rule}"</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="owner-btn" style="flex:1;background:rgba(0,229,196,0.1);border-color:var(--teal)" onclick="approveProposedRule('${p.id}')">✅ Approve</button>
+        <button class="owner-btn" style="flex:1;background:rgba(255,71,87,0.07);border-color:var(--red);color:var(--red)" onclick="rejectProposedRule('${p.id}')">✗ Reject</button>
+      </div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  🎯 FEATURE: CROSS-SESSION GOAL FOLLOW-UP
+//  Checks for active goals at session start and injects
+//  follow-up into the opening message
+// ═══════════════════════════════════════════════════════════
+
+function checkGoalFollowUp() {
+  const goals = safeParse(localStorage.getItem(GOALS_KEY), []);
+  const activeUnfollowed = goals.filter(g => g.status === 'active' && !g.followedUp);
+  if (!activeUnfollowed.length) return;
+
+  // Surface oldest active goal in chat as an unprompted follow-up
+  const goal = activeUnfollowed[activeUnfollowed.length - 1];
+  const daysSince = Math.floor((Date.now() - goal.setAt) / 86400000);
+
+  // Only follow up if at least 1 day has passed
+  if (daysSince < 1) return;
+
+  const followUpMsg = goal.goal;
+
+  // Inject as an ARIA-initiated message after a short delay
+  setTimeout(() => {
+    if (chat.length === 0) {
+      // Only on fresh session with no existing chat
+      chat.push({ role: 'assistant', content: followUpMsg, ts: Date.now() });
+      saveChat();
+      renderChat();
+      markGoalFollowedUp(goal.id);
+    }
+  }, 1500);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  💭 LEARNING QUESTIONS — DISPLAY
+// ═══════════════════════════════════════════════════════════
+
+function renderLearningQuestions() {
+  const el = document.getElementById('learning-questions-list');
+  if (!el) return;
+  const qStore = safeParse(localStorage.getItem(QUESTIONS_KEY), { lastAsked: 0, asked: [] });
+
+  if (!qStore.asked || !qStore.asked.length) {
+    el.innerHTML = '<div class="journal-empty">No learning questions yet. ARIA generates targeted questions to fill gaps in her knowledge about you.</div>';
+    return;
+  }
+
+  el.innerHTML = qStore.asked.slice(0, 8).map(q => `
+    <div class="journal-entry" style="border-left:2px solid var(--purple)">
+      <div class="journal-date">💭 Asked · ${new Date(q.ts || Date.now()).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div>
+      <div style="font-size:12px;color:var(--text);margin-top:4px;font-style:italic">"${q.question || q}"</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px">Gap: ${q.gap || 'unknown topic'} · Confidence before: ${q.confidence || '?'}%</div>
+    </div>`).join('');
+}
 //  Reads journal + memories, finds recurring themes,
 //  writes consolidated insight nodes back into memory
 // ═══════════════════════════════════════════════════════════
@@ -4385,7 +4597,7 @@ function switchTab(name,btn){
   if(btn)btn.classList.add('active');
   if(name==='teach')renderTeachTab();
   if(name==='stats')renderStats();
-  if(name==='owner'){renderTeamList();renderJournal();renderNeuroStatus();renderSignalLog();renderDocList();updateSyncStatus();renderProposals();renderGoals();renderPromptEvo();setTimeout(loadProfileFields,50);}
+  if(name==='owner'){renderTeamList();renderJournal();renderNeuroStatus();renderSignalLog();renderDocList();updateSyncStatus();renderProposals();renderGoals();renderPromptEvo();renderProposedRules();renderLearningQuestions();setTimeout(loadProfileFields,50);}
   if(name!=='chat') neuroCanvas.pause();
   else neuroCanvas.resume();
   if(name!=='chat')closeInlineSearch();
