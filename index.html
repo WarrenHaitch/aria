@@ -1465,10 +1465,9 @@ function scrollToInlineMatch(idx){inlineMatches.forEach((m,i)=>{m.bubble.classLi
 
 function setTeamMode() {
   const params = new URLSearchParams(window.location.search);
-  const urlCodeFinal = (params.get('code') || '').toUpperCase().trim();
-  // Fallback to localStorage saved code (PWA home screen launch)
+  // Use URL code if present, fall back to localStorage saved code (PWA home screen)
   const savedCode = (localStorage.getItem('aria_pwa_code') || '').toUpperCase().trim();
-  const urlCodeFinal = urlCodeFinal || savedCode;
+  const urlCodeFinal = (params.get('code') || '').toUpperCase().trim() || savedCode;
   if(!urlCodeFinal){document.body.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100dvh;background:#0a0c12;padding:30px;text-align:center;font-family:'Syne',sans-serif;gap:16px;"><div style="font-size:56px">🔒</div><div style="font-size:22px;font-weight:800;color:#ff4757">Access Denied</div><div style="font-size:14px;color:#5a6080;line-height:1.7;max-width:280px">This link is not valid.<br><br>Contact Warren for a personal access link.</div></div>`;return;}
   const isStructurallyValid=urlCodeFinal.length>=6&&verifySaltedCode(urlCodeFinal);
   const storedTeam=safeParse(localStorage.getItem(TEAM_KEY),[]);
