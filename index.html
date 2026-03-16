@@ -1290,9 +1290,25 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // Team mode check
   const params = new URLSearchParams(window.location.search);
-  const isTeamMode = params.get('team') === '1';
+  const urlTeam = params.get('team') === '1';
+  const urlCode = (params.get('code') || '').toUpperCase().trim();
+
+  // ── PWA FIX: persist team code on first visit so home screen launch works ──
+  if (urlTeam && urlCode) {
+    localStorage.setItem('aria_pwa_team', '1');
+    localStorage.setItem('aria_pwa_code', urlCode);
+  }
+  // Check saved code even if URL params are stripped (PWA home screen launch)
+  const savedTeam = localStorage.getItem('aria_pwa_team') === '1';
+  const savedCode = localStorage.getItem('aria_pwa_code') || '';
+  const isTeamMode = urlTeam || savedTeam;
 
   if (isTeamMode) {
+    // Inject saved code back into URL params if missing so setTeamMode reads it
+    if (!urlCode && savedCode) {
+      const newUrl = `${window.location.pathname}?team=1&code=${savedCode}`;
+      window.history.replaceState({}, '', newUrl);
+    }
     setTeamMode();
     // Team members NEVER see API modal, PIN modals, or owner tab — proxy handles API
     document.getElementById('api-modal').style.display = 'none';
@@ -1448,22 +1464,26 @@ function scrollToInlineMatch(idx){inlineMatches.forEach((m,i)=>{m.bubble.classLi
 // ═══════════════════════════════════════════════════════════
 
 function setTeamMode() {
-  const params=new URLSearchParams(window.location.search); const urlCode=(params.get('code')||'').toUpperCase().trim();
-  if(!urlCode){document.body.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100dvh;background:#0a0c12;padding:30px;text-align:center;font-family:'Syne',sans-serif;gap:16px;"><div style="font-size:56px">🔒</div><div style="font-size:22px;font-weight:800;color:#ff4757">Access Denied</div><div style="font-size:14px;color:#5a6080;line-height:1.7;max-width:280px">This link is not valid.<br><br>Contact Warren for a personal access link.</div></div>`;return;}
-  const isStructurallyValid=urlCode.length>=6&&verifySaltedCode(urlCode);
+  const params = new URLSearchParams(window.location.search);
+  const urlCodeFinal = (params.get('code') || '').toUpperCase().trim();
+  // Fallback to localStorage saved code (PWA home screen launch)
+  const savedCode = (localStorage.getItem('aria_pwa_code') || '').toUpperCase().trim();
+  const urlCodeFinal = urlCodeFinal || savedCode;
+  if(!urlCodeFinal){document.body.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100dvh;background:#0a0c12;padding:30px;text-align:center;font-family:'Syne',sans-serif;gap:16px;"><div style="font-size:56px">🔒</div><div style="font-size:22px;font-weight:800;color:#ff4757">Access Denied</div><div style="font-size:14px;color:#5a6080;line-height:1.7;max-width:280px">This link is not valid.<br><br>Contact Warren for a personal access link.</div></div>`;return;}
+  const isStructurallyValid=urlCodeFinal.length>=6&&verifySaltedCode(urlCodeFinal);
   const storedTeam=safeParse(localStorage.getItem(TEAM_KEY),[]);
-  const localMember=storedTeam.find(m=>m.code===urlCode);
+  const localMember=storedTeam.find(m=>m.code===urlCodeFinal);
   if(!localMember&&!isStructurallyValid){document.body.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100dvh;background:#0a0c12;padding:30px;text-align:center;font-family:'Syne',sans-serif;gap:16px;"><div style="font-size:56px">🔒</div><div style="font-size:22px;font-weight:800;color:#ff4757">Access Denied</div><div style="font-size:14px;color:#5a6080;line-height:1.7;max-width:280px">Link not valid or revoked.<br><br>Contact Warren for a new link.</div></div>`;return;}
   isTeamMember=true;
   // Get member name — from local team list first, fall back to URL code parsing
   const storedTeamForName=safeParse(localStorage.getItem(TEAM_KEY),[]);
-  const memberByCode=storedTeamForName.find(m=>m.code===urlCode) || localMember;
+  const memberByCode=storedTeamForName.find(m=>m.code===urlCodeFinal) || localMember;
   if(memberByCode){
     username=memberByCode.name;
     localStorage.setItem(USER_KEY,memberByCode.name);
   } else {
     // Extract name from code — codes are format like OLW13N1M (first letters = name initials)
-    username = urlCode.replace(/[0-9]/g,'').slice(0,3) || 'Beta';
+    username = urlCodeFinal.replace(/[0-9]/g,'').slice(0,3) || 'Beta';
     localStorage.setItem(USER_KEY, username);
   }
   const ownerBtn=document.getElementById('owner-nav-btn'); if(ownerBtn) ownerBtn.style.display='none';
@@ -2550,8 +2570,10 @@ function selfEvaluateResponse(userMsg, ariaReply, signal) {
   score = Math.max(0.1, Math.min(1.0, Math.round(score * 100) / 100));
 
   selfEval.totalEvals++;
-  selfEval.recentScores = [...selfEval.recentScores, score].slice(-20);
-  selfEval.avgScore = selfEval.recentScores.reduce((a, b) => a + b, 0) / selfEval.recentScores.length;
+  selfEval.recentScores = [...(selfEval.recentScores || []), score].slice(-20);
+  selfEval.avgScore = selfEval.recentScores.length
+    ? selfEval.recentScores.reduce((a, b) => a + b, 0) / selfEval.recentScores.length
+    : score;
   selfEval.avgScore = Math.round(selfEval.avgScore * 100) / 100;
 
   if (issues.length) selfEval.improvementAreas = [...new Set([...issues, ...selfEval.improvementAreas])].slice(0, 10);
@@ -3000,7 +3022,7 @@ function renderRelationshipDepth() {
       <span style="font-size:16px;font-weight:800;color:var(--teal)">${pct}%</span>
     </div>
     <div class="rel-bar-wrap"><div class="rel-bar-fill" style="width:${pct}%"></div></div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">${rel.sessionCount} sessions · ${rel.totalMessages} messages · ${rel.milestones.length} milestones</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">${rel.sessionCount} sessions · ${rel.totalMessages} messages · ${(rel.milestones||[]).length} milestones</div>
     <div class="sec-label" style="margin-top:0">Milestones</div>
     ${rel.milestones.slice(-5).reverse().map(m => `
       <div class="rel-milestone">
@@ -3355,8 +3377,10 @@ function runSelfAssessment(userMsg, ariaReply) {
   localStorage.setItem(SELF_EVAL_KEY, JSON.stringify(eval_));
 
   // If consistently high quality — slightly boost confidence weights
-  const avgScore = eval_.recentScores.reduce((a,b) => a+b, 0) / eval_.recentScores.length;
-  if (eval_.recentScores.length >= 5 && avgScore > 0.75 && neuro?.neuralWeights) {
+  const recentScores = eval_.recentScores || [];
+  if (!recentScores.length) return;
+  const avgScore = recentScores.reduce((a,b) => a+b, 0) / recentScores.length;
+  if (recentScores.length >= 5 && avgScore > 0.75 && neuro?.neuralWeights) {
     neuro.neuralWeights.selfAssessmentBias = Math.min(0.95,
       (neuro.neuralWeights.selfAssessmentBias || 0.55) + 0.005
     );
@@ -3925,7 +3949,7 @@ function storeEmotionalMemory(userMsg, type, emotion) {
 
 function getEmotionalInstruction() {
   const emoStore = safeParse(localStorage.getItem(EMOTION_KEY), null);
-  if (!emoStore || emoStore.history.length < 3) return '';
+  if (!emoStore || !Array.isArray(emoStore.history) || emoStore.history.length < 3) return '';
 
   const recent = emoStore.history.slice(0, 5);
   const avgRecent = recent.reduce((a, b) => a + b.emotionScore, 0) / recent.length;
@@ -4306,7 +4330,7 @@ async function evolvePromptSections() {
 
   // Only evolve if we have enough signal history
   const emoStore = safeParse(localStorage.getItem(EMOTION_KEY), null);
-  if (!emoStore || emoStore.history.length < 10) return;
+  if (!emoStore || !Array.isArray(emoStore.history) || emoStore.history.length < 10) return;
 
   try {
     const praiseHistory = emoStore.history
