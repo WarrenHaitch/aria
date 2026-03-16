@@ -58,12 +58,50 @@
     .header { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border); background:linear-gradient(135deg,rgba(13,16,32,0.98),rgba(10,12,20,0.98)); z-index:20; flex-shrink:0; position:relative; overflow:hidden; }
     .header::after { content:''; position:absolute; bottom:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(0,229,196,0.4),rgba(124,92,252,0.3),transparent); }
     .logo { font-family:'Space Mono',monospace; font-size:22px; font-weight:700; color:var(--teal); letter-spacing:3px; text-shadow:0 0 20px rgba(0,229,196,0.4); transition: opacity 0.2s; }
-    .logo.thinking { letter-spacing:1px; }
-    .logo .think-note { font-size:18px; animation:noteFloat 1.4s ease-in-out infinite; display:inline-block; color:var(--teal); letter-spacing:2px; }
+    .logo.thinking { letter-spacing:0px; }
+    .logo .think-note {
+      font-size:13px;
+      animation:noteFloat 1.4s ease-in-out infinite;
+      display:inline-block;
+      color:var(--teal);
+      letter-spacing:1px;
+      line-height:1;
+    }
     .logo .think-note:nth-child(1){ animation-delay:0s; }
     .logo .think-note:nth-child(2){ animation-delay:0.2s; }
     .logo .think-note:nth-child(3){ animation-delay:0.4s; }
     .logo .think-note:nth-child(4){ animation-delay:0.6s; }
+    /* ── HOLOGRAPHIC BRAIN THINKING BUBBLE ── */
+    .thinking-bubble {
+      background: rgba(5,8,20,0.65);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-top: 1px solid rgba(0,229,196,0.30);
+      border-right: 1px solid rgba(0,229,196,0.08);
+      border-bottom: 1px solid rgba(0,229,196,0.08);
+      border-left: 2px solid var(--teal);
+      border-radius: 0 12px 12px 0;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #think-brain-canvas {
+      width: 36px;
+      height: 36px;
+      display: block;
+    }
+    .think-brain-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 9px;
+      color: var(--teal);
+      letter-spacing: 1px;
+      animation: thinkPulse 1.2s ease-in-out infinite;
+    }
+    @keyframes thinkPulse {
+      0%,100% { opacity: 0.4; }
+      50%      { opacity: 1; }
+    }
     .header-left { display:flex; align-items:center; gap:8px; }
     .badge { font-size:11px; padding:2px 8px; border-radius:20px; border:1px solid var(--border); color:var(--sub); background:var(--card); }
     .badge-safe  { color:var(--teal);   border-color:rgba(0,229,196,0.3); background:rgba(0,229,196,0.07); }
@@ -2184,7 +2222,7 @@ async function sendMessage(){
   chat.push({role:'user',content:text,ts:Date.now()});saveChat();
   input.value='';input.style.height='auto';updateSend();
   renderChat();
-  // Scroll to user message immediately so they see it was sent
+  // Show user's message — scroll to bottom so it's fully visible
   const msgs = document.getElementById('messages');
   msgs.scrollTop = msgs.scrollHeight;
   showThinking(true);
@@ -2205,40 +2243,43 @@ async function sendMessage(){
     const data=await res.json();
     if(data.error)throw new Error(data.error.message);
     const reply=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('')||"I couldn't respond. Please try again.";
-    chat.push({role:'assistant',content:reply,ts:Date.now()});saveChat();
-    learnFromExchange(text, reply);
 
-    // Occasionally generate a learning question (append to reply)
-    if (chat.length % 8 === 0 && !isTeamMember) {
-      const question = await generateLearningQuestion();
-      if (question) {
-        const lastMsg = chat[chat.length - 1];
-        if (lastMsg && lastMsg.role === 'assistant') {
-          lastMsg.content += `\n\n💭 *${question}*`;
-          saveChat();
-          renderChat();
+    // ── Stream the reply word by word, then run post-processing ──
+    showThinking(false);
+    streamReply(reply, async () => {
+      // Post-stream: save, learn, update features
+      chat.push({role:'assistant',content:reply,ts:Date.now()});saveChat();
+      learnFromExchange(text, reply);
+
+      // Occasionally generate a learning question
+      if (chat.length % 8 === 0 && !isTeamMember) {
+        const question = await generateLearningQuestion();
+        if (question) {
+          const lastMsg = chat[chat.length-1];
+          if (lastMsg && lastMsg.role === 'assistant') {
+            lastMsg.content += `\n\n💭 *${question}*`;
+            saveChat();
+            // Append question to stream bubble without full re-render
+            const streamBubble = document.querySelector('.stream-wrap .bubble.ai');
+            if (streamBubble) streamBubble.innerHTML = renderMarkdown(lastMsg.content);
+          }
         }
       }
-    }
 
-    // ── Feature 3: Update predictive model ──
-    updatePredictiveModel(text, reply);
-
-    // ── Feature 4: Self-assessment ──
-    runSelfAssessment(text, reply);
-
-    // ── Feature 5: Update conversation patterns ──
-    updateConversationPatterns(text, reply);
-
-    // ── Fire neural canvas ──
-    neuroCanvas.fire(Math.min(3, 1 + reply.length / 800));
-    brainCanvas.fire(1.5);
+      updatePredictiveModel(text, reply);
+      runSelfAssessment(text, reply);
+      updateConversationPatterns(text, reply);
+      neuroCanvas.fire(Math.min(3, 1 + reply.length / 800));
+      brainCanvas.fire(1.5);
+      updateStatusBar();
+    });
 
   }catch(err){
+    showThinking(false);
     chat.push({role:'assistant',content:`⚠️ ${err.message}`,ts:Date.now()});saveChat();
+    renderChat();
   }finally{
-    showThinking(false);renderChat();
-    if(chat.length>0&&chat.length%6===0)endSession();
+    if(chat.length>0 && chat.length%6===0) endSession();
   }
 }
 
@@ -2309,16 +2350,111 @@ function showThinking(show){
   document.querySelectorAll('.thinking-row').forEach(el=>el.remove());
 
   if(show){
-    if(logo){ logo.classList.add('thinking'); logo.innerHTML='<span class="think-note">♩</span><span class="think-note">♪</span><span class="think-note">♫</span><span class="think-note">♬</span>'; }
+    // Header — small music notes (fixed size)
+    if(logo){
+      logo.classList.add('thinking');
+      logo.innerHTML='<span class="think-note">♩</span><span class="think-note">♪</span><span class="think-note">♫</span><span class="think-note">♬</span>';
+    }
+    // Chat — holographic brain canvas
     const row=document.createElement('div');
     row.className='thinking-row';
     row.style.cssText='display:flex;gap:8px;align-items:flex-end;margin-bottom:10px;';
-    row.innerHTML=`<div class="ai-badge">AI</div><div class="thinking-bubble"><span class="music-note">♩</span><span class="music-note">♪</span><span class="music-note">♫</span><span class="music-note">♬</span></div>`;
+    row.innerHTML=`
+      <div class="ai-badge">AI</div>
+      <div class="thinking-bubble">
+        <canvas id="think-brain-canvas" width="36" height="36"></canvas>
+        <span class="think-brain-label">PROCESSING</span>
+      </div>`;
     document.getElementById('messages').appendChild(row);
     row.scrollIntoView({behavior:'smooth',block:'end'});
+    // Start brain animation
+    initThinkBrain();
   } else {
     if(logo){ logo.classList.remove('thinking'); logo.textContent='ARIA'; }
+    // Stop think brain animation
+    if(window._thinkBrainAnim){ cancelAnimationFrame(window._thinkBrainAnim); window._thinkBrainAnim=null; }
   }
+}
+
+function initThinkBrain() {
+  const canvas = document.getElementById('think-brain-canvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = 36, H = 36;
+
+  // 7 nodes forming a brain-like cluster
+  const nodes = [
+    {x:8,  y:18, r:2.5, phase:0},
+    {x:14, y:9,  r:2,   phase:0.5},
+    {x:14, y:27, r:2,   phase:1.0},
+    {x:22, y:14, r:3,   phase:0.3},
+    {x:22, y:22, r:2.5, phase:0.8},
+    {x:29, y:10, r:1.8, phase:1.2},
+    {x:29, y:26, r:1.8, phase:0.7},
+  ];
+  const edges = [[0,1],[0,2],[1,3],[2,4],[3,4],[3,5],[4,6],[5,6],[1,4],[2,3]];
+  const pulses = [];
+  let lastFire = 0;
+
+  const TEAL   = [0,229,196];
+  const PURPLE = [124,92,252];
+  const GOLD   = [255,209,102];
+  const rgba   = ([r,g,b],a) => `rgba(${r},${g},${b},${a})`;
+
+  function loop(now) {
+    window._thinkBrainAnim = requestAnimationFrame(loop);
+    ctx.clearRect(0,0,W,H);
+
+    // Draw edges
+    edges.forEach(([a,b]) => {
+      const na=nodes[a], nb=nodes[b];
+      const act = Math.max(na.glow||0, nb.glow||0);
+      ctx.beginPath(); ctx.moveTo(na.x,na.y); ctx.lineTo(nb.x,nb.y);
+      ctx.strokeStyle = rgba(TEAL, 0.08 + act*0.35);
+      ctx.lineWidth = 0.5 + act*0.8; ctx.stroke();
+    });
+
+    // Draw nodes
+    nodes.forEach(n => {
+      n.phase += 0.04;
+      const pulse = 0.5 + 0.5*Math.sin(n.phase);
+      n.glow = (n.glow||0) * 0.92;
+      const g = Math.max(n.glow, pulse*0.25);
+      // Glow halo
+      if(g > 0.05){
+        const halo = ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r*3.5);
+        halo.addColorStop(0, rgba(TEAL, g*0.5));
+        halo.addColorStop(1, rgba(TEAL, 0));
+        ctx.beginPath(); ctx.arc(n.x,n.y,n.r*3.5,0,Math.PI*2);
+        ctx.fillStyle=halo; ctx.fill();
+      }
+      ctx.beginPath(); ctx.arc(n.x,n.y,n.r+g*2,0,Math.PI*2);
+      ctx.fillStyle = rgba(TEAL, 0.25 + g*0.65); ctx.fill();
+    });
+
+    // Draw pulses
+    for(let i=pulses.length-1; i>=0; i--){
+      const p=pulses[i]; p.t += p.speed;
+      if(p.t>=1){ nodes[p.to].glow=0.9; pulses.splice(i,1); continue; }
+      const a=nodes[p.from], b=nodes[p.to];
+      const x=a.x+(b.x-a.x)*p.t, y=a.y+(b.y-a.y)*p.t;
+      const col = p.t < 0.3 ? TEAL : p.t < 0.6 ? PURPLE : GOLD;
+      ctx.beginPath(); ctx.arc(x,y,2.5,0,Math.PI*2);
+      ctx.fillStyle=rgba(col,0.9-p.t*0.3); ctx.fill();
+    }
+
+    // Auto-fire cascade
+    if(now-lastFire > 220){
+      lastFire=now;
+      const src=Math.floor(Math.random()*nodes.length);
+      nodes[src].glow=0.9;
+      const conns=edges.filter(([a,b])=>a===src||b===src).map(([a,b])=>a===src?b:a);
+      conns.slice(0,2).forEach(to=>{
+        pulses.push({from:src,to,t:0,speed:0.025+Math.random()*0.02});
+      });
+    }
+  }
+  loop(0);
 }
 
 function escHtml(str){return(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -2741,7 +2877,71 @@ async function processDocumentFile(file) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  ✍️ DOCUMENT CREATION
+//  ✍️ TYPEWRITER STREAM — renders ARIA's reply word by word
+//  Shows user message first, then types response live,
+//  then scrolls to top of response when complete
+// ═══════════════════════════════════════════════════════════
+
+function streamReply(fullReply, onComplete) {
+  const container = document.getElementById('messages');
+
+  // Remove thinking row
+  document.querySelectorAll('.thinking-row').forEach(el => el.remove());
+
+  // Create the streaming wrap
+  const wrap = document.createElement('div');
+  wrap.className = 'msg-wrap stream-wrap';
+  wrap.style.cssText = 'display:flex;flex-direction:column;gap:3px;margin-bottom:10px;';
+
+  const timeStr = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+  const layerNames = ['INPUT → HIDDEN L1','HIDDEN L1 → HIDDEN L2','HIDDEN L2 → OUTPUT','OUTPUT → RESPONSE'];
+  const layerHint = layerNames[(chat.length - 1) % layerNames.length];
+
+  wrap.innerHTML = `
+    <div class="layer-hint">▸ ${layerHint}</div>
+    <div class="msg-row">
+      <div class="ai-badge">AI</div>
+      <div class="bubble ai new-bubble" id="stream-bubble"></div>
+    </div>
+    <div class="msg-meta">${timeStr}</div>`;
+  container.appendChild(wrap);
+
+  // Scroll to show the user message + start of typing
+  container.scrollTop = container.scrollHeight;
+
+  const bubble = document.getElementById('stream-bubble');
+  const words = fullReply.split(' ');
+  let i = 0;
+  let built = '';
+
+  // Speed: fast enough to feel live, slow enough to read
+  const WORD_DELAY = 18; // ms per word
+
+  function typeNext() {
+    if (i >= words.length) {
+      // Done typing — render final markdown
+      bubble.innerHTML = renderMarkdown(fullReply);
+      bubble.removeAttribute('id');
+      // Scroll to TOP of ARIA's response
+      setTimeout(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+      if (onComplete) onComplete();
+      return;
+    }
+
+    // Type in chunks of 3 words for smoother feel
+    const chunk = words.slice(i, i + 3).join(' ');
+    built += (built ? ' ' : '') + chunk;
+    i += 3;
+
+    // Show plain text while typing (no markdown flicker)
+    bubble.textContent = built + (i < words.length ? ' ▌' : '');
+    container.scrollTop = container.scrollHeight;
+
+    setTimeout(typeNext, WORD_DELAY);
+  }
+
+  typeNext();
+}
 //  ARIA writes a document and offers it for download
 // ═══════════════════════════════════════════════════════════
 
