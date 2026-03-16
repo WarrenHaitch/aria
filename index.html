@@ -2222,11 +2222,13 @@ async function sendMessage(){
   chat.push({role:'user',content:text,ts:Date.now()});saveChat();
   input.value='';input.style.height='auto';updateSend();
   renderChat();
-  // Show user's message — scroll to bottom so it's fully visible
-  const msgs = document.getElementById('messages');
-  msgs.scrollTop = msgs.scrollHeight;
   showThinking(true);
   pulseActivityMeter();
+  // Scroll AFTER thinking row is in DOM so brain bubble is visible
+  setTimeout(() => {
+    const msgs = document.getElementById('messages');
+    msgs.scrollTop = msgs.scrollHeight;
+  }, 50);
 
   const apiMessages=chat.slice(-20).map(m=>({role:m.role,content:m.content}));
 
@@ -2366,7 +2368,7 @@ function showThinking(show){
         <span class="think-brain-label">PROCESSING</span>
       </div>`;
     document.getElementById('messages').appendChild(row);
-    row.scrollIntoView({behavior:'smooth',block:'end'});
+    // Scroll handled by sendMessage after DOM settles
     // Start brain animation
     initThinkBrain();
   } else {
