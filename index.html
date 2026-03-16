@@ -139,9 +139,7 @@
     .msg-row.user { justify-content:flex-end; }
     .ai-badge   { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; background:#0d1828; border:1px solid #2a3a60; color:var(--teal); }
     .user-badge { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; background:#1a2a50; border:1px solid #2a3a70; color:var(--sub); }
-    .bubble { padding:11px 14px; font-size:14px; line-height:1.65; max-width:78%; white-space:pre-wrap; word-wrap:break-word; transition:border-color 0.3s, box-shadow 0.3s, background 0.3s; }
-    .bubble.ai   { background:var(--card); border:1px solid var(--border); border-radius:12px 12px 12px 2px; }
-    .bubble.user { background:#1a2a50; border:1px solid #2a3a70; border-radius:12px 12px 2px 12px; }
+    .bubble { padding:11px 14px; font-size:14px; line-height:1.65; max-width:78%; white-space:pre-wrap; word-wrap:break-word; }
     .thinking-bubble { background:var(--card); border:1px solid var(--border); border-radius:12px 12px 12px 2px; padding:10px 16px; display:flex; gap:4px; align-items:center; }
     .music-note { font-size:16px; animation:noteFloat 1.4s ease-in-out infinite; display:inline-block; color:var(--teal); }
     .music-note:nth-child(1){ animation-delay:0s; }
@@ -1293,14 +1291,27 @@ window.addEventListener('DOMContentLoaded', () => {
   const urlTeam = params.get('team') === '1';
   const urlCode = (params.get('code') || '').toUpperCase().trim();
 
-  // ── PWA FIX: persist team code on first visit so home screen launch works ──
+  // ── PWA FIX: persist team code in COOKIE (shared between Safari + PWA on iOS)
+  // localStorage is NOT shared between Safari and PWA on iOS — cookies ARE
+  function setCookie(name, val) {
+    document.cookie = `${name}=${val}; path=/aria/; max-age=31536000; SameSite=Lax`;
+    document.cookie = `${name}=${val}; path=/; max-age=31536000; SameSite=Lax`;
+  }
+  function getCookie(name) {
+    const m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    return m ? m[1] : '';
+  }
+
   if (urlTeam && urlCode) {
     localStorage.setItem('aria_pwa_team', '1');
     localStorage.setItem('aria_pwa_code', urlCode);
+    setCookie('aria_team', '1');
+    setCookie('aria_code', urlCode);
   }
-  // Check saved code even if URL params are stripped (PWA home screen launch)
-  const savedTeam = localStorage.getItem('aria_pwa_team') === '1';
-  const savedCode = localStorage.getItem('aria_pwa_code') || '';
+
+  // Read from both localStorage AND cookies
+  const savedTeam = localStorage.getItem('aria_pwa_team') === '1' || getCookie('aria_team') === '1';
+  const savedCode = localStorage.getItem('aria_pwa_code') || getCookie('aria_code') || '';
   const isTeamMode = urlTeam || savedTeam;
 
   if (isTeamMode) {
@@ -1465,8 +1476,12 @@ function scrollToInlineMatch(idx){inlineMatches.forEach((m,i)=>{m.bubble.classLi
 
 function setTeamMode() {
   const params = new URLSearchParams(window.location.search);
-  // Use URL code if present, fall back to localStorage saved code (PWA home screen)
-  const savedCode = (localStorage.getItem('aria_pwa_code') || '').toUpperCase().trim();
+  function getCookie(name) {
+    const m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    return m ? m[1] : '';
+  }
+  // Use URL code if present, fall back to cookie (iOS PWA), then localStorage
+  const savedCode = getCookie('aria_code') || (localStorage.getItem('aria_pwa_code') || '').toUpperCase().trim();
   const urlCodeFinal = (params.get('code') || '').toUpperCase().trim() || savedCode;
   if(!urlCodeFinal){document.body.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100dvh;background:#0a0c12;padding:30px;text-align:center;font-family:'Syne',sans-serif;gap:16px;"><div style="font-size:56px">🔒</div><div style="font-size:22px;font-weight:800;color:#ff4757">Access Denied</div><div style="font-size:14px;color:#5a6080;line-height:1.7;max-width:280px">This link is not valid.<br><br>Contact Warren for a personal access link.</div></div>`;return;}
   const isStructurallyValid=urlCodeFinal.length>=6&&verifySaltedCode(urlCodeFinal);
