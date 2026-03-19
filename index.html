@@ -2296,10 +2296,7 @@ async function sendMessage(){
   userWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   showThinking(true);
-  pulseActivityMeter();ElementById('messages');
-    // Scroll to bottom — shows user's new message AND the brain thinking bubble below it
-    msgs.scrollTop = msgs.scrollHeight;
-  }, 60);
+  pulseActivityMeter();
 
   // Smart chat history — keep last 12 messages but cap total characters
   // Like human short-term memory: recent context matters most
