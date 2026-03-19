@@ -2271,13 +2271,32 @@ async function sendMessage(){
 
   chat.push({role:'user',content:text,ts:Date.now()});saveChat();
   input.value='';input.style.height='auto';updateSend();
-  renderChat();
+  updateMemPill(); updateBadge();
+
+  // ── Append user message directly — no full re-render ──
+  // This preserves scroll position so previous conversation stays visible
+  const msgs = document.getElementById('messages');
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('action-row').style.display = 'flex';
+  document.getElementById('suggestions').style.display = 'none';
+
+  const timeStr = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  const userWrap = document.createElement('div');
+  userWrap.className = 'msg-wrap';
+  userWrap.style.cssText = 'display:flex;flex-direction:column;align-items:flex-end;gap:3px;margin-bottom:10px;';
+  userWrap.innerHTML = `
+    <div class="msg-row user">
+      <div class="bubble user">${escHtml(text).replace(/\n/g,'<br>')}</div>
+      <div class="user-badge">${isTeamMember?(username?username[0].toUpperCase():'👤'):'WA'}</div>
+    </div>
+    <div class="msg-meta">${timeStr}</div>`;
+  msgs.appendChild(userWrap);
+
+  // ── Scroll: show user message at top, brain bubble below ──
+  userWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
   showThinking(true);
-  pulseActivityMeter();
-  // After both user message AND brain bubble are in DOM, scroll so user msg is at top
-  // This pushes previous chat up and shows the new question + processing brain
-  setTimeout(() => {
-    const msgs = document.getElementById('messages');
+  pulseActivityMeter();ElementById('messages');
     // Scroll to bottom — shows user's new message AND the brain thinking bubble below it
     msgs.scrollTop = msgs.scrollHeight;
   }, 60);
