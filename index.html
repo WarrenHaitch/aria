@@ -3083,3 +3083,357 @@ function streamReply(onComplete) {
 }
 
 
+
+function initThinkBrain() {
+  const canvas = document.getElementById('think-brain-canvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = 36, H = 36;
+  const nodes = [
+    {x:8,  y:18, r:2.5, phase:0},    {x:14, y:9,  r:2,   phase:0.5},
+    {x:14, y:27, r:2,   phase:1.0},  {x:22, y:14, r:3,   phase:0.3},
+    {x:22, y:22, r:2.5, phase:0.8},  {x:29, y:10, r:1.8, phase:1.2},
+    {x:29, y:26, r:1.8, phase:0.7},
+  ];
+  const edges = [[0,1],[0,2],[1,3],[2,4],[3,4],[3,5],[4,6],[5,6],[1,4],[2,3]];
+  const pulses = [];
+  let lastFire = 0;
+  const TEAL=[0,229,196], PURPLE=[124,92,252], GOLD=[255,209,102];
+  const rgba = ([r,g,b],a) => `rgba(${r},${g},${b},${a})`;
+  function loop(now) {
+    window._thinkBrainAnim = requestAnimationFrame(loop);
+    ctx.clearRect(0,0,W,H);
+    edges.forEach(([a,b]) => {
+      const na=nodes[a], nb=nodes[b], act=Math.max(na.glow||0, nb.glow||0);
+      ctx.beginPath(); ctx.moveTo(na.x,na.y); ctx.lineTo(nb.x,nb.y);
+      ctx.strokeStyle=rgba(TEAL,0.08+act*0.35); ctx.lineWidth=0.5+act*0.8; ctx.stroke();
+    });
+    nodes.forEach(n => {
+      n.phase += 0.04;
+      const pulse = 0.5+0.5*Math.sin(n.phase);
+      n.glow = (n.glow||0)*0.92;
+      const g = Math.max(n.glow, pulse*0.25);
+      if(g>0.05){
+        const halo=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r*3.5);
+        halo.addColorStop(0,rgba(TEAL,g*0.5)); halo.addColorStop(1,rgba(TEAL,0));
+        ctx.beginPath(); ctx.arc(n.x,n.y,n.r*3.5,0,Math.PI*2); ctx.fillStyle=halo; ctx.fill();
+      }
+      ctx.beginPath(); ctx.arc(n.x,n.y,n.r+g*2,0,Math.PI*2);
+      ctx.fillStyle=rgba(TEAL,0.25+g*0.65); ctx.fill();
+    });
+    for(let i=pulses.length-1;i>=0;i--){
+      const p=pulses[i]; p.t+=p.speed;
+      if(p.t>=1){nodes[p.to].glow=0.9;pulses.splice(i,1);continue;}
+      const a=nodes[p.from],b=nodes[p.to];
+      const x=a.x+(b.x-a.x)*p.t,y=a.y+(b.y-a.y)*p.t;
+      const col=p.t<0.3?TEAL:p.t<0.6?PURPLE:GOLD;
+      ctx.beginPath(); ctx.arc(x,y,2.5,0,Math.PI*2);
+      ctx.fillStyle=rgba(col,0.9-p.t*0.3); ctx.fill();
+    }
+    if(now-lastFire>220){
+      lastFire=now;
+      const src=Math.floor(Math.random()*nodes.length);
+      nodes[src].glow=0.9;
+      const conns=edges.filter(([a,b])=>a===src||b===src).map(([a,b])=>a===src?b:a);
+      conns.slice(0,2).forEach(to=>pulses.push({from:src,to,t:0,speed:0.025+Math.random()*0.02}));
+    }
+  }
+  loop(0);
+}
+
+function escHtml(str){return(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function renderMarkdown(str){
+  if(!str)return''; let s=escHtml(str);
+  s=s.replace(/\\*\\*(.+?)\\*\\*/g,'<strong>$1</strong>');
+  s=s.replace(/(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)/g,'<em>$1</em>');
+  s=s.replace(/`([^`]+)`/g,'<code style="background:rgba(0,229,196,0.1);color:var(--teal);padding:1px 5px;border-radius:4px;font-family:Space Mono,monospace;font-size:12px">$1</code>');
+  const lines=s.split('\
+'); let result=[]; let inList=false;
+  lines.forEach((line,i)=>{const trimmed=line.trim();
+    if(/^[-\u2022]\\s+/.test(trimmed)){if(!inList){result.push('<ul style="margin:6px 0 6px 16px;padding:0;list-style:none">');inList=true;}result.push(`<li style="margin-bottom:4px;padding-left:12px;position:relative"><span style="position:absolute;left:0;color:var(--teal)">\u25b8</span>${trimmed.replace(/^[-\u2022]\\s+/,'')}</li>`);}
+    else if(/^\\d+\\.\\s+/.test(trimmed)){if(!inList){result.push('<ol style="margin:6px 0 6px 16px;padding:0">');inList=true;}result.push(`<li style="margin-bottom:4px">${trimmed.replace(/^\\d+\\.\\s+/,'')}</li>`);}
+    else{if(inList){result.push('</ul>');inList=false;}if(trimmed===''){result.push('<br>');}else{result.push(line+(i<lines.length-1?'<br>':''));}}
+  });
+  if(inList)result.push('</ul>'); return result.join('');
+}
+
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
+function updateSend(){const v=document.getElementById('msg-input').value.trim();document.getElementById('send-btn').className='send-btn'+(v?' active':'');}
+function handleKey(e){/* Enter = new line. Send only via \u2191 button */}
+function useChip(el){document.getElementById('msg-input').value=el.textContent;updateSend();sendMessage();}
+function clearChat(){if(!confirm('Clear chat history?'))return;chat=[];saveChat();renderChat();}
+function exportChat(){const t=chat.map(m=>`[${m.role.toUpperCase()}]: ${m.content}`).join('\
+\
+');const b=new Blob([t],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='aria_chat.txt';a.click();}
+
+async function writeSessionJournal(){
+  const sessionMsgs=chat.slice(-20); if(sessionMsgs.length<4)return;
+  try{
+    const res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:120,messages:[{role:'user',content:`Summarise this conversation in ONE sentence (max 25 words). Focus on what was discussed, decided, or learned.\
+\
+Conversation:\
+${sessionMsgs.map(m=>m.role.toUpperCase()+': '+m.content.slice(0,200)).join('\
+')}`}]})});
+    const data=await res.json();
+    const summary=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
+    if(summary){journal.unshift({ts:Date.now(),summary,msgCount:sessionMsgs.length});journal=journal.slice(0,30);localStorage.setItem(JOURNAL_KEY,JSON.stringify(journal));}
+  }catch(e){}
+}
+
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+//  RENDER FUNCTIONS
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+
+function renderTeachTab(){
+  const entries=Object.entries(memory).sort((a,b)=>b[1].score-a[1].score);
+  const hard=entries.filter(([,v])=>v.score>=80).length; const growing=entries.filter(([,v])=>v.score>=40&&v.score<80).length; const soft=entries.filter(([,v])=>v.score<40).length;
+  document.getElementById('teach-stats').innerHTML=`<div class="stat-pill" style="border-color:#00e5c4"><span style="color:#00e5c4;font-weight:700">${hard}</span> Hard Rules</div><div class="stat-pill" style="border-color:#ffd166"><span style="color:#ffd166;font-weight:700">${growing}</span> Growing</div><div class="stat-pill" style="border-color:#ff6b35"><span style="color:#ff6b35;font-weight:700">${soft}</span> Soft</div>`;
+  const filtered=currentFilter==='all'?entries:entries.filter(([,v])=>getTier(v.score)===currentFilter);
+  document.getElementById('mem-count-label').textContent=`Learned Memories (${filtered.length})`;
+  const list=document.getElementById('memory-list');
+  if(filtered.length===0){list.innerHTML='<div class="empty-mem">No memories yet. Start chatting \u2014 ARIA learns automatically.</div>';return;}
+  list.innerHTML=filtered.map(([key,val])=>{
+    const tier=getTier(val.score),color=TIER_COLORS[tier]; const isEditing=editingKey===key;
+    return`<div class="mem-card" style="border-left-color:${color}"><div class="mem-top"><div class="mem-key">${key.replace(/_/g,' ')}</div><div class="tier-badge" style="background:${color}22;color:${color}">${TIER_LABELS[tier]}</div></div>${isEditing?`<textarea class="edit-area" id="edit-val-${key}">${escHtml(val.description)}</textarea><div class="edit-actions"><button class="micro-btn" onclick="saveEdit('${key}')">Save</button><button class="micro-btn neutral" onclick="cancelEdit()">Cancel</button></div>`:`<div class="mem-desc">${escHtml(val.description)}</div>`}<div class="conf-wrap"><div class="conf-bar" style="width:${val.score}%;background:${color}"></div></div><div class="conf-label">${val.score}% confidence \u00b7 ${val.source||'passive'}</div><div class="mem-actions"><button class="micro-btn" onclick="promoteMemory('${key}')">\u2b06 Promote</button><button class="micro-btn neutral" onclick="startEdit('${key}')">\u270f\ufe0f Edit</button><button class="micro-btn warn" onclick="demoteMemory('${key}')">\u2b07 Demote</button><button class="micro-btn danger" onclick="deleteMemory('${key}')">\ud83d\uddd1 Delete</button></div></div>`;
+  }).join('');
+}
+
+function setFilter(f,btn){currentFilter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');renderTeachTab();}
+function addManualRule(){const key=document.getElementById('new-key').value.trim().toLowerCase().replace(/\\s+/g,'_');const desc=document.getElementById('new-desc').value.trim();if(!key||!desc)return alert('Fill in both fields.');memory[key]={description:desc,score:85,source:'manual',lastSeen:Date.now(),examples:[]};saveMemory();updateBadge();document.getElementById('new-key').value='';document.getElementById('new-desc').value='';renderTeachTab();}
+function promoteMemory(key){memory[key].score=Math.min(95,memory[key].score+20);saveMemory();renderTeachTab();updateBadge();}
+function demoteMemory(key){memory[key].score=Math.max(5,memory[key].score-20);saveMemory();renderTeachTab();updateBadge();}
+function deleteMemory(key){if(!confirm(`Delete "${key}"?`))return;delete memory[key];saveMemory();updateBadge();renderTeachTab();}
+function startEdit(key){editingKey=key;renderTeachTab();setTimeout(()=>{const t=document.getElementById('edit-val-'+key);if(t)t.focus();},50);}
+function saveEdit(key){const t=document.getElementById('edit-val-'+key);if(t&&memory[key])memory[key].description=t.value;saveMemory();editingKey=null;renderTeachTab();}
+function cancelEdit(){editingKey=null;renderTeachTab();}
+
+function saveProfile(){
+  profile={name:document.getElementById('prof-name').value.trim(),personality:document.getElementById('prof-personality').value.trim(),projects:document.getElementById('prof-projects').value.trim(),interests:document.getElementById('prof-interests').value.trim(),relationship:document.getElementById('prof-relationship').value.trim(),nevers:document.getElementById('prof-nevers').value.trim(),extra:document.getElementById('prof-extra').value.trim(),savedAt:Date.now()};
+  localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));
+  if(profile.name)         memory['owner_identity']    ={description:profile.name,score:99,source:'profile',lastSeen:Date.now(),examples:[]};
+  if(profile.projects)     memory['current_projects']  ={description:profile.projects,score:99,source:'profile',lastSeen:Date.now(),examples:[]};
+  if(profile.interests)    memory['owner_interests']   ={description:profile.interests,score:99,source:'profile',lastSeen:Date.now(),examples:[]};
+  if(profile.relationship) memory['relationship_rules']={description:profile.relationship,score:99,source:'profile',lastSeen:Date.now(),examples:[]};
+  if(profile.nevers)       memory['never_do_this']     ={description:profile.nevers,score:99,source:'profile',lastSeen:Date.now(),examples:[]};
+  if(profile.extra)        memory['always_remember']   ={description:profile.extra,score:99,source:'profile',lastSeen:Date.now(),examples:[]};
+  saveMemory();updateBadge();
+  const banner=document.getElementById('profile-saved-banner');banner.style.display='block';setTimeout(()=>banner.style.display='none',3000);
+  showLearnBanner('\ud83d\udc9b Relationship profile saved \u2014 ARIA knows you now');
+}
+
+function loadProfileFields(){
+  if(!profile||!Object.keys(profile).length)return;
+  const set=(id,val)=>{const el=document.getElementById(id);if(el&&val)el.value=val;};
+  set('prof-name',profile.name);set('prof-personality',profile.personality);set('prof-projects',profile.projects);set('prof-interests',profile.interests);set('prof-relationship',profile.relationship);set('prof-nevers',profile.nevers);set('prof-extra',profile.extra);
+}
+
+function renderJournal(){
+  const list=document.getElementById('journal-list');if(!list)return;
+  if(!journal.length){list.innerHTML='<div class="journal-empty">No sessions recorded yet.</div>';return;}
+  list.innerHTML=journal.map(j=>`<div class="journal-entry"><div class="journal-date">${new Date(j.ts).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})} \u00b7 ${j.msgCount} messages</div><div class="journal-text">${escHtml(j.summary)}</div></div>`).join('');
+}
+
+function clearJournal(){if(!confirm('Clear all session journal entries?'))return;journal=[];localStorage.setItem(JOURNAL_KEY,JSON.stringify(journal));renderJournal();}
+
+function renderNeuroStatus(){
+  const el=document.getElementById('neuro-status-display'); if(!el||!neuro)return;
+  const w=neuro.neuralWeights||{};
+  const dominant=Object.entries(w).sort((a,b)=>b[1]-a[1])[0];
+  el.innerHTML=`
+    <div class="owner-info-row"><span class="owner-lbl">Evolution Count</span><span style="color:var(--teal)">${neuro.evolutionCount||0} times</span></div>
+    <div class="owner-info-row"><span class="owner-lbl">Born</span><span>${neuro.born?new Date(neuro.born).toLocaleDateString():'-'}</span></div>
+    <div class="owner-info-row"><span class="owner-lbl">Last Evolution</span><span>${neuro.lastEvolution?new Date(neuro.lastEvolution).toLocaleDateString():'-'}</span></div>
+    <div class="owner-info-row"><span class="owner-lbl">Dominant Trait</span><span style="color:var(--teal)">${dominant?dominant[0].replace(/([A-Z])/g,' $1').trim()+' ('+dominant[1]+')':'-'}</span></div>
+    <div class="owner-info-row"><span class="owner-lbl">Signature Traits</span><span>${(neuro.signatureTraits||[]).length||'None yet'}</span></div>
+    <div class="owner-info-row"><span class="owner-lbl">Pathways</span><span>${pathways.length}</span></div>
+  `;
+}
+
+function showSnapshotList(){
+  const el=document.getElementById('snapshot-list');
+  if(el.style.display==='block'){el.style.display='none';return;}
+  el.style.display='block';
+  if(!snapshots.length){el.innerHTML='<div class="empty-mem">No snapshots yet.</div>';return;}
+  el.innerHTML=snapshots.map(s=>`<div class="journal-entry" style="margin-bottom:8px">
+    <div class="journal-date">${new Date(s.timestamp).toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})} \u00b7 Evo #${s.evolutionCount}</div>
+    <div class="journal-text">${escHtml(s.label)}</div>
+    ${s.locked?'<div style="font-size:10px;color:var(--teal);margin-top:4px">\ud83d\udd12 Baseline \u2014 always preserved</div>':`<button class="micro-btn" onclick="restoreSnapshot('${s.id}')" style="margin-top:6px">\u21a9 Restore</button>`}
+  </div>`).join('');
+}
+
+function exportNeuro(){const b=new Blob([JSON.stringify(neuro,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='aria_neuro_backup.json';a.click();}
+
+function renderSkills(){
+  document.getElementById('skills-list').innerHTML=[
+    {icon:'\ud83e\udde0',name:'Neuro Weight Engine',desc:'20 neural dimensions evolving through every conversation. Warren\'s corrections move weights 3x faster than anyone else.'},
+    {icon:'\ud83d\udd04',name:'Passive Adaptive Growth',desc:'ARIA evolves at session end \u2014 praise strengthens, corrections prune, teaching plants new pathways.'},
+    {icon:'\ud83d\udcf8',name:'Snapshot & Rollback',desc:'Full neuro state saved before every evolution. Warren can restore ARIA to any previous state.'},
+    {icon:'\ud83c\udf10',name:'Web Research',desc:'Searches the web to ground responses in current information automatically.'},
+    {icon:'\ud83d\udcbe',name:'Memory Persistence',desc:'288 memories stored locally, seeding neuro weights. Grows with every conversation.'},
+    {icon:'\ud83d\udd0d',name:'Chat Search',desc:'Full-text search across all conversations with memory linking.'},
+    {icon:'\ud83d\udd10',name:'Owner PIN Protection',desc:'Owner tab locked behind PIN \u2014 invisible to team members.'},
+    {icon:'\ud83d\udc65',name:'Team Mode',desc:'Share ARIA with up to 10 beta testers via personal links.'},
+    {icon:'\u2601\ufe0f',name:'Cloudflare Proxy',desc:'API key secured server-side \u2014 never exposed in the browser.'},
+  ].map(s=>`<div class="skill-card"><span class="skill-icon">${s.icon}</span><div><div class="skill-name">${s.name}</div><div class="skill-desc">${s.desc}</div></div><div class="skill-status">\u25cf active</div></div>`).join('');
+}
+
+function renderSafety(){
+  document.getElementById('safety-list').innerHTML=IMMUTABLE_CORE.safetyRules.map(r=>`<div class="skill-card" style="border-left-color:var(--teal)"><span class="skill-icon">\ud83d\udd12</span><div><div class="skill-name">${r}</div><div class="skill-desc" style="color:var(--teal)">Hard limit \u2014 cannot be overridden by learning or neural weights</div></div></div>`).join('');
+}
+
+function renderStats(){
+  const entries=Object.entries(memory).sort((a,b)=>b[1].score-a[1].score);
+  const hard=entries.filter(([,v])=>v.score>=80).length;const growing=entries.filter(([,v])=>v.score>=40&&v.score<80).length;const soft=entries.filter(([,v])=>v.score<40).length;
+  const userMsgs=chat.filter(m=>m.role==='user').length;const ariaMsgs=chat.filter(m=>m.role==='assistant').length;
+  document.getElementById('stats-grid').innerHTML=[
+    {label:'Total Memories',value:entries.length,color:'#7c5cfc'},
+    {label:'Hard Rules',value:hard,color:'#00e5c4'},
+    {label:'Growing',value:growing,color:'#ffd166'},
+    {label:'Evolutions',value:neuro?.evolutionCount||0,color:'#00e5c4'},
+    {label:'Your Messages',value:userMsgs,color:'#7c5cfc'},
+    {label:'ARIA Responses',value:ariaMsgs,color:'#00e5c4'},
+  ].map(s=>`<div class="stat-card" style="border-top-color:${s.color}"><div class="stat-val" style="color:${s.color}">${s.value}</div><div class="stat-lbl">${s.label}</div></div>`).join('');
+
+  // Neural weight bars
+  const w=neuro?.neuralWeights||DEFAULT_NEURO_WEIGHTS;
+  const weightNames={verbosity:'Verbosity',emotionDepth:'Emotion Depth',shonaFrequency:'Shona Frequency',proactivity:'Proactivity',challengeLevel:'Challenge Level',humorWarmth:'Humor & Warmth',formality:'Formality',checkInFrequency:'Check-in Frequency',creativityBias:'Creativity Bias',directness:'Directness',eqSensitivity:'EQ Sensitivity',contextSwitchSpeed:'Context Switching',culturalDepth:'Cultural Depth',relationshipWarmth:'Relationship Warmth',curiosityDrive:'Curiosity Drive'};
+  document.getElementById('neuro-weights-display').innerHTML=Object.entries(weightNames).map(([k,label])=>`<div class="neuro-weight-row"><div class="neuro-label">${label}</div><div class="neuro-bar"><div class="neuro-fill" style="width:${(w[k]||0)*100}%"></div></div><div class="neuro-val">${(w[k]||0).toFixed(2)}</div></div>`).join('');
+
+  // Signature traits
+  const traits=neuro?.signatureTraits||[];
+  document.getElementById('signature-traits-display').innerHTML=traits.length?traits.map(t=>`<span class="neuro-trait">\u2728 ${t}</span>`).join(''):'<div style="font-size:12px;color:var(--muted);font-style:italic">No signature traits yet \u2014 keep chatting and teaching ARIA.</div>';
+
+  document.getElementById('top-memories').innerHTML=entries.slice(0,5).map(([k,v])=>`<div class="stat-mem-row"><span class="stat-mem-key">${k.replace(/_/g,' ')}</span><div class="mini-bar-wrap"><div class="mini-bar" style="width:${v.score}%;background:${TIER_COLORS[getTier(v.score)]}"></div></div><span class="stat-pct">${v.score}%</span></div>`).join('')||'<div class="empty-mem">No memories yet.</div>';
+}
+
+function exportMemory(){const b=new Blob([JSON.stringify(memory,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='aria_memory_backup.json';a.click();}
+function importMemory(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);Object.assign(memory,d);saveMemory();updateBadge();alert(`\u2705 Imported ${Object.keys(d).length} memories.`);}catch{alert('Invalid file.');}};r.readAsText(file);}
+function clearAllMemory(){if(!confirm('Clear ALL memories? Cannot be undone.'))return;memory={};saveMemory();updateBadge();alert('Memory cleared.');}
+
+function updateMemPill(){const count=Object.keys(memory).length;const pill=document.getElementById('mem-pill');if(count>0){const recent=Object.entries(memory).sort((a,b)=>(b[1].lastSeen||0)-(a[1].lastSeen||0))[0];pill.textContent=`\ud83d\udcbe ${count} memories \u00b7 Last: "${recent[0].replace(/_/g,' ')}"`;pill.style.display='inline-block';}else{pill.style.display='none';}}
+function updateBadge(){const count=Object.keys(memory).length;const badge=document.getElementById('mem-badge');badge.textContent=count;badge.style.display=count>0?'flex':'none';}
+
+
+function clearChat(){
+  if (!chat.length) return;
+  if (!confirm('Clear chat? It will be saved to your Archive in the Owner tab.')) return;
+  archiveCurrentChat();
+  chat = []; saveChat(); renderChat();
+}
+
+function archiveCurrentChat() {
+  if (chat.length < 2) return;
+  const archive = safeParse(localStorage.getItem(ARCHIVE_KEY), []);
+  const firstUser = chat.find(m => m.role === 'user');
+  const title = firstUser ? firstUser.content.slice(0, 60) : 'Conversation';
+  archive.unshift({
+    id: `chat_${Date.now()}`,
+    title, date: Date.now(), msgCount: chat.length,
+    owner: isTeamMember ? (username || 'beta') : 'warren',
+    messages: chat.slice()
+  });
+  localStorage.setItem(ARCHIVE_KEY, JSON.stringify(archive.slice(0, 50)));
+}
+
+function renderProposals() {
+  const el = document.getElementById('proposals-list'); if(!el) return;
+  const proposals = safeParse(localStorage.getItem(PROPOSALS_KEY), []);
+  const pending = proposals.filter(p => p.status === 'pending');
+  if(!pending.length){el.innerHTML='<div class="journal-empty">No rule proposals yet.</div>';return;}
+  el.innerHTML = pending.map(p=>`
+    <div class="journal-entry">
+      <div class="journal-date">${new Date(p.proposedAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+      <div class="journal-text" style="color:var(--text);font-weight:600">"${escHtml(p.rule)}"</div>
+      <div class="journal-text" style="font-size:10px">Based on: "${escHtml(p.source)}"</div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="micro-btn" onclick="approveRuleProposal('${p.id}')">✅ Approve</button>
+        <button class="micro-btn danger" onclick="dismissRuleProposal('${p.id}')">✕ Dismiss</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderGoals() {
+  const el = document.getElementById('goals-list'); if(!el) return;
+  const goals = safeParse(localStorage.getItem(GOALS_KEY), []);
+  const active = goals.filter(g => g.status === 'active');
+  if(!active.length){el.innerHTML='<div class="journal-empty">No active goals yet.</div>';return;}
+  el.innerHTML = active.slice(0,5).map(g=>`
+    <div class="journal-entry">
+      <div class="journal-date">${new Date(g.setAt).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} · ${g.followedUp?'✅ Done':'⏳ Pending'}</div>
+      <div class="journal-text">${escHtml(g.goal)}</div>
+    </div>`).join('');
+}
+
+function renderPromptEvo() {
+  const el = document.getElementById('prompt-evo-display'); if(!el) return;
+  const evo = safeParse(localStorage.getItem(PROMPT_EVO_KEY), null);
+  if(!evo||!evo.toneAdjustment){el.innerHTML='<div class="journal-empty">Not evolved yet — needs 10+ signal interactions.</div>';return;}
+  el.innerHTML = `
+    <div class="owner-info-row"><span class="owner-lbl">Evolutions</span><span style="color:var(--teal)">${evo.evolutionCount}</span></div>
+    ${evo.openingStyle?`<div class="owner-info-row"><span class="owner-lbl">Opening</span><span style="font-size:11px">${escHtml(evo.openingStyle)}</span></div>`:''}
+    ${evo.toneAdjustment?`<div class="owner-info-row"><span class="owner-lbl">Tone</span><span style="font-size:11px">${escHtml(evo.toneAdjustment)}</span></div>`:''}
+    ${evo.shonaPhrase?`<div class="owner-info-row"><span class="owner-lbl">Shona</span><span style="color:var(--teal);font-size:11px">${escHtml(evo.shonaPhrase)}</span></div>`:''}`;
+}
+
+function renderChatArchive() {
+  const el = document.getElementById('chat-archive-list'); if(!el) return;
+  const archive = safeParse(localStorage.getItem(ARCHIVE_KEY), []);
+  if(!archive.length){el.innerHTML='<div class="journal-empty">No archived chats yet.</div>';return;}
+  const userLabel = isTeamMember?(username||'beta'):'warren';
+  const userArchive = archive.filter(e=>!e.owner||e.owner===userLabel);
+  el.innerHTML = (userArchive.length?userArchive:archive).slice(0,20).map(entry=>`
+    <div class="journal-entry" style="cursor:pointer" onclick="recallArchivedChat('${entry.id}')">
+      <div class="journal-date">${new Date(entry.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})} · ${entry.msgCount} messages</div>
+      <div class="journal-text" style="color:var(--text)">${escHtml(entry.title)}${entry.title.length>=60?'...':''}</div>
+      <div style="font-size:10px;color:var(--teal);margin-top:4px">↩ Tap to recall</div>
+    </div>`).join('');
+}
+
+function toggleChatHistory() {
+  const panel = document.getElementById('chat-history-panel'); if(!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  if(!isOpen) renderHistoryPanel();
+}
+
+function renderHistoryPanel() {
+  const el = document.getElementById('history-panel-list'); if(!el) return;
+  const archive = safeParse(localStorage.getItem(ARCHIVE_KEY), []);
+  if(!archive.length){el.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px">No saved conversations yet.</div>';return;}
+  const userLabel = isTeamMember?(username||'beta'):'warren';
+  const userArchive = archive.filter(e=>!e.owner||e.owner===userLabel);
+  el.innerHTML=(userArchive.length?userArchive:archive).slice(0,30).map(entry=>`
+    <div onclick="recallArchivedChat('${entry.id}')" style="padding:10px 12px;margin-bottom:6px;cursor:pointer;background:rgba(0,229,196,0.05);border:1px solid rgba(0,229,196,0.12);border-left:2px solid var(--teal);border-radius:0 8px 8px 0;">
+      <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted)">${new Date(entry.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})} · ${entry.msgCount} messages</div>
+      <div style="font-size:13px;color:var(--text);margin-top:3px">${escHtml(entry.title)}${entry.title.length>=60?'...':''}</div>
+    </div>`).join('');
+}
+
+function recallArchivedChat(id) {
+  const archive = safeParse(localStorage.getItem(ARCHIVE_KEY), []);
+  const entry = archive.find(e=>e.id===id); if(!entry) return;
+  if(!confirm(`Recall "${entry.title.slice(0,40)}..."? Current chat will be archived first.`)) return;
+  if(chat.length>=2) archiveCurrentChat();
+  chat = entry.messages; saveChat(); renderChat();
+  const panel = document.getElementById('chat-history-panel');
+  if(panel) panel.style.display = 'none';
+  switchTab('chat', document.querySelector('.nav-btn'));
+  showLearnBanner(`💬 Recalled: "${entry.title.slice(0,40)}..."`);
+}
+
+function switchTab(name,btn){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>{b.classList.remove('active');});
+  const pane=document.getElementById('tab-'+name); if(pane) pane.classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(name==='teach')renderTeachTab();
+  if(name==='skills')renderSkills();
+  if(name==='safety')renderSafety();
+  if(name==='stats')renderStats();
+  if(name==='owner'){renderTeamList();renderJournal();renderNeuroStatus();renderSignalLog();renderDocList();updateSyncStatus();renderProposals();renderGoals();renderPromptEvo();renderProposedRules();renderLearningQuestions();renderChatArchive();setTimeout(loadProfileFields,50);}
+  if(name!=='chat')closeInlineSearch();
+}
+</script>
+</body>
+</html>
