@@ -59,7 +59,7 @@
     .header::after { content:''; position:absolute; bottom:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(0,229,196,0.4),rgba(124,92,252,0.3),transparent); }
     .logo { font-family:'Space Mono',monospace; font-size:22px; font-weight:700; color:var(--teal); letter-spacing:3px; text-shadow:0 0 20px rgba(0,229,196,0.4); transition:all 0.2s; white-space:nowrap; }
     .logo.thinking { letter-spacing:1px; font-size:14px; min-width:60px; }
-    .logo .think-note { font-size:14px !important; animation:noteFloat 1.4s ease-in-out infinite; display:inline-block !important; color:var(--teal); letter-spacing:1px; line-height:1; }
+    .logo .think-note { font-size:13px !important; animation:noteFloat 1.4s ease-in-out infinite; display:inline-block !important; color:var(--teal); letter-spacing:1px; line-height:1; }
     .logo .think-note:nth-child(1){ animation-delay:0s; }
     .logo .think-note:nth-child(2){ animation-delay:0.22s; }
     .logo .think-note:nth-child(3){ animation-delay:0.44s; }
@@ -586,9 +586,19 @@
         </div>
       </div>
       <div id="action-row" class="action-row" style="display:none">
-        <button class="action-btn" onclick="toggleInlineSearch()">🔍 Search chat</button>
+        <button class="action-btn" onclick="toggleInlineSearch()">🔍 Search</button>
+        <button class="action-btn" onclick="toggleChatHistory()">📚 History</button>
         <button class="action-btn" onclick="exportChat()">📤 Export</button>
         <button class="action-btn" onclick="clearChat()">🗑️ Clear</button>
+      </div>
+
+      <!-- Chat History Panel — visible to ALL users -->
+      <div id="chat-history-panel" style="display:none;position:relative;z-index:3;background:rgba(5,8,20,0.95);backdrop-filter:blur(10px);border-top:1px solid rgba(0,229,196,0.2);padding:12px;max-height:60vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--teal);letter-spacing:2px">📚 CHAT HISTORY</div>
+          <button onclick="toggleChatHistory()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer">✕</button>
+        </div>
+        <div id="history-panel-list"></div>
       </div>
       <div class="suggestions" id="suggestions">
         <div class="chip" onclick="useChip(this)">Latest tech news</div>
@@ -754,6 +764,12 @@
         </div>
 
         <div class="owner-card">
+          <div class="owner-card-title">💬 Chat Archive</div>
+          <div class="pane-sub" style="margin-bottom:12px">Every conversation is saved here when you clear the chat. Tap any to recall it into chat.</div>
+          <div id="chat-archive-list"></div>
+        </div>
+
+        <div class="owner-card">
           <div class="owner-card-title">📖 Session Journal</div>
           <div class="pane-sub" style="margin-bottom:12px">ARIA automatically writes a short summary after each conversation session.</div>
           <div id="journal-list"></div>
@@ -903,6 +919,7 @@ const SELF_EVAL_KEY   = 'aria_self_eval_v5';      // Feature 4
 const PATTERNS_KEY    = 'aria_conv_patterns_v5';  // Feature 5
 const EMOTION_KEY     = 'aria_emotion_v5';         // Feature: Emotional memory depth
 const SYNTHESIS_KEY   = 'aria_synthesis_v5';       // Feature: Memory synthesis
+const ARCHIVE_KEY     = 'aria_chat_archive_v5';    // Chat archive — saved conversations
 const CREATIVE_KEY        = 'aria_creative_v5';        // Feature: Creative mode
 const PROPOSED_RULES_KEY  = 'aria_proposed_rules_v5';  // Feature: ARIA proposes hard rules
 const LEARNING_Q_KEY      = 'aria_learning_q_v5';      // Feature: Learning questions display
@@ -1297,6 +1314,29 @@ window.addEventListener('DOMContentLoaded', () => {
   const savedProfile = safeParse(localStorage.getItem(PROFILE_KEY), {});
   profile = { ...DEFAULT_PROFILE, ...savedProfile, savedAt: savedProfile.savedAt || Date.now() };
   localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+
+  // ── BOOT MIGRATION: auto-archive existing chat if long enough ──
+  // Protects against losing chat history when updating ARIA
+  const existingChat = safeParse(localStorage.getItem(CHAT_KEY), []);
+  if (existingChat.length >= 4) {
+    const existingArchive = safeParse(localStorage.getItem(ARCHIVE_KEY), []);
+    const alreadyArchived = existingArchive.some(e =>
+      e.messages?.length === existingChat.length &&
+      e.messages?.[0]?.content === existingChat[0]?.content
+    );
+    if (!alreadyArchived) {
+      const firstUser = existingChat.find(m => m.role === 'user');
+      existingArchive.unshift({
+        id: `chat_boot_${Date.now()}`,
+        title: firstUser ? firstUser.content.slice(0, 60) : 'Saved on update',
+        date: Date.now(),
+        msgCount: existingChat.length,
+        owner: 'warren',
+        messages: existingChat
+      });
+      localStorage.setItem(ARCHIVE_KEY, JSON.stringify(existingArchive.slice(0, 50)));
+    }
+  }
 
   // ── RUN MIGRATION (Step 2) ──
   runMigrationIfNeeded();
@@ -2047,9 +2087,26 @@ function buildSystemPrompt(currentMessage) {
   const { anchors, relevant } = getRelevantMemories(currentMessage || '');
   const topMem = [...anchors, ...relevant];
 
-  const hard    = topMem.filter(([,v]) => v.score >= 80);
-  const growing = topMem.filter(([,v]) => v.score >= 40 && v.score < 80);
-  const soft    = topMem.filter(([,v]) => v.score < 40);
+  // ── INTELLIGENT TOKEN BUDGET ──
+  // Like the human brain — surface ALL memories but prioritise by relevance.
+  // The context retrieval engine already ranked topMem by relevance to current message.
+  // We include as many as fit within a safe char budget, highest relevance first.
+  const MEMORY_CHAR_BUDGET = 3000; // ~750 tokens for memories
+  let memBudget = MEMORY_CHAR_BUDGET;
+
+  const hard    = [];
+  const growing = [];
+  const soft    = [];
+
+  for (const entry of topMem) {
+    const [k, v] = entry;
+    const line = `- ${v.description||k} (${v.score}%)\n`;
+    if (memBudget - line.length < 0) break;
+    memBudget -= line.length;
+    if      (v.score >= 80) hard.push(entry);
+    else if (v.score >= 40) growing.push(entry);
+    else                    soft.push(entry);
+  }
   const fmt     = entries => entries.map(([k,v]) => `- ${v.description||k} (${v.score}%)`).join('\n');
 
   if (isTeamMember) {
@@ -2230,21 +2287,77 @@ async function sendMessage(){
     }
   }, 60);
 
-  const apiMessages=chat.slice(-20).map(m=>({role:m.role,content:m.content}));
+  // Smart chat history — keep last 12 messages but cap total characters
+  // Like human short-term memory: recent context matters most
+  const rawHistory = chat.slice(-12);
+  let historyChars = 0;
+  const apiMessages = rawHistory
+    .filter(m => { historyChars += m.content.length; return historyChars < 6000; })
+    .map(m => ({role: m.role, content: m.content}));
+
+  // ── Cap each instruction block to prevent token overflow ──
+  const sysPrompt = buildSystemPrompt(text);
+  const extras = [pathwayInstr, predictiveInstr, topicsInstr, creativeInstr, researchData||'']
+    .filter(Boolean)
+    .map(s => s.slice(0, 400))
+    .join('\n')
+    .slice(0, 1500);
 
   try{
     const sendHeaders={'Content-Type':'application/json'};
     if(apiKey&&!isTeamMember) sendHeaders['x-api-key']=apiKey;
-    const res=await fetch(PROXY_URL,{method:'POST',headers:sendHeaders,body:JSON.stringify({
-      model:'claude-sonnet-4-20250514',
-      max_tokens:1000,
-      system: buildSystemPrompt(text) + pathwayInstr + predictiveInstr + topicsInstr + creativeInstr + (researchData || ''),
-      tools:[{type:'web_search_20250305',name:'web_search'}],
-      messages:apiMessages
-    })});
-    const data=await res.json();
-    if(data.error)throw new Error(data.error.message);
-    const reply=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('')||"I couldn't respond. Please try again.";
+
+    // ── REAL STREAMING — set up bubble before fetch ──
+    const streamer = streamReply(async (fullReply) => {
+      if (!fullReply) return;
+      chat.push({role:'assistant',content:fullReply,ts:Date.now()}); saveChat();
+      learnFromExchange(text, fullReply);
+      if (chat.length % 8 === 0 && !isTeamMember) {
+        const question = await generateLearningQuestion();
+        if (question) {
+          const last = chat[chat.length-1];
+          if (last?.role==='assistant') {
+            last.content += `\n\n💭 *${question}*`; saveChat();
+            const b = document.querySelector('.stream-wrap .bubble.ai');
+            if (b) b.innerHTML = renderMarkdown(last.content);
+          }
+        }
+      }
+      updatePredictiveModel(text, fullReply);
+      runSelfAssessment(text, fullReply);
+      updateConversationPatterns(text, fullReply);
+      neuroCanvas.fire(Math.min(3, 1 + fullReply.length/800));
+      brainCanvas.fire(1.5);
+      updateStatusBar();
+      if(chat.length>0&&chat.length%6===0) endSession();
+    });
+
+    // Fetch — Worker streams SSE back
+    const res = await fetch(PROXY_URL, {
+      method:'POST', headers:sendHeaders,
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        system: sysPrompt + extras,
+        messages:apiMessages
+      })
+    });
+
+    if (!res.ok || !res.body) {
+      const errText = await res.text();
+      let errMsg = `HTTP ${res.status}`;
+      try { errMsg = JSON.parse(errText).error?.message || errMsg; } catch(e) {}
+      throw new Error(errMsg);
+    }
+
+    // ── Read SSE stream chunk by chunk ──
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    while(true){
+      const {done, value} = await reader.read();
+      if(done) break;
+      streamer.processChunk(decoder.decode(value, {stream:true}));
+    }
 
     // ── Stream the reply word by word, then run post-processing ──
     showThinking(false);
@@ -2278,10 +2391,11 @@ async function sendMessage(){
 
   }catch(err){
     showThinking(false);
+    document.querySelectorAll('.thinking-row,.stream-wrap').forEach(el=>el.remove());
     chat.push({role:'assistant',content:`⚠️ ${err.message}`,ts:Date.now()});saveChat();
     renderChat();
   }finally{
-    if(chat.length>0 && chat.length%6===0) endSession();
+    showThinking(false);
   }
 }
 
@@ -2479,7 +2593,32 @@ function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrol
 function updateSend(){const v=document.getElementById('msg-input').value.trim();document.getElementById('send-btn').className='send-btn'+(v?' active':'');}
 function handleKey(e){/* Enter = new line. Send only via ↑ button */}
 function useChip(el){document.getElementById('msg-input').value=el.textContent;updateSend();sendMessage();}
-function clearChat(){if(!confirm('Clear chat history?'))return;chat=[];saveChat();renderChat();}
+function clearChat(){
+  if (!chat.length) return;
+  if (!confirm('Clear chat? It will be saved to your Archive in the Owner tab.')) return;
+  // Archive before clearing
+  archiveCurrentChat();
+  chat = []; saveChat(); renderChat();
+}
+
+function archiveCurrentChat() {
+  if (chat.length < 2) return;
+  const archive = safeParse(localStorage.getItem(ARCHIVE_KEY), []);
+  // Auto-title from first user message
+  const firstUser = chat.find(m => m.role === 'user');
+  const title = firstUser ? firstUser.content.slice(0, 60) : 'Conversation';
+  const entry = {
+    id: `chat_${Date.now()}`,
+    title,
+    date: Date.now(),
+    msgCount: chat.length,
+    owner: isTeamMember ? (username || 'beta') : 'warren',
+    messages: chat.slice()
+  };
+  archive.unshift(entry);
+  // Keep last 50 archived conversations
+  localStorage.setItem(ARCHIVE_KEY, JSON.stringify(archive.slice(0, 50)));
+}
 function exportChat(){const t=chat.map(m=>`[${m.role.toUpperCase()}]: ${m.content}`).join('\n\n');const b=new Blob([t],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='aria_chat.txt';a.click();}
 
 async function writeSessionJournal(){
@@ -2884,20 +3023,19 @@ async function processDocumentFile(file) {
 //  then scrolls to top of response when complete
 // ═══════════════════════════════════════════════════════════
 
-function streamReply(fullReply, onComplete) {
+function streamReply(onComplete) {
+  // Real SSE streaming — tokens appear as Anthropic generates them
+  // This is called BEFORE the fetch, and sets up the bubble
+  // Returns a handler that processes each SSE chunk
   const container = document.getElementById('messages');
-
-  // Remove thinking row
   document.querySelectorAll('.thinking-row').forEach(el => el.remove());
 
-  // Create the streaming wrap
   const wrap = document.createElement('div');
   wrap.className = 'msg-wrap stream-wrap';
   wrap.style.cssText = 'display:flex;flex-direction:column;gap:3px;margin-bottom:10px;';
-
   const timeStr = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
   const layerNames = ['INPUT → HIDDEN L1','HIDDEN L1 → HIDDEN L2','HIDDEN L2 → OUTPUT','OUTPUT → RESPONSE'];
-  const layerHint = layerNames[(chat.length - 1) % layerNames.length];
+  const layerHint = layerNames[(chat.length) % layerNames.length];
 
   wrap.innerHTML = `
     <div class="layer-hint">▸ ${layerHint}</div>
@@ -2907,220 +3045,52 @@ function streamReply(fullReply, onComplete) {
     </div>
     <div class="msg-meta">${timeStr}</div>`;
   container.appendChild(wrap);
-
-  // Scroll to show start of ARIA's bubble — then stay there while typing
-  setTimeout(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+  container.scrollTop = container.scrollHeight;
 
   const bubble = document.getElementById('stream-bubble');
-  const words = fullReply.split(' ');
-  let i = 0;
-  let built = '';
+  let fullReply = '';
+  let buffer = '';
 
-  const WORD_DELAY = 18;
+  // Process each SSE line as it arrives
+  function processChunk(chunk) {
+    buffer += chunk;
+    const lines = buffer.split('\n');
+    buffer = lines.pop(); // keep incomplete line
 
-  function typeNext() {
-    if (i >= words.length) {
-      // Done typing — render final markdown
-      bubble.innerHTML = renderMarkdown(fullReply);
-      bubble.removeAttribute('id');
-      // Scroll to TOP of response one final time
-      setTimeout(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
-      if (onComplete) onComplete();
-      return;
-    }
-
-    const chunk = words.slice(i, i + 3).join(' ');
-    built += (built ? ' ' : '') + chunk;
-    i += 3;
-
-    bubble.textContent = built + (i < words.length ? ' ▌' : '');
-    // Do NOT scroll while typing — let user read from top
-
-    setTimeout(typeNext, WORD_DELAY);
-  }
-
-  typeNext();
-}
-//  ARIA writes a document and offers it for download
-// ═══════════════════════════════════════════════════════════
-
-async function createDocument() {
-  const prompt = document.getElementById('doc-create-prompt').value.trim();
-  const format = document.getElementById('doc-create-format').value;
-  const btn    = document.getElementById('doc-create-btn');
-  const status = document.getElementById('doc-create-status');
-
-  if (!prompt) return alert('Tell ARIA what document to create.');
-
-  btn.textContent = '⏳ Creating...';
-  btn.disabled = true;
-  status.style.display = 'block';
-  status.style.color = 'var(--yellow)';
-  status.textContent = 'ARIA is writing your document...';
-
-  const formatInstructions = {
-    txt:  'Write as plain text with clear sections. Use --- as section dividers.',
-    md:   'Write as well-structured Markdown with # headers, bullet points, bold text, and tables where appropriate.',
-    csv:  'Write as CSV data with headers in the first row. Use comma separation. Include all relevant data rows.'
-  };
-
-  try {
-    const res = await fetch(PROXY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
-        system: `You are ARIA's document creation engine. You write complete, professional, detailed documents for Warren Munashe Handitye.
-
-Warren's context: ${profile.name || 'Entrepreneur based in UK, Zimbabwean heritage, building mushroom farming business'}
-His projects: ${profile.projects || 'Mushroom farming, AI development'}
-
-${formatInstructions[format]}
-
-Write a COMPLETE, DETAILED document. Do not truncate. Do not add any preamble like "Here is your document" — just write the document content directly.`,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-
-    const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
-    const content = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
-
-    if (!content) throw new Error('No content generated');
-
-    // Create downloadable file
-    const filename = prompt.slice(0, 40).replace(/[^a-z0-9\s]/gi, '').trim().replace(/\s+/g, '_') + '.' + format;
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    // Also post preview to chat
-    const preview = content.slice(0, 400) + (content.length > 400 ? '\n\n...[full document downloaded]' : '');
-    chat.push({
-      role: 'assistant',
-      content: `✍️ **Document created: "${filename}"**\n\n${preview}`,
-      ts: Date.now()
-    });
-    saveChat();
-    renderChat();
-
-    status.style.color = 'var(--teal)';
-    status.textContent = `✅ "${filename}" downloaded successfully`;
-    btn.textContent = '✍️ Create';
-    btn.disabled = false;
-
-    neuroCanvas.fire(1.5);
-    brainCanvas.fire(1.5);
-    switchTab('chat', document.querySelector('.nav-btn'));
-
-  } catch (err) {
-    status.style.color = 'var(--red)';
-    status.textContent = '❌ Error: ' + err.message;
-    btn.textContent = '✍️ Create';
-    btn.disabled = false;
-  }
-}
-
-async function analyseDocument(filename, type, text) {
-  const docs = safeParse(localStorage.getItem(DOCS_KEY), []);
-  const existingMemKeys = Object.keys(memory);
-
-  // Use ARIA's own intelligence to analyse the document
-  try {
-    const res = await fetch(PROXY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 600,
-        messages: [{
-          role: 'user',
-          content: `You are ARIA's document analysis engine. Analyse this document and respond with ONLY valid JSON.
-
-Document: "${filename}"
-Content:
-${text.slice(0, 4000)}
-
-Existing memory keys Warren has already taught you (for cross-referencing):
-${existingMemKeys.slice(0, 30).join(', ')}
-
-Respond with this exact JSON structure:
-{
-  "summary": "one sentence summary of the document (max 20 words)",
-  "knownConcepts": ["concept1", "concept2"],
-  "newConcepts": ["new1", "new2"],
-  "keyInsights": ["insight1", "insight2", "insight3"],
-  "contradictions": ["any contradictions with existing knowledge"],
-  "report": "ARIA's personal analytical report to Warren in 2-3 sentences, warm and direct"
-}`
-        }]
-      })
-    });
-
-    const data = await res.json();
-    const raw = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
-    const clean = raw.replace(/```json|```/g, '').trim();
-    const analysis = JSON.parse(clean);
-
-    // Store document
-    const docEntry = {
-      id: `doc_${Date.now()}`,
-      filename,
-      type,
-      uploadedAt: Date.now(),
-      size: text.length,
-      summary: analysis.summary || '',
-      knownConcepts: analysis.knownConcepts || [],
-      newConcepts: analysis.newConcepts || [],
-      keyInsights: analysis.keyInsights || [],
-      contradictions: analysis.contradictions || [],
-      report: analysis.report || ''
-    };
-
-    // Absorb new concepts into memory
-    (analysis.newConcepts || []).forEach(concept => {
-      const key = concept.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 30);
-      if (!memory[key]) {
-        memory[key] = {
-          description: `From document "${filename}": ${concept}`,
-          score: 65,
-          source: 'document',
-          lastSeen: Date.now(),
-          examples: []
-        };
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6).trim();
+      if (data === '[DONE]' || !data) continue;
+      try {
+        const parsed = JSON.parse(data);
+        // Real text delta from Anthropic
+        if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
+          fullReply += parsed.delta.text;
+          bubble.textContent = fullReply + '▌';
+          container.scrollTop = container.scrollHeight;
+        }
+        // Stream complete
+        if (parsed.type === 'message_stop') {
+          bubble.innerHTML = renderMarkdown(fullReply);
+          bubble.removeAttribute('id');
+          // Scroll to TOP of ARIA response so user reads from beginning
+          setTimeout(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+          if (onComplete) onComplete(fullReply);
+        }
+        // Handle errors in stream
+        if (parsed.type === 'error') {
+          throw new Error(parsed.error?.message || 'Stream error');
+        }
+      } catch(e) {
+        if (e.message && e.message !== 'Unexpected end of JSON input') {
+          bubble.innerHTML = `⚠️ ${e.message}`;
+          if (onComplete) onComplete('');
+        }
       }
-    });
-
-    saveMemory();
-    updateBadge();
-
-    docs.unshift(docEntry);
-    localStorage.setItem(DOCS_KEY, JSON.stringify(docs.slice(0, 20)));
-
-    // Trigger ARIA to report in chat
-    chat.push({
-      role: 'assistant',
-      content: `📄 **Document processed: "${filename}"**\n\n${analysis.report}\n\n**What I already knew:** ${(analysis.knownConcepts || []).slice(0,4).join(', ') || 'Nothing overlapping'}\n**New knowledge gained:** ${(analysis.newConcepts || []).slice(0,4).join(', ') || 'None extracted'}\n**Key insights:** ${(analysis.keyInsights || []).slice(0,3).map((i,n) => `${n+1}. ${i}`).join(' ')}`,
-      ts: Date.now()
-    });
-    saveChat();
-    renderChat();
-    renderDocList();
-    neuroCanvas.fire(1.5);
-    showLearnBanner(`📄 Document absorbed — ${(analysis.newConcepts||[]).length} new concepts learned`);
-
-    // Switch to chat to show the report
-    switchTab('chat', document.querySelector('.nav-btn'));
-
-  } catch (err) {
-    document.getElementById('doc-processing').style.display = 'none';
-    alert('Could not analyse document: ' + err.message);
+    }
   }
+
+  return { processChunk, getBubble: () => bubble, getWrap: () => wrap, getReply: () => fullReply };
 }
 
 function renderDocList() {
@@ -3287,6 +3257,7 @@ function updateSyncStatus() {
 }
 
 async function syncToSupabase() {
+  if (isTeamMember) { showLearnBanner('⚠️ Sync not available in team mode'); return; }
   const config = safeParse(localStorage.getItem(SUPA_KEY), null);
   if (!config?.url || !config?.key) return alert('Configure Supabase first.');
 
@@ -3316,6 +3287,7 @@ async function syncToSupabase() {
     { key: 'aria_proposals_v5',      value: localStorage.getItem(PROPOSALS_KEY) || '[]' },
     { key: 'aria_goals_v5',          value: localStorage.getItem(GOALS_KEY) || '[]' },
     { key: 'aria_prompt_evo_v5',     value: localStorage.getItem(PROMPT_EVO_KEY) || '{}' },
+    { key: 'aria_chat_archive_v5',   value: localStorage.getItem(ARCHIVE_KEY) || '[]' },
   ];
 
   let successCount = 0;
@@ -3370,6 +3342,7 @@ async function syncToSupabase() {
 }
 
 async function pullFromSupabase() {
+  if (isTeamMember) { showLearnBanner('⚠️ Pull from Cloud not available in team mode'); return; }
   const config = safeParse(localStorage.getItem(SUPA_KEY), null);
   if (!config?.url || !config?.key) return alert('Configure Supabase first.');
 
@@ -3404,6 +3377,7 @@ async function pullFromSupabase() {
       'aria_proposals_v5':      PROPOSALS_KEY,
       'aria_goals_v5':          GOALS_KEY,
       'aria_prompt_evo_v5':     PROMPT_EVO_KEY,
+      'aria_chat_archive_v5':   ARCHIVE_KEY,
     };
 
     rows.forEach(row => {
@@ -4642,6 +4616,73 @@ function renderPromptEvo() {
     ${evo.closingStyle    ? `<div class="owner-info-row"><span class="owner-lbl">Closing</span><span style="font-size:11px">${escHtml(evo.closingStyle)}</span></div>` : ''}`;
 }
 
+function toggleChatHistory() {
+  const panel = document.getElementById('chat-history-panel');
+  if (!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) renderHistoryPanel();
+}
+
+function renderHistoryPanel() {
+  const el = document.getElementById('history-panel-list');
+  if (!el) return;
+  const archive = safeParse(localStorage.getItem(ARCHIVE_KEY), []);
+  if (!archive.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px">No saved conversations yet.<br>Clear the chat to save it here.</div>';
+    return;
+  }
+  // Only show this user's chats
+  const userLabel = isTeamMember ? (username || 'beta') : 'warren';
+  const userArchive = archive.filter(e => !e.owner || e.owner === userLabel);
+  el.innerHTML = (userArchive.length ? userArchive : archive).slice(0, 30).map(entry => `
+    <div onclick="recallArchivedChat('${entry.id}')" style="
+      padding:10px 12px;margin-bottom:6px;cursor:pointer;
+      background:rgba(0,229,196,0.05);
+      border:1px solid rgba(0,229,196,0.12);
+      border-left:2px solid var(--teal);
+      border-radius:0 8px 8px 0;
+    ">
+      <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted)">
+        ${new Date(entry.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})} · ${entry.msgCount} messages
+      </div>
+      <div style="font-size:13px;color:var(--text);margin-top:3px">
+        ${escHtml(entry.title)}${entry.title.length >= 60 ? '...' : ''}
+      </div>
+    </div>`).join('');
+}
+
+function renderChatArchive() {
+  const el = document.getElementById('chat-archive-list');
+  if (!el) return;
+  const archive = safeParse(localStorage.getItem(ARCHIVE_KEY), []);
+  if (!archive.length) {
+    el.innerHTML = '<div class="journal-empty">No archived chats yet. When you clear the chat it will be saved here automatically.</div>';
+    return;
+  }
+  el.innerHTML = archive.slice(0, 20).map(entry => `
+    <div class="journal-entry" style="cursor:pointer" onclick="recallArchivedChat('${entry.id}')">
+      <div class="journal-date">${new Date(entry.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})} · ${entry.msgCount} messages</div>
+      <div class="journal-text" style="color:var(--text);margin-top:3px">${escHtml(entry.title)}${entry.title.length >= 60 ? '...' : ''}</div>
+      <div style="font-size:10px;color:var(--teal);margin-top:4px">↩ Tap to recall</div>
+    </div>`).join('');
+}
+
+function recallArchivedChat(id) {
+  const archive = safeParse(localStorage.getItem(ARCHIVE_KEY), []);
+  const entry = archive.find(e => e.id === id);
+  if (!entry) return;
+  if (!confirm(`Recall "${entry.title.slice(0,40)}..." into chat? Current chat will be archived first.`)) return;
+  // Archive current chat if it has messages
+  if (chat.length >= 2) archiveCurrentChat();
+  // Restore archived chat
+  chat = entry.messages;
+  saveChat();
+  renderChat();
+  switchTab('chat', document.querySelector('.nav-btn'));
+  showLearnBanner(`💬 Recalled: "${entry.title.slice(0,40)}..."`);
+}
+
 // ── Signal Audit Log ──
 function renderSignalLog() {
   const el = document.getElementById('signal-log-list');
@@ -4829,7 +4870,7 @@ function switchTab(name,btn){
   if(btn)btn.classList.add('active');
   if(name==='teach')renderTeachTab();
   if(name==='stats')renderStats();
-  if(name==='owner'){renderTeamList();renderJournal();renderNeuroStatus();renderSignalLog();renderDocList();updateSyncStatus();renderProposals();renderGoals();renderPromptEvo();renderProposedRules();renderLearningQuestions();setTimeout(loadProfileFields,50);}
+  if(name==='owner'){renderTeamList();renderJournal();renderNeuroStatus();renderSignalLog();renderDocList();updateSyncStatus();renderProposals();renderGoals();renderPromptEvo();renderProposedRules();renderLearningQuestions();renderChatArchive();setTimeout(loadProfileFields,50);}
   if(name!=='chat') neuroCanvas.pause();
   else neuroCanvas.resume();
   if(name!=='chat')closeInlineSearch();
