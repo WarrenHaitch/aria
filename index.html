@@ -2359,36 +2359,6 @@ async function sendMessage(){
       streamer.processChunk(decoder.decode(value, {stream:true}));
     }
 
-    // ── Stream the reply word by word, then run post-processing ──
-    showThinking(false);
-    streamReply(reply, async () => {
-      // Post-stream: save, learn, update features
-      chat.push({role:'assistant',content:reply,ts:Date.now()});saveChat();
-      learnFromExchange(text, reply);
-
-      // Occasionally generate a learning question
-      if (chat.length % 8 === 0 && !isTeamMember) {
-        const question = await generateLearningQuestion();
-        if (question) {
-          const lastMsg = chat[chat.length-1];
-          if (lastMsg && lastMsg.role === 'assistant') {
-            lastMsg.content += `\n\n💭 *${question}*`;
-            saveChat();
-            // Append question to stream bubble without full re-render
-            const streamBubble = document.querySelector('.stream-wrap .bubble.ai');
-            if (streamBubble) streamBubble.innerHTML = renderMarkdown(lastMsg.content);
-          }
-        }
-      }
-
-      updatePredictiveModel(text, reply);
-      runSelfAssessment(text, reply);
-      updateConversationPatterns(text, reply);
-      neuroCanvas.fire(Math.min(3, 1 + reply.length / 800));
-      brainCanvas.fire(1.5);
-      updateStatusBar();
-    });
-
   }catch(err){
     showThinking(false);
     document.querySelectorAll('.thinking-row,.stream-wrap').forEach(el=>el.remove());
