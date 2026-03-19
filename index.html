@@ -825,6 +825,9 @@
             <button class="owner-btn" onclick="pullFromSupabase()" style="width:100%;margin-top:6px;background:rgba(96,165,250,0.08);border-color:rgba(96,165,250,0.25);color:#60a5fa">⬇️ Pull from Cloud</button>
           </div>
           <div id="sync-result" style="font-size:12px;margin-top:8px;display:none;padding:6px 0;line-height:1.5"></div>
+          <div style="margin-top:8px">
+            <button class="owner-btn" onclick="clearTeamCookie()" style="font-size:11px;opacity:0.7">🔄 Reset Device Mode (if stuck in team mode)</button>
+          </div>
           <div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.7">
             <strong style="color:var(--sub)">Setup:</strong> Create a free Supabase project → create a table called <code style="color:var(--teal)">aria_sync</code> with columns <code style="color:var(--teal)">key TEXT PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ</code> → paste your URL and anon key above.
           </div>
@@ -1338,6 +1341,9 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // ── Reset thinking state on every boot — prevents stuck send button ──
+  thinking = false;
+
   // ── RUN MIGRATION (Step 2) ──
   runMigrationIfNeeded();
 
@@ -1383,7 +1389,10 @@ window.addEventListener('DOMContentLoaded', () => {
   // Read from both localStorage AND cookies
   const savedTeam = localStorage.getItem('aria_pwa_team') === '1' || getCookie('aria_team') === '1';
   const savedCode = localStorage.getItem('aria_pwa_code') || getCookie('aria_code') || '';
-  const isTeamMode = urlTeam || savedTeam;
+
+  // ── OWNER OVERRIDE: if API key exists this is Warren's device — never treat as team ──
+  const apiKeyExists = !!(localStorage.getItem(API_KEY_KEY) || '').trim();
+  const isTeamMode = !apiKeyExists && (urlTeam || savedTeam);
 
   if (isTeamMode) {
     // Inject saved code back into URL params if missing so setTeamMode reads it
@@ -4634,6 +4643,17 @@ function recallArchivedChat(id) {
   renderChat();
   switchTab('chat', document.querySelector('.nav-btn'));
   showLearnBanner(`💬 Recalled: "${entry.title.slice(0,40)}..."`);
+}
+
+function clearTeamCookie() {
+  localStorage.removeItem('aria_pwa_team');
+  localStorage.removeItem('aria_pwa_code');
+  document.cookie = 'aria_team=; path=/; max-age=0';
+  document.cookie = 'aria_team=; path=/aria/; max-age=0';
+  document.cookie = 'aria_code=; path=/; max-age=0';
+  document.cookie = 'aria_code=; path=/aria/; max-age=0';
+  showLearnBanner('✅ Device mode reset — refreshing...');
+  setTimeout(() => location.reload(), 1200);
 }
 
 // ── Signal Audit Log ──
