@@ -2333,11 +2333,11 @@ async function sendMessage(){
   renderChat();
   showThinking(true);
   pulseActivityMeter();
-  // Scroll to bottom so user sees their message + brain bubble
+  // Scroll to bottom AFTER brain bubble is added — user sees their message + brain
   setTimeout(() => {
     const msgs = document.getElementById('messages');
     msgs.scrollTop = msgs.scrollHeight;
-  }, 50);
+  }, 80);
 
     // Smart chat history — current session only (last 4 hours), max 12 messages
   const sessionCutoff = Date.now() - (4 * 3600000);
@@ -2472,17 +2472,8 @@ function renderChat(){
     container.appendChild(wrap);
   });
 
-  if (thinking) {
-    // While thinking — stay at bottom so thinking bubble is visible
-    container.scrollTop = container.scrollHeight;
-  } else if (lastAriaWrap) {
-    // ARIA just replied — scroll so her message starts at top of view
-    setTimeout(() => {
-      lastAriaWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 80);
-  } else {
-    container.scrollTop = container.scrollHeight;
-  }
+  // Always scroll to bottom — let the user read naturally from where they are
+  container.scrollTop = container.scrollHeight;
 }
 
 function showThinking(show){
@@ -2507,9 +2498,10 @@ function showThinking(show){
         <span class="think-brain-label">PROCESSING</span>
       </div>`;
     document.getElementById('messages').appendChild(row);
-    // Scroll handled by sendMessage after DOM settles
-    // Start brain animation
-    initThinkBrain();
+    // Brain must be in DOM before canvas init
+    requestAnimationFrame(() => {
+      initThinkBrain();
+    });
   } else {
     if(logo){ logo.classList.remove('thinking'); logo.textContent='ARIA'; }
     // Stop think brain animation
@@ -3097,10 +3089,11 @@ function streamReply(onComplete) {
         if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
           if (firstToken) {
             firstToken = false;
-            showThinking(false);
-            document.querySelectorAll('.thinking-row').forEach(el => el.remove());
+            // Add stream bubble FIRST, then remove brain — seamless transition
             container.appendChild(wrap);
             container.scrollTop = container.scrollHeight;
+            showThinking(false);
+            document.querySelectorAll('.thinking-row').forEach(el => el.remove());
           }
           fullReply += parsed.delta.text;
           const b = document.getElementById('stream-bubble');
@@ -3111,7 +3104,8 @@ function streamReply(onComplete) {
         if (parsed.type === 'message_stop') {
           const b = document.getElementById('stream-bubble');
           if (b) { b.innerHTML = renderMarkdown(fullReply); b.removeAttribute('id'); }
-          setTimeout(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+          // No scroll jump — user is already reading at the bottom as tokens streamed in
+          container.scrollTop = container.scrollHeight;
           if (onComplete) onComplete(fullReply);
         }
 
