@@ -1688,7 +1688,24 @@ function applyUpdate(){navigator.serviceWorker.getRegistration().then(reg=>{if(r
 //  API & AUTH
 // ═══════════════════════════════════════════════════════════
 
-function saveApiKey(){const raw=document.getElementById('api-key-input').value;const val=raw.trim().replace(/\s+/g,'');if(!val)return alert('Please enter your Anthropic API key.');if(!val.startsWith('sk-'))return alert('Invalid key — Anthropic keys start with "sk-".');if(val.length<20)return alert('Key looks too short.');apiKey=val;localStorage.setItem(API_KEY_KEY,apiKey);document.getElementById('api-modal').style.display='none';updateKeyDisplay();if(!ownerPin&&!isTeamMember)setTimeout(()=>document.getElementById('set-pin-modal').style.display='flex',400);}
+function saveApiKey(){
+  const raw=document.getElementById('api-key-input').value;
+  const val=raw.trim().replace(/\s+/g,'');
+  if(!val)return alert('Please enter your Anthropic API key.');
+  if(!val.startsWith('sk-'))return alert('Invalid key — Anthropic keys start with "sk-".');
+  if(val.length<20)return alert('Key looks too short.');
+  apiKey=val;
+  localStorage.setItem(API_KEY_KEY,apiKey);
+  document.getElementById('api-modal').style.display='none';
+  updateKeyDisplay();
+  if(!ownerPin&&!isTeamMember)setTimeout(()=>document.getElementById('set-pin-modal').style.display='flex',400);
+  // Auto-pull from Supabase so this device gets all memories, team, profile immediately
+  const supaConfig = safeParse(localStorage.getItem(SUPA_KEY), null);
+  if(supaConfig?.url && supaConfig?.key){
+    showLearnBanner('☁️ Syncing your data from cloud...');
+    setTimeout(() => pullFromSupabase(false), 600);
+  }
+}
 function resetApiKey(){if(!confirm('Change API key?'))return;localStorage.removeItem(API_KEY_KEY);apiKey='';document.getElementById('api-key-input').value='';updateKeyDisplay();document.getElementById('api-modal').style.display='flex';}
 
 function testApiKey(){
@@ -3424,13 +3441,18 @@ async function pullFromSupabase(silent = false) {
     snapshots = safeParse(localStorage.getItem(SNAPSHOTS_KEY), []);
 
     if (silent) {
-      // Silent pull — just update in-memory state, no alert, no reload
+      // Silent pull — update in-memory variables and localStorage
       memory   = safeParse(localStorage.getItem(MEMORY_KEY), {});
       neuro    = safeParse(localStorage.getItem(NEURO_KEY), null) || initDefaultNeuro();
       team     = safeParse(localStorage.getItem(TEAM_KEY), []);
       profile  = safeParse(localStorage.getItem(PROFILE_KEY), {});
       journal  = safeParse(localStorage.getItem(JOURNAL_KEY), []);
-      renderTeamList();
+      // Only re-render Owner tab UI if it's currently visible
+      const ownerPane = document.getElementById('tab-owner');
+      if (ownerPane && ownerPane.classList.contains('active')) {
+        renderTeamList();
+        renderJournal();
+      }
       updateBadge();
       showLearnBanner(`☁️ Synced ${rows.length} items from cloud`);
     } else {
