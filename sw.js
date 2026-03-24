@@ -1,8 +1,8 @@
-// ARIA v5 Service Worker
+// ARIA v5 Service Worker — v3
 // CRITICAL: Never intercept POST requests or streaming responses
-// Only cache static assets
+// Bumped to aria-v5-static-3 to force replacement of old cached workers
 
-const CACHE_NAME = 'aria-v5-static-2';
+const CACHE_NAME = 'aria-v5-static-3';
 const STATIC_ASSETS = [
   '/aria/manifest.json',
   '/aria/icon-192.png',
@@ -31,14 +31,14 @@ self.addEventListener('fetch', event => {
   // NEVER intercept POST requests (API calls to Cloudflare proxy)
   if (req.method !== 'GET') return;
 
-  // NEVER intercept requests to external domains (Cloudflare, Anthropic, Supabase)
+  // NEVER intercept requests to external domains
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // NEVER intercept index.html — always fetch fresh so updates deploy immediately
+  // NEVER cache index.html — always fetch fresh
   if (url.pathname === '/aria/' || url.pathname === '/aria/index.html') return;
 
-  // For static assets only — cache first
+  // Static assets only — cache first
   event.respondWith(
     caches.match(req).then(cached => cached || fetch(req))
   );
