@@ -1438,6 +1438,17 @@ window.addEventListener('DOMContentLoaded', () => {
   updateMemPill(); updateBadge(); renderTeamList();
   setTimeout(updateKeyDisplay, 100);
 
+  // ── Auto-pull from Supabase on boot if configured (owner only) ──
+  // This ensures laptop always has latest memories from phone
+  if (!isTeamMode) {
+    const supaConfig = safeParse(localStorage.getItem(SUPA_KEY), null);
+    if (supaConfig?.url && supaConfig?.key) {
+      setTimeout(() => {
+        pullFromSupabase(true); // silent pull — true = no alert, no reload
+      }, 2000);
+    }
+  }
+
   // ── Start neural canvas ──
   setTimeout(() => neuroCanvas.init(), 200);
   setTimeout(() => brainCanvas.init(), 250);
@@ -1479,13 +1490,9 @@ let sessionSignalAccumulator = { praise: 0, correction: 0, teaching: 0, frustrat
 function endSession() {
   if (chat.length >= 4) {
     writeSessionJournal();
-    // Run cross-conversation memory synthesis
     runMemorySynthesis();
-    // Self-directed memory pruning
     runSelfDirectedPruning();
-    // Evolve prompt sections
     evolvePromptSections();
-    // Update relationship depth
     const sessionMsgCount = chat.filter(m => m.role === 'user').length;
     updateRelationship(sessionMsgCount);
     // Only evolve if there were real signals
@@ -1496,8 +1503,17 @@ function endSession() {
     // Auto-sync if configured
     const config = safeParse(localStorage.getItem(SUPA_KEY), null);
     if (config?.url && config?.key) {
-      syncToSupabase().catch(() => {}); // silent sync, no UI feedback
+      syncToSupabase().catch(() => {}); // silent sync
     }
+  }
+}
+
+function silentSync() {
+  // Sync silently whenever important data changes — no UI feedback
+  if (isTeamMember) return; // only owner syncs
+  const config = safeParse(localStorage.getItem(SUPA_KEY), null);
+  if (config?.url && config?.key) {
+    syncToSupabase().catch(() => {});
   }
 }
 
@@ -1662,7 +1678,7 @@ async function pullMasterWeightsForTeam() {
 const TEAM_SALT='ARIA-WARREN-2026';
 function generateCode(name){const clean=name.toLowerCase().replace(/[^a-z0-9]/g,'');const input=clean+TEAM_SALT;let hash=5381;for(let i=0;i<input.length;i++){hash=((hash<<5)+hash)^input.charCodeAt(i);hash=hash>>>0;}const prefix=clean.slice(0,3).toUpperCase().padEnd(3,'X');const suffix=hash.toString(36).toUpperCase().slice(0,5);return(prefix+suffix).slice(0,8);}
 function verifySaltedCode(code){if(code.length<6||code.length>8)return false;const prefix=code.slice(0,3);const suffix=code.slice(3);return/^[A-Z]{3}$/.test(prefix)&&/^[A-Z0-9]{3,5}$/.test(suffix);}
-function addTeamMember(){const input=document.getElementById('team-name-input');const name=input.value.trim();if(!name)return;if(team.length>=10)return alert('Maximum 10 beta team members reached.');if(team.find(m=>m.name.toLowerCase()===name.toLowerCase()))return alert('Member already exists.');const code=generateCode(name);team.push({name,added:Date.now(),code});localStorage.setItem(TEAM_KEY,JSON.stringify(team));input.value='';renderTeamList();}
+function addTeamMember(){const input=document.getElementById('team-name-input');const name=input.value.trim();if(!name)return;if(team.length>=10)return alert('Maximum 10 beta team members reached.');if(team.find(m=>m.name.toLowerCase()===name.toLowerCase()))return alert('Member already exists.');const code=generateCode(name);team.push({name,added:Date.now(),code});localStorage.setItem(TEAM_KEY,JSON.stringify(team));input.value='';renderTeamList();silentSync();}
 function removeTeamMember(i){if(!confirm(`Remove ${team[i].name}?`))return;team.splice(i,1);localStorage.setItem(TEAM_KEY,JSON.stringify(team));renderTeamList();}
 function copyMemberLink(i){const member=team[i];const base=window.location.origin+window.location.pathname;const link=`${base}?team=1&code=${member.code}`;navigator.clipboard.writeText(link).then(()=>alert(`✅ Link copied for ${member.name}!\n\n${link}`)).catch(()=>prompt(`Copy link for ${member.name}:`,link));}
 function copyShareLink(){if(team.length===0)return alert('Add a team member first.');const base=window.location.origin+window.location.pathname;const links=team.map(m=>`${m.name}: ${base}?team=1&code=${m.code}`).join('\n\n');navigator.clipboard.writeText(links).then(()=>alert(`✅ All team links copied!\n\n${links}`)).catch(()=>prompt('Copy all team links:',links));}
@@ -2361,6 +2377,7 @@ async function sendMessage(){
       brainCanvas.fire(1.5);
       updateStatusBar();
       if(chat.length>0&&chat.length%6===0) endSession();
+      else silentSync(); // sync after every exchange, not just sessions
     });
 
     // Fetch — Worker streams SSE back
@@ -3355,7 +3372,7 @@ async function syncToSupabase() {
   }
 }
 
-async function pullFromSupabase() {
+async function pullFromSupabase(silent = false) {
   if (isTeamMember) { showLearnBanner('⚠️ Pull from Cloud not available in team mode'); return; }
   const config = safeParse(localStorage.getItem(SUPA_KEY), null);
   if (!config?.url || !config?.key) return alert('Configure Supabase first.');
@@ -3406,8 +3423,20 @@ async function pullFromSupabase() {
     neuro    = safeParse(localStorage.getItem(NEURO_KEY), null) || initDefaultNeuro();
     snapshots = safeParse(localStorage.getItem(SNAPSHOTS_KEY), []);
 
-    alert(`✅ Pulled ${rows.length} items from Supabase. ARIA's state restored from cloud.`);
-    window.location.reload();
+    if (silent) {
+      // Silent pull — just update in-memory state, no alert, no reload
+      memory   = safeParse(localStorage.getItem(MEMORY_KEY), {});
+      neuro    = safeParse(localStorage.getItem(NEURO_KEY), null) || initDefaultNeuro();
+      team     = safeParse(localStorage.getItem(TEAM_KEY), []);
+      profile  = safeParse(localStorage.getItem(PROFILE_KEY), {});
+      journal  = safeParse(localStorage.getItem(JOURNAL_KEY), []);
+      renderTeamList();
+      updateBadge();
+      showLearnBanner(`☁️ Synced ${rows.length} items from cloud`);
+    } else {
+      alert(`✅ Pulled ${rows.length} items from Supabase. ARIA's state restored from cloud.`);
+      window.location.reload();
+    }
 
   } catch (e) {
     alert('Pull failed: ' + e.message);
