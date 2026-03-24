@@ -1,49 +1,45 @@
-const CACHE = 'aria-v5-static-1';
+// ARIA v5 Service Worker
+// CRITICAL: Never intercept POST requests or streaming responses
+// Only cache static assets
 
+const CACHE_NAME = 'aria-v5-static-2';
 const STATIC_ASSETS = [
-  'manifest.json',
-  'icon-192.png',
-  'icon-512.png'
+  '/aria/manifest.json',
+  '/aria/icon-192.png',
+  '/aria/icon-512.png'
 ];
 
-self.addEventListener('install', e => {
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+  );
   self.skipWaiting();
-  e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(STATIC_ASSETS))
-  );
 });
 
-self.addEventListener('activate', e => {
-  e.waitUntil(
+self.addEventListener('activate', event => {
+  event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    )
   );
+  self.clients.claim();
 });
 
-self.addEventListener('fetch', e => {
-  const url = new URL(e.request.url);
+self.addEventListener('fetch', event => {
+  const req = event.request;
 
-  if (url.pathname.endsWith('/') || 
-      url.pathname.endsWith('index.html') || 
-      url.pathname.endsWith('/aria') || 
-      url.pathname.endsWith('/aria/')) {
-    e.respondWith(
-      fetch(e.request).catch(() => caches.match(e.request))
-    );
-    return;
-  }
+  // NEVER intercept POST requests (API calls to Cloudflare proxy)
+  if (req.method !== 'GET') return;
 
-  e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(res => {
-        if (res.ok) {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-        }
-        return res;
-      });
-    })
+  // NEVER intercept requests to external domains (Cloudflare, Anthropic, Supabase)
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+
+  // NEVER intercept index.html — always fetch fresh so updates deploy immediately
+  if (url.pathname === '/aria/' || url.pathname === '/aria/index.html') return;
+
+  // For static assets only — cache first
+  event.respondWith(
+    caches.match(req).then(cached => cached || fetch(req))
   );
 });
