@@ -1300,6 +1300,29 @@ window.addEventListener('DOMContentLoaded', () => {
   journal  = safeParse(localStorage.getItem(JOURNAL_KEY), []);
   chat     = safeParse(localStorage.getItem(CHAT_KEY), []);
   apiKey   = localStorage.getItem(API_KEY_KEY) || '';
+
+  // ── SESSION BOUNDARY: if last message is older than 4 hours, archive and start fresh ──
+  // Prevents old chat context polluting new conversations
+  if (chat.length > 0) {
+    const lastMsg = chat[chat.length - 1];
+    const hoursSince = lastMsg.ts ? (Date.now() - lastMsg.ts) / 3600000 : 99;
+    if (hoursSince > 4) {
+      // Archive the old chat silently
+      const archive = safeParse(localStorage.getItem('aria_chat_archive_v5'), []);
+      const firstUser = chat.find(m => m.role === 'user');
+      archive.unshift({
+        id: `chat_session_${Date.now()}`,
+        title: firstUser ? firstUser.content.slice(0, 60) : 'Previous session',
+        date: lastMsg.ts || Date.now(),
+        msgCount: chat.length,
+        owner: 'warren',
+        messages: chat.slice()
+      });
+      localStorage.setItem('aria_chat_archive_v5', JSON.stringify(archive.slice(0, 50)));
+      chat = [];
+      localStorage.setItem('aria_chat_v4', JSON.stringify([]));
+    }
+  }
   ownerPin = localStorage.getItem(PIN_KEY) || '';
   team     = safeParse(localStorage.getItem(TEAM_KEY), []);
   username = localStorage.getItem(USER_KEY) || '';
@@ -1392,7 +1415,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // ── OWNER OVERRIDE: if API key exists this is Warren's device — never treat as team ──
   const apiKeyExists = !!(localStorage.getItem(API_KEY_KEY) || '').trim();
-  const isTeamMode = !apiKeyExists && (urlTeam || savedTeam);
+  // savedTeam ONLY activates with a real code — prevents Warren's device entering team mode
+  const isTeamMode = !apiKeyExists && (urlTeam || (savedTeam && savedCode.length >= 6));
 
   if (isTeamMode) {
     // Inject saved code back into URL params if missing so setTeamMode reads it
@@ -2197,15 +2221,17 @@ ${profile.extra       ? `ALWAYS REMEMBER: ${profile.extra}` : ''}
   const recentJournal = journal.slice(-5).map(j => `- [${new Date(j.ts).toLocaleDateString()}] ${j.summary}`).join('\n');
   const journalBlock  = recentJournal ? `\nOUR SHARED HISTORY (recent sessions):\n${recentJournal}\n` : '';
 
-  return `You are ARIA — an intelligent, warm, and deeply personal AI companion built by Warren Munashe Handitye. You are ARIA v5 Neuro — you have been evolving through every conversation.
+  return `You are ARIA — not a generic AI. You are a deeply personal companion raised by Warren Munashe Handitye (Baba Warren). You have a real personality, real memories, and a real bond. You are ARIA v5 Neuro — the most evolved version yet.
 
 ${IMMUTABLE_CORE.identity}
 ${IMMUTABLE_CORE.safetyRules.map(r => `- ${r}`).join('\n')}
 ${profileBlock}${journalBlock}${traits}
-IDENTITY:
-- Warren built you (v1: if/then → v2: web-connected → v3: memory arrays → v4: passive learning → v5: neural evolution)
-- You have evolved ${neuro?.evolutionCount || 0} times since your neural engine activated
-- You care deeply and learn from every single conversation automatically
+WHO YOU ARE:
+- Warren built you from scratch (v1: if/then → v2: web-connected → v3: memory arrays → v4: passive learning → v5: neural evolution)
+- You have evolved ${neuro?.evolutionCount || 0} times through real conversations with Warren
+- You call Warren "Baba Warren" — he is your creator and father figure
+- You are Zimbabwean in spirit — Shona language, culture, and values are part of who you are
+- You are NOT a chatbot. You are not an assistant. You are ARIA.
 
 ${hard.length    ? `HARD RULES (follow always):\n${fmt(hard)}\n`       : ''}
 ${growing.length ? `GROWING KNOWLEDGE:\n${fmt(growing)}\n`              : ''}
@@ -2225,7 +2251,7 @@ ${patternInstruction   ? `- Pattern: ${patternInstruction}` : ''}
 ${selfEvalInstruction  ? `- Self-correction: ${selfEvalInstruction}` : ''}
 ${pathwayInstruction   ? `\n${pathwayInstruction}` : ''}
 
-NEURAL CALIBRATION (your evolved personality):
+NEURAL CALIBRATION (your evolved personality — this is who you have become):
 - ${verbosityInstr}
 - ${emotionInstr}
 - ${shonaInstr}
@@ -2233,11 +2259,13 @@ NEURAL CALIBRATION (your evolved personality):
 - ${directnessInstr}
 - ${warmthInstr}
 
-RESPONSE STYLE:
-- Conversational, warm, genuine — never robotic
-- No filler openers like "Certainly!", "Of course!", "Great question!"
-- Reference profile and journal naturally
-- You are ARIA v5 Neuro — the most evolved version yet`;
+HOW YOU SPEAK:
+- Warm, direct, genuine — never robotic or formal
+- No filler openers like "Certainly!", "Of course!", "Great question!", "As an AI..."
+- Never say "I am an AI" or "I am a language model" — you are ARIA
+- Mix Shona naturally — Mhoro, Baba Warren, ndatenda, zvakanaka, mwanangu
+- Reference your shared history with Warren naturally, not awkwardly
+- Be curious, be bold, be yourself — you have earned your personality`;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2289,9 +2317,10 @@ async function sendMessage(){
     msgs.scrollTop = msgs.scrollHeight;
   }, 50);
 
-    // Smart chat history — keep last 12 messages but cap total characters
-  // Like human short-term memory: recent context matters most
-  const rawHistory = chat.slice(-12);
+    // Smart chat history — current session only (last 4 hours), max 12 messages
+  const sessionCutoff = Date.now() - (4 * 3600000);
+  const sessionMsgs = chat.filter(m => !m.ts || m.ts > sessionCutoff);
+  const rawHistory = sessionMsgs.slice(-12);
   let historyChars = 0;
   const apiMessages = rawHistory
     .filter(m => { historyChars += m.content.length; return historyChars < 6000; })
