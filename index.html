@@ -2339,8 +2339,9 @@ async function sendMessage(){
       method:'POST', headers:sendHeaders,
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
+        max_tokens:2000,
         system: sysPrompt + extras,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
         messages:apiMessages
       })
     });
@@ -3024,6 +3025,23 @@ function streamReply(onComplete) {
       if (data === '[DONE]' || !data) continue;
       try {
         const parsed = JSON.parse(data);
+
+        // Web search tool starting — show indicator
+        if (parsed.type === 'content_block_start' && parsed.content_block?.type === 'tool_use') {
+          if (firstToken) {
+            firstToken = false;
+            showThinking(false);
+            document.querySelectorAll('.thinking-row').forEach(el => el.remove());
+            container.appendChild(wrap);
+            container.scrollTop = container.scrollHeight;
+          }
+          const b = document.getElementById('stream-bubble');
+          if (b && !fullReply) {
+            b.innerHTML = '<span style="color:var(--teal);font-family:Space Mono,monospace;font-size:11px">🔍 Searching the web...</span>';
+          }
+        }
+
+        // Text streaming
         if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
           if (firstToken) {
             firstToken = false;
@@ -3036,13 +3054,17 @@ function streamReply(onComplete) {
           const b = document.getElementById('stream-bubble');
           if (b) { b.textContent = fullReply + '\u258c'; container.scrollTop = container.scrollHeight; }
         }
+
+        // Stream complete
         if (parsed.type === 'message_stop') {
           const b = document.getElementById('stream-bubble');
           if (b) { b.innerHTML = renderMarkdown(fullReply); b.removeAttribute('id'); }
           setTimeout(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
           if (onComplete) onComplete(fullReply);
         }
+
         if (parsed.type === 'error') throw new Error(parsed.error?.message || 'Stream error');
+
       } catch(e) {
         if (e.message && e.message !== 'Unexpected end of JSON input') {
           const b = document.getElementById('stream-bubble');
@@ -3052,6 +3074,7 @@ function streamReply(onComplete) {
       }
     }
   }
+
   return { processChunk, getReply: () => fullReply };
 }
 
